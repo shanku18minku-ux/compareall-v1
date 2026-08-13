@@ -1,18 +1,23 @@
-﻿{
-    "name":  "@compareall/android",
-    "version":  "1.0.0",
-    "main":  "index.js",
-    "dependencies":  {
-                         "expo":  "~57.0.12",
-                         "expo-status-bar":  "~57.0.1",
-                         "react":  "19.2.3",
-                         "react-native":  "0.86.2"
-                     },
-    "scripts":  {
-                    "start":  "expo start",
-                    "android":  "expo start --android",
-                    "ios":  "expo start --ios",
-                    "web":  "expo start --web"
-                },
-    "private":  true
+{
+    "name": "@compareall/android",
+    "version": "1.0.0",
+    "main": "expo-router/entry",
+    "dependencies": {
+        "@react-native-async-storage/async-storage": "^2.1.2",
+        "expo": "~57.0.12",
+        "expo-router": "^4.0.0",
+        "expo-status-bar": "~57.0.1",
+        "react": "19.2.3",
+        "react-native": "0.86.2",
+        "react-native-safe-area-context": "^5.4.0",
+        "react-native-screens": "^4.11.1",
+        "react-native-webview": "^13.13.5"
+    },
+    "scripts": {
+        "start": "expo start",
+        "android": "expo start --android",
+        "ios": "expo start --ios",
+        "web": "expo start --web"
+    },
+    "private": true
 }
