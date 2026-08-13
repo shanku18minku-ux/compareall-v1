@@ -1,19 +1,20 @@
-﻿{
-    "name":  "compareall-monorepo",
-    "version":  "1.0.0",
-    "private":  true,
-    "workspaces":  [
-                       "apps/*",
-                       "packages/*",
-                       "backend"
-                   ],
-    "scripts":  {
-                    "dev:web":  "npm run dev --workspace=@compareall/web",
-                    "dev:all":  "start cmd /k npm run dev:backend \u0026\u0026 npm run dev:web",
-                    "build:web":  "npm run build --workspace=@compareall/web",
-                    "dev:backend":  "npm run dev --workspace=@compareall/backend"
-                },
-    "devDependencies":  {
-                            "typescript":  "^5"
-                        }
+{
+    "name": "compareall-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*",
+        "backend"
+    ],
+    "scripts": {
+        "dev:web": "npm run dev --workspace=@compareall/web",
+        "dev:all": "start cmd /k npm run dev:backend && npm run dev:web",
+        "build:web": "npm run build --workspace=@compareall/web",
+        "dev:backend": "npm run dev --workspace=@compareall/backend",
+        "build:backend": "npm run build --workspace=@compareall/backend"
+    },
+    "devDependencies": {
+        "typescript": "^5"
+    }
 }
