@@ -1,0 +1,424 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { GroupedResult, SortOrder } from '@compareall/engine';
+import { SearchFilters } from '@compareall/shared-types';
+import LocationSelector from './LocationSelector';
+import { useStorage } from '../hooks/useStorage';
+
+export default function SearchInterface() {
+  const { isHydrated, history, location, actions } = useStorage();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [results, setResults] = useState<GroupedResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('price_asc');
+  const [dataSource, setDataSource] = useState<string>('demo');
+  const [isLive, setIsLive] = useState(false);
+  
+  // Filters state
+  const [filters, setFilters] = useState<SearchFilters>({});
+  
+  // Compare state
+  const [compareTray, setCompareTray] = useState<any[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  
+  // Extension state
+  const [extensionReady, setExtensionReady] = useState(false);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [manualLocQuery, setManualLocQuery] = useState('');
+
+  // Wishlist removed for simplicity or hook into actions later
+  useEffect(() => {
+    // Check if extension was injected before React mounted
+    if (document.documentElement.getAttribute('data-compareall-extension') === 'true') {
+      setExtensionReady(true);
+    }
+    
+    // Listen for extension readiness and search results
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === "COMPAREALL_EXTENSION_READY") {
+        console.log("Extension detected and ready!");
+        setExtensionReady(true);
+      }
+      
+      if (event.data?.type === "COMPAREALL_LIVE_SEARCH_RESULT") {
+        const rawResults = event.data.results;
+        
+        // Send these raw results to backend /live endpoint for grouping
+        try {
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+          const res = await fetch(`${API_URL}/api/compare/live`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: searchTerm, results: rawResults })
+          });
+          const json = await res.json();
+          if (json.success) {
+            setResults(json.results);
+            setDataSource(json.dataSource);
+            setIsLive(json.isLive);
+          }
+        } catch (e) {
+          console.error("Failed to process live results:", e);
+        } finally {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [searchTerm]);
+
+  const handleSearch = async (e?: React.FormEvent, termToSearch?: string, newSortOrder?: SortOrder, newFilters?: SearchFilters) => {
+    if (e) e.preventDefault();
+    const query = (termToSearch !== undefined ? termToSearch : searchTerm).trim();
+    if (!query) return;
+    
+    setSearchTerm(query);
+    actions.addSearchHistory(query);
+    
+    setIsSearching(true);
+    try {
+      if (extensionReady) {
+        // Trigger live search via extension instead of mock backend
+        window.postMessage({
+          type: "COMPAREALL_LIVE_SEARCH",
+          payload: { query: termToSearch || searchTerm }
+        }, "*");
+      } else {
+        // Fallback to existing mock API
+        const connectedIds: string[] = []; // will use actions.connections later
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${API_URL}/api/compare`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            query: termToSearch || searchTerm, 
+            sortOrder: newSortOrder || sortOrder,
+            filters: newFilters || filters,
+            location: location
+          })
+        });
+        
+        const json = await res.json();
+        if (json.success) {
+          setResults(json.results);
+          setDataSource(json.dataSource);
+          setIsLive(json.isLive);
+        } else {
+          console.error("Backend error:", json.error);
+        }
+        setIsSearching(false);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setIsSearching(false);
+    }
+  };
+
+  const toggleWishlist = (offer: any) => {
+    // Left as is, maybe hook into actions later
+  };
+
+  const toggleCompare = (offer: any) => {
+    if (compareTray.find(o => o.id === offer.id)) {
+      setCompareTray(compareTray.filter(o => o.id !== offer.id));
+    } else {
+      if (compareTray.length >= 4) {
+        alert("You can only compare up to 4 items at a time.");
+        return;
+      }
+      setCompareTray([...compareTray, offer]);
+    }
+  };
+
+  const applyFilters = (updates: Partial<SearchFilters>) => {
+    const newFilters = { ...filters, ...updates };
+    setFilters(newFilters);
+    handleSearch(undefined, searchTerm, sortOrder, newFilters);
+  };
+
+  return (
+    <div>
+      <LocationSelector 
+        location={location} 
+        onLocationChange={actions.saveLocation} 
+      />
+
+      <form onSubmit={(e) => handleSearch(e)} className="search-box">
+        <input 
+          type="text" 
+          className="search-input"
+          placeholder="What do you want? (e.g. Chicken Biryani, iPhone 16, Cab to airport)"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <button type="submit" className="search-button" disabled={isSearching}>
+          {isSearching ? 'Comparing...' : 'Compare Options'}
+        </button>
+      </form>
+
+      {/* Compare Tray */}
+      {compareTray.length > 0 && (
+        <div style={{position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--foreground)', color: 'white', padding: '1rem', zIndex: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div>
+            <strong>{compareTray.length} items selected for comparison</strong>
+          </div>
+          <div style={{display: 'flex', gap: '1rem'}}>
+            <button onClick={() => setCompareTray([])} style={{color: '#9ca3af', textDecoration: 'underline'}}>Clear</button>
+            <button 
+              onClick={() => setShowCompareModal(true)}
+              style={{background: 'var(--primary)', color: 'white', padding: '0.5rem 1.5rem', borderRadius: '8px', fontWeight: 'bold'}}
+            >
+              Compare Now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Compare Modal */}
+      {showCompareModal && (
+        <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'}}>
+          <div style={{background: 'white', width: '100%', maxWidth: '1000px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '12px', padding: '2rem'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem'}}>
+              <h2>Side-by-Side Comparison</h2>
+              <button onClick={() => setShowCompareModal(false)} style={{fontSize: '1.5rem', fontWeight: 'bold'}}>&times;</button>
+            </div>
+            
+            <div style={{display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem'}}>
+              {compareTray.map(offer => (
+                <div key={offer.id} style={{flex: '1', minWidth: '200px', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem'}}>
+                  <h3 style={{fontSize: '1.1rem', marginBottom: '0.5rem'}}>{offer.providerName}</h3>
+                  <div style={{color: 'var(--muted)', fontSize: '0.875rem', marginBottom: '1rem'}}>{offer.title}</div>
+                  
+                  <div style={{fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--success)', marginBottom: '1rem'}}>
+                    â‚¹{offer.price.finalPayablePrice}
+                  </div>
+                  
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem', marginBottom: '1.5rem'}}>
+                    <div><strong>Base Price:</strong> â‚¹{offer.price.basePrice}</div>
+                    <div><strong>Fees & Taxes:</strong> â‚¹{(offer.price.deliveryFee || 0) + (offer.price.platformFee || 0) + (offer.price.taxes || 0)}</div>
+                    <div><strong>Discount:</strong> <span style={{color: 'var(--success)'}}>-â‚¹{offer.price.discount || 0}</span></div>
+                    <div><strong>Rating:</strong> {offer.rating ? `â­ ${offer.rating}` : 'N/A'}</div>
+                    <div><strong>ETA:</strong> {offer.estimatedTimeMins ? `${offer.estimatedTimeMins} mins` : 'N/A'}</div>
+                    {offer.distanceKm && <div><strong>Distance:</strong> {offer.distanceKm} km</div>}
+                  </div>
+                  
+                  <a href={offer.deepLinkUrl} target="_blank" rel="noreferrer" style={{display: 'block', textAlign: 'center', background: 'var(--primary)', color: 'white', padding: '0.75rem', borderRadius: '6px', fontWeight: 'bold'}}>
+                    Book / Order
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div style={{display: 'flex', flexDirection: 'column', gap: '1rem', margin: '1.5rem 0', padding: '1rem', background: 'white', borderRadius: '8px', border: '1px solid var(--border)'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem'}}>
+            <strong style={{fontSize: '1.1rem'}}>Filters & Sorting</strong>
+            <select 
+              value={sortOrder} 
+              onChange={(e) => {
+                 const val = e.target.value as SortOrder;
+                 setSortOrder(val);
+                 handleSearch(undefined, searchTerm, val, filters);
+              }}
+              style={{padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)'}}
+            >
+              <option value="price_asc">Lowest Price First</option>
+              <option value="price_desc">Highest Price First</option>
+              <option value="time_asc">Fastest Delivery/Arrival</option>
+              <option value="availability_desc">Highest Availability</option>
+              <option value="rating_desc">Highest Rating</option>
+              <option value="discount_desc">Highest Discount</option>
+            </select>
+          </div>
+          
+          <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap'}}>
+            <div>
+              <label style={{fontSize: '0.75rem', color: 'var(--muted)', display: 'block'}}>Max Price (â‚¹)</label>
+              <input 
+                type="number" 
+                placeholder="Any" 
+                value={filters.maxPrice || ''} 
+                onChange={e => applyFilters({ maxPrice: e.target.value ? Number(e.target.value) : undefined })}
+                style={{padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', width: '100px'}}
+              />
+            </div>
+            <div>
+              <label style={{fontSize: '0.75rem', color: 'var(--muted)', display: 'block'}}>Min Rating</label>
+              <select 
+                value={filters.minRating || 0} 
+                onChange={e => applyFilters({ minRating: Number(e.target.value) })}
+                style={{padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)'}}
+              >
+                <option value={0}>Any</option>
+                <option value={3}>3+ Stars</option>
+                <option value={4}>4+ Stars</option>
+                <option value={4.5}>4.5+ Stars</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="results-container" style={{paddingBottom: compareTray.length > 0 ? '5rem' : '0'}}>
+        {results.length > 0 ? (
+          results.map((group, idx) => (
+            <div key={idx} className="grouped-result">
+              <div className="grouped-result-header">
+                <span className="grouped-result-category">{group.category}</span>
+                <h2 className="grouped-result-title">{group.title}</h2>
+                {group.description && <p style={{color: 'var(--muted)'}}>{group.description}</p>}
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'var(--card-bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  {group.lowestPrice !== undefined && (
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block' }}>Best Price</span>
+                      <strong style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>₹{group.lowestPrice}</strong>
+                    </div>
+                  )}
+                  {group.savings !== undefined && group.savings > 0 && (
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--success)', display: 'block' }}>You Save</span>
+                      <strong style={{ fontSize: '1.25rem', color: '#10b981' }}>₹{group.savings}</strong>
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block' }}>Data Source</span>
+                    {isLive ? (
+                      <strong style={{ fontSize: '1rem', color: '#047857', backgroundColor: '#d1fae5', padding: '2px 6px', borderRadius: '4px' }}>{dataSource.toUpperCase()} - LIVE</strong>
+                    ) : (
+                      <strong style={{ fontSize: '1rem', color: '#b45309', backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>{dataSource.toUpperCase()} - MOCK</strong>
+                    )}
+                  </div>
+                </div>
+                <div className="provider-list">
+                {group.offers.map((offer: any, offerIdx: number) => {
+                  const isExpanded = expandedOfferId === offer.id;
+                  const isWishlisted = wishlistIds.has(offer.id);
+                  const isBest = offerIdx === 0 && offer.status !== 'UNAVAILABLE' && sortOrder === 'price_asc';
+                  const inCompare = compareTray.some(o => o.id === offer.id);
+                  
+                  return (
+                  <div key={offer.id} className={`provider-card ${isBest ? 'best-price' : ''} ${offer.status === 'UNAVAILABLE' ? 'opacity-50' : ''}`}>
+                    <div className="provider-info">
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                        <input 
+                           type="checkbox" 
+                           checked={inCompare} 
+                           onChange={() => toggleCompare(offer)} 
+                           disabled={offer.status === 'UNAVAILABLE'}
+                           style={{width: '1.25rem', height: '1.25rem', cursor: 'pointer'}} 
+                           title="Add to comparison"
+                        />
+                        <div style={{flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                          <h4 style={{margin: 0, paddingRight: '10px'}}>
+                            {offer.title} <span style={{fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 'normal'}}>via {offer.providerName}</span>
+                            <span className="status-badge" style={{background: offer.status === 'LIVE' ? '#dbeafe' : '#fef3c7', color: offer.status === 'LIVE' ? '#1e3a8a' : '#92400e'}}>{offer.status}</span>
+                            {isBest && <span className="status-badge" style={{background: '#dcfce7', color: '#166534'}}>BEST</span>}
+                          </h4>
+                          <button onClick={() => toggleWishlist(offer)} style={{background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem'}}>
+                            {isWishlisted ? '❤️' : '♡'}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="provider-meta" style={{flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem', marginLeft: '1.75rem'}}>
+                        {offer.isAvailable ? <span style={{color: 'var(--success)', fontWeight: '500'}}>Available</span> : <span style={{color: 'var(--warning)'}}>Unavailable</span>}
+                        
+                        {offer.accountBenefits && offer.accountBenefits.length > 0 && (
+                          <div style={{marginTop: '0.25rem'}}>
+                            {offer.accountBenefits.map((benefit: string, bIdx: number) => {
+                               const isDemo = benefit.includes('[DEMO]');
+                               return (
+                                 <span key={bIdx} style={{
+                                   display: 'inline-block', 
+                                   background: isDemo ? '#f3f4f6' : '#dcfce7', 
+                                   color: isDemo ? '#4b5563' : '#166534', 
+                                   border: isDemo ? '1px dashed #9ca3af' : '1px solid #166534',
+                                   padding: '0.25rem 0.5rem', 
+                                   borderRadius: '4px', 
+                                   fontSize: '0.75rem', 
+                                   fontWeight: 'bold', 
+                                   marginRight: '0.5rem'
+                                 }}>
+                                   {isDemo && <span style={{marginRight: '4px'}}>⚠</span>}
+                                   {benefit}
+                                 </span>
+                               )
+                            })}
+                          </div>
+                        )}
+
+                        {offer.estimatedTimeMins ? <span>ETA: {offer.estimatedTimeMins} min</span> : null}
+                        {offer.distanceKm ? <span>Distance: {offer.distanceKm} km</span> : null}
+                        {offer.rating && <span>Reputation: ⭐ {offer.rating} ({offer.reviewCount || 0} reviews)</span>}
+                        {offer.error && <span style={{color: 'red', fontWeight: 'bold'}}>{offer.error}</span>}
+                      </div>
+                    </div>
+
+                    <div className="provider-price">
+                      <div style={{textAlign: 'right'}}>
+                        <button 
+                          onClick={() => setExpandedOfferId(isExpanded ? null : offer.id)}
+                          style={{fontSize: '0.75rem', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginBottom: '0.5rem'}}
+                        >
+                          {isExpanded ? 'Hide Details ▲' : 'Show Details ▼'}
+                        </button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="price-breakdown" style={{textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                          <span>Base price: ₹{offer.price.basePrice}</span>
+                          {(offer.price.deliveryFee || 0) > 0 && <span>Delivery fee: ₹{offer.price.deliveryFee}</span>}
+                          {(offer.price.platformFee || 0) > 0 && <span>Platform fee: ₹{offer.price.platformFee}</span>}
+                          {(offer.price.taxes || 0) > 0 && <span>Taxes: ₹{offer.price.taxes}</span>}
+                          {(offer.price.discount || 0) > 0 && <span style={{color: 'var(--success)'}}>Discount: -₹{offer.price.discount}</span>}
+                        </div>
+                      )}
+                      
+                      <div className="final-price" style={{marginTop: '0.5rem', borderTop: isExpanded ? '1px solid var(--border)' : 'none', paddingTop: isExpanded ? '0.5rem' : '0'}}>
+                        {offer.originalPrice && offer.originalPrice > offer.price.finalPayablePrice && (
+                           <span style={{textDecoration: 'line-through', color: 'var(--muted)', fontSize: '0.875rem', marginRight: '0.5rem'}}>₹{offer.originalPrice}</span>
+                        )}
+                        ₹{offer.price.finalPayablePrice}
+                      </div>
+                      
+                      <a 
+                        href={offer.status === 'UNAVAILABLE' ? '#' : offer.deepLinkUrl} 
+                        target={offer.status === 'UNAVAILABLE' ? '_self' : "_blank"} 
+                        rel="noreferrer"
+                        className="continue-btn"
+                        style={{ opacity: offer.status === 'UNAVAILABLE' ? 0.5 : 1, pointerEvents: offer.status === 'UNAVAILABLE' ? 'none' : 'auto', marginTop: '0.5rem' }}
+                      >
+                        View / Book
+                      </a>
+                    </div>
+                  </div>
+                )})}
+              </div>
+            </div>
+          ))
+        ) : (
+          !isSearching && searchTerm && <p>No results found.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+

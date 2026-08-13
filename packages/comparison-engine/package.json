@@ -1,0 +1,9 @@
+{
+  "name": "@compareall/engine",
+  "version": "1.0.0",
+  "main": "src/engine.ts",
+  "types": "src/engine.ts",
+  "dependencies": {
+    "@compareall/shared-types": "*"
+  }
+}

@@ -1,0 +1,83 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connectedServices ConnectedService[]
+  savedLocations    SavedLocation[]
+  wishlistItems     WishlistItem[]
+  searchHistory     SearchHistory[]
+}
+
+model ConnectedService {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId   String   // e.g. 'food-provider-a'
+  
+  // Minimal info, we should not store raw passwords/tokens unless required/permitted.
+  // The plan states "Never log passwords, access tokens... Provider session information only where permitted"
+  // For mock providers, we might just store a status.
+  status       String   @default("CONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  sessionData  String?  // Optional encrypted JSON blob for permitted session data
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, providerId])
+}
+
+model SavedLocation {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  label       String?  // 'Home', 'Work'
+  addressLine String
+  city        String?
+  state       String?
+  pincode     String?
+  lat         Float?
+  lng         Float?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WishlistItem {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Snapshot of normalized result
+  itemId           String
+  providerId       String
+  providerName     String
+  title            String
+  category         String
+  priceSnapshot    Float
+  deepLinkUrl      String
+  
+  createdAt        DateTime @default(now())
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  term      String
+  category  String?
+  
+  createdAt DateTime @default(now())
+}

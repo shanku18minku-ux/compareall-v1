@@ -1,0 +1,9 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/connected-services/page": "/connected-services",
+  "/favicon.ico/route": "/favicon.ico",
+  "/history/page": "/history",
+  "/page": "/",
+  "/wishlist/page": "/wishlist"
+}

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "CompareAll Browser Extension",
+  "version": "1.1.0",
+  "description": "Search once, compare everywhere.",
+  "permissions": ["activeTab", "storage", "offscreen", "tabs", "scripting"],
+  "host_permissions": [
+    "*://*.amazon.in/*", 
+    "*://*.flipkart.com/*", 
+    "*://*.zomato.com/*", 
+    "*://*.swiggy.com/*",
+    "*://localhost:*/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {},
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*", "*://*.vercel.app/*", "*://*.compareall.in/*"],
+      "js": ["src/content.js"]
+    }
+  ]
+}
