@@ -7,7 +7,7 @@ import LocationSelector from './LocationSelector';
 import { useStorage } from '../hooks/useStorage';
 
 export default function SearchInterface() {
-  const { isHydrated, history, location, actions } = useStorage();
+  const { isHydrated, history, location, wishlist, connections, actions } = useStorage();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<GroupedResult[]>([]);
@@ -30,7 +30,10 @@ export default function SearchInterface() {
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [manualLocQuery, setManualLocQuery] = useState('');
 
-  // Wishlist removed for simplicity or hook into actions later
+  useEffect(() => {
+    setWishlistIds(new Set(wishlist.map((item: any) => item.id)));
+  }, [wishlist]);
+
   useEffect(() => {
     // Check if extension was injected before React mounted
     if (document.documentElement.getAttribute('data-compareall-extension') === 'true') {
@@ -91,7 +94,7 @@ export default function SearchInterface() {
         }, "*");
       } else {
         // Fallback to existing mock API
-        const connectedIds: string[] = []; // will use actions.connections later
+        const connectedIds: string[] = connections.filter(c => c.status === 'connected').map(c => c.providerId);
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
         const res = await fetch(`${API_URL}/api/compare`, {
           method: 'POST',
@@ -100,7 +103,8 @@ export default function SearchInterface() {
             query: termToSearch || searchTerm, 
             sortOrder: newSortOrder || sortOrder,
             filters: newFilters || filters,
-            location: location
+            location: location,
+            connectedProviders: connectedIds
           })
         });
         
@@ -109,6 +113,12 @@ export default function SearchInterface() {
           setResults(json.results);
           setDataSource(json.dataSource);
           setIsLive(json.isLive);
+          
+          // Auto-disconnect connected services after the comparison is done
+          // as per the user's privacy and ephemeral connection requirement
+          connectedIds.forEach(id => {
+            actions.disconnectProvider(id);
+          });
         } else {
           console.error("Backend error:", json.error);
         }
@@ -121,7 +131,7 @@ export default function SearchInterface() {
   };
 
   const toggleWishlist = (offer: any) => {
-    // Left as is, maybe hook into actions later
+    actions.toggleWishlist(offer);
   };
 
   const toggleCompare = (offer: any) => {

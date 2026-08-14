@@ -190,7 +190,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$hooks$
 ;
 ;
 function SearchInterface() {
-    const { isHydrated, history, location, actions } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$hooks$2f$useStorage$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useStorage"])();
+    const { isHydrated, history, location, wishlist, connections, actions } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$apps$2f$web$2f$src$2f$hooks$2f$useStorage$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useStorage"])();
     const [searchTerm, setSearchTerm] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('');
     const [results, setResults] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
     const [isSearching, setIsSearching] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -207,7 +207,11 @@ function SearchInterface() {
     const [extensionReady, setExtensionReady] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [wishlistIds, setWishlistIds] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(new Set());
     const [manualLocQuery, setManualLocQuery] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('');
-    // Wishlist removed for simplicity or hook into actions later
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        setWishlistIds(new Set(wishlist.map((item)=>item.id)));
+    }, [
+        wishlist
+    ]);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         // Check if extension was injected before React mounted
         if (document.documentElement.getAttribute('data-compareall-extension') === 'true') {
@@ -270,7 +274,7 @@ function SearchInterface() {
                 }, "*");
             } else {
                 // Fallback to existing mock API
-                const connectedIds = []; // will use actions.connections later
+                const connectedIds = connections.filter((c)=>c.status === 'connected').map((c)=>c.providerId);
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
                 const res = await fetch(`${API_URL}/api/compare`, {
                     method: 'POST',
@@ -281,7 +285,8 @@ function SearchInterface() {
                         query: termToSearch || searchTerm,
                         sortOrder: newSortOrder || sortOrder,
                         filters: newFilters || filters,
-                        location: location
+                        location: location,
+                        connectedProviders: connectedIds
                     })
                 });
                 const json = await res.json();
@@ -289,6 +294,11 @@ function SearchInterface() {
                     setResults(json.results);
                     setDataSource(json.dataSource);
                     setIsLive(json.isLive);
+                    // Auto-disconnect connected services after the comparison is done
+                    // as per the user's privacy and ephemeral connection requirement
+                    connectedIds.forEach((id)=>{
+                        actions.disconnectProvider(id);
+                    });
                 } else {
                     console.error("Backend error:", json.error);
                 }
@@ -300,7 +310,7 @@ function SearchInterface() {
         }
     };
     const toggleWishlist = (offer)=>{
-    // Left as is, maybe hook into actions later
+        actions.toggleWishlist(offer);
     };
     const toggleCompare = (offer)=>{
         if (compareTray.find((o)=>o.id === offer.id)) {
@@ -331,7 +341,7 @@ function SearchInterface() {
                 onLocationChange: actions.saveLocation
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 147,
+                lineNumber: 157,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -346,7 +356,7 @@ function SearchInterface() {
                         onChange: (e)=>setSearchTerm(e.target.value)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 153,
+                        lineNumber: 163,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -356,13 +366,13 @@ function SearchInterface() {
                         children: isSearching ? 'Comparing...' : 'Compare Options'
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 160,
+                        lineNumber: 170,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 152,
+                lineNumber: 162,
                 columnNumber: 7
             }, this),
             compareTray.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -388,12 +398,12 @@ function SearchInterface() {
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                            lineNumber: 169,
+                            lineNumber: 179,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 168,
+                        lineNumber: 178,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -411,7 +421,7 @@ function SearchInterface() {
                                 children: "Clear"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 172,
+                                lineNumber: 182,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -426,19 +436,19 @@ function SearchInterface() {
                                 children: "Compare Now"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 173,
+                                lineNumber: 183,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 171,
+                        lineNumber: 181,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 167,
+                lineNumber: 177,
                 columnNumber: 9
             }, this),
             showCompareModal && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -477,7 +487,7 @@ function SearchInterface() {
                                     children: "Side-by-Side Comparison"
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                    lineNumber: 188,
+                                    lineNumber: 198,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -489,13 +499,13 @@ function SearchInterface() {
                                     children: "×"
                                 }, void 0, false, {
                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                    lineNumber: 189,
+                                    lineNumber: 199,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                            lineNumber: 187,
+                            lineNumber: 197,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -522,7 +532,7 @@ function SearchInterface() {
                                             children: offer.providerName
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                            lineNumber: 195,
+                                            lineNumber: 205,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -534,7 +544,7 @@ function SearchInterface() {
                                             children: offer.title
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                            lineNumber: 196,
+                                            lineNumber: 206,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -550,7 +560,7 @@ function SearchInterface() {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                            lineNumber: 198,
+                                            lineNumber: 208,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -568,7 +578,7 @@ function SearchInterface() {
                                                             children: "Base Price:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 203,
+                                                            lineNumber: 213,
                                                             columnNumber: 26
                                                         }, this),
                                                         " â‚¹",
@@ -576,7 +586,7 @@ function SearchInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 203,
+                                                    lineNumber: 213,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -585,7 +595,7 @@ function SearchInterface() {
                                                             children: "Fees & Taxes:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 204,
+                                                            lineNumber: 214,
                                                             columnNumber: 26
                                                         }, this),
                                                         " â‚¹",
@@ -593,7 +603,7 @@ function SearchInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 204,
+                                                    lineNumber: 214,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -602,7 +612,7 @@ function SearchInterface() {
                                                             children: "Discount:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 205,
+                                                            lineNumber: 215,
                                                             columnNumber: 26
                                                         }, this),
                                                         " ",
@@ -616,13 +626,13 @@ function SearchInterface() {
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 205,
+                                                            lineNumber: 215,
                                                             columnNumber: 53
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 205,
+                                                    lineNumber: 215,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -631,7 +641,7 @@ function SearchInterface() {
                                                             children: "Rating:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 206,
+                                                            lineNumber: 216,
                                                             columnNumber: 26
                                                         }, this),
                                                         " ",
@@ -639,7 +649,7 @@ function SearchInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 206,
+                                                    lineNumber: 216,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -648,7 +658,7 @@ function SearchInterface() {
                                                             children: "ETA:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 207,
+                                                            lineNumber: 217,
                                                             columnNumber: 26
                                                         }, this),
                                                         " ",
@@ -656,7 +666,7 @@ function SearchInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 207,
+                                                    lineNumber: 217,
                                                     columnNumber: 21
                                                 }, this),
                                                 offer.distanceKm && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -665,7 +675,7 @@ function SearchInterface() {
                                                             children: "Distance:"
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 208,
+                                                            lineNumber: 218,
                                                             columnNumber: 47
                                                         }, this),
                                                         " ",
@@ -674,13 +684,13 @@ function SearchInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                    lineNumber: 208,
+                                                    lineNumber: 218,
                                                     columnNumber: 42
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                            lineNumber: 202,
+                                            lineNumber: 212,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
@@ -699,29 +709,29 @@ function SearchInterface() {
                                             children: "Book / Order"
                                         }, void 0, false, {
                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                            lineNumber: 211,
+                                            lineNumber: 221,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, offer.id, true, {
                                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                    lineNumber: 194,
+                                    lineNumber: 204,
                                     columnNumber: 17
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                            lineNumber: 192,
+                            lineNumber: 202,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                    lineNumber: 186,
+                    lineNumber: 196,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 185,
+                lineNumber: 195,
                 columnNumber: 9
             }, this),
             results.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -752,7 +762,7 @@ function SearchInterface() {
                                 children: "Filters & Sorting"
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 224,
+                                lineNumber: 234,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -773,7 +783,7 @@ function SearchInterface() {
                                         children: "Lowest Price First"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 234,
+                                        lineNumber: 244,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -781,7 +791,7 @@ function SearchInterface() {
                                         children: "Highest Price First"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 235,
+                                        lineNumber: 245,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -789,7 +799,7 @@ function SearchInterface() {
                                         children: "Fastest Delivery/Arrival"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 236,
+                                        lineNumber: 246,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -797,7 +807,7 @@ function SearchInterface() {
                                         children: "Highest Availability"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 237,
+                                        lineNumber: 247,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -805,7 +815,7 @@ function SearchInterface() {
                                         children: "Highest Rating"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 238,
+                                        lineNumber: 248,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -813,19 +823,19 @@ function SearchInterface() {
                                         children: "Highest Discount"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 239,
+                                        lineNumber: 249,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 225,
+                                lineNumber: 235,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 223,
+                        lineNumber: 233,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -846,7 +856,7 @@ function SearchInterface() {
                                         children: "Max Price (â‚¹)"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 245,
+                                        lineNumber: 255,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -864,13 +874,13 @@ function SearchInterface() {
                                         }
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 246,
+                                        lineNumber: 256,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 244,
+                                lineNumber: 254,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -884,7 +894,7 @@ function SearchInterface() {
                                         children: "Min Rating"
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 255,
+                                        lineNumber: 265,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -903,7 +913,7 @@ function SearchInterface() {
                                                 children: "Any"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 261,
+                                                lineNumber: 271,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -911,7 +921,7 @@ function SearchInterface() {
                                                 children: "3+ Stars"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 262,
+                                                lineNumber: 272,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -919,7 +929,7 @@ function SearchInterface() {
                                                 children: "4+ Stars"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 263,
+                                                lineNumber: 273,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -927,31 +937,31 @@ function SearchInterface() {
                                                 children: "4.5+ Stars"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 264,
+                                                lineNumber: 274,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 256,
+                                        lineNumber: 266,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 254,
+                                lineNumber: 264,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 243,
+                        lineNumber: 253,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 222,
+                lineNumber: 232,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -970,7 +980,7 @@ function SearchInterface() {
                                         children: group.category
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 276,
+                                        lineNumber: 286,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -978,7 +988,7 @@ function SearchInterface() {
                                         children: group.title
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 277,
+                                        lineNumber: 287,
                                         columnNumber: 17
                                     }, this),
                                     group.description && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -988,13 +998,13 @@ function SearchInterface() {
                                         children: group.description
                                     }, void 0, false, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 278,
+                                        lineNumber: 288,
                                         columnNumber: 39
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 275,
+                                lineNumber: 285,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1023,7 +1033,7 @@ function SearchInterface() {
                                                 children: "Best Price"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 284,
+                                                lineNumber: 294,
                                                 columnNumber: 23
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
@@ -1037,13 +1047,13 @@ function SearchInterface() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 285,
+                                                lineNumber: 295,
                                                 columnNumber: 23
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 283,
+                                        lineNumber: 293,
                                         columnNumber: 21
                                     }, this),
                                     group.savings !== undefined && group.savings > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1060,7 +1070,7 @@ function SearchInterface() {
                                                 children: "You Save"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 290,
+                                                lineNumber: 300,
                                                 columnNumber: 23
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
@@ -1074,13 +1084,13 @@ function SearchInterface() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 291,
+                                                lineNumber: 301,
                                                 columnNumber: 23
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 289,
+                                        lineNumber: 299,
                                         columnNumber: 21
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1097,7 +1107,7 @@ function SearchInterface() {
                                                 children: "Data Source"
                                             }, void 0, false, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 295,
+                                                lineNumber: 305,
                                                 columnNumber: 21
                                             }, this),
                                             isLive ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
@@ -1114,7 +1124,7 @@ function SearchInterface() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 297,
+                                                lineNumber: 307,
                                                 columnNumber: 23
                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
                                                 style: {
@@ -1130,19 +1140,19 @@ function SearchInterface() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 299,
+                                                lineNumber: 309,
                                                 columnNumber: 23
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 294,
+                                        lineNumber: 304,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 281,
+                                lineNumber: 291,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1178,7 +1188,7 @@ function SearchInterface() {
                                                                 title: "Add to comparison"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 314,
+                                                                lineNumber: 324,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1209,7 +1219,7 @@ function SearchInterface() {
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                                lineNumber: 324,
+                                                                                lineNumber: 334,
                                                                                 columnNumber: 43
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1221,7 +1231,7 @@ function SearchInterface() {
                                                                                 children: offer.status
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                                lineNumber: 325,
+                                                                                lineNumber: 335,
                                                                                 columnNumber: 29
                                                                             }, this),
                                                                             isBest && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1233,13 +1243,13 @@ function SearchInterface() {
                                                                                 children: "BEST"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                                lineNumber: 326,
+                                                                                lineNumber: 336,
                                                                                 columnNumber: 40
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                        lineNumber: 323,
+                                                                        lineNumber: 333,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1253,19 +1263,19 @@ function SearchInterface() {
                                                                         children: isWishlisted ? '❤️' : '♡'
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                        lineNumber: 328,
+                                                                        lineNumber: 338,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 322,
+                                                                lineNumber: 332,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 313,
+                                                        lineNumber: 323,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1285,7 +1295,7 @@ function SearchInterface() {
                                                                 children: "Available"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 335,
+                                                                lineNumber: 345,
                                                                 columnNumber: 46
                                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 style: {
@@ -1294,7 +1304,7 @@ function SearchInterface() {
                                                                 children: "Unavailable"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 335,
+                                                                lineNumber: 345,
                                                                 columnNumber: 124
                                                             }, this),
                                                             offer.accountBenefits && offer.accountBenefits.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1323,20 +1333,20 @@ function SearchInterface() {
                                                                                 children: "⚠"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                                lineNumber: 353,
+                                                                                lineNumber: 363,
                                                                                 columnNumber: 47
                                                                             }, this),
                                                                             benefit
                                                                         ]
                                                                     }, bIdx, true, {
                                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                        lineNumber: 342,
+                                                                        lineNumber: 352,
                                                                         columnNumber: 34
                                                                     }, this);
                                                                 })
                                                             }, void 0, false, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 338,
+                                                                lineNumber: 348,
                                                                 columnNumber: 27
                                                             }, this),
                                                             offer.estimatedTimeMins ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1347,7 +1357,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 361,
+                                                                lineNumber: 371,
                                                                 columnNumber: 52
                                                             }, this) : null,
                                                             offer.distanceKm ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1358,7 +1368,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 362,
+                                                                lineNumber: 372,
                                                                 columnNumber: 45
                                                             }, this) : null,
                                                             offer.rating && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1371,7 +1381,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 363,
+                                                                lineNumber: 373,
                                                                 columnNumber: 42
                                                             }, this),
                                                             offer.error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1382,19 +1392,19 @@ function SearchInterface() {
                                                                 children: offer.error
                                                             }, void 0, false, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 364,
+                                                                lineNumber: 374,
                                                                 columnNumber: 41
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 334,
+                                                        lineNumber: 344,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 312,
+                                                lineNumber: 322,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1417,12 +1427,12 @@ function SearchInterface() {
                                                             children: isExpanded ? 'Hide Details ▲' : 'Show Details ▼'
                                                         }, void 0, false, {
                                                             fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                            lineNumber: 370,
+                                                            lineNumber: 380,
                                                             columnNumber: 25
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 369,
+                                                        lineNumber: 379,
                                                         columnNumber: 23
                                                     }, this),
                                                     isExpanded && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1441,7 +1451,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 380,
+                                                                lineNumber: 390,
                                                                 columnNumber: 27
                                                             }, this),
                                                             (offer.price.deliveryFee || 0) > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1451,7 +1461,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 381,
+                                                                lineNumber: 391,
                                                                 columnNumber: 66
                                                             }, this),
                                                             (offer.price.platformFee || 0) > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1461,7 +1471,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 382,
+                                                                lineNumber: 392,
                                                                 columnNumber: 66
                                                             }, this),
                                                             (offer.price.taxes || 0) > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1471,7 +1481,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 383,
+                                                                lineNumber: 393,
                                                                 columnNumber: 60
                                                             }, this),
                                                             (offer.price.discount || 0) > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1484,13 +1494,13 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 384,
+                                                                lineNumber: 394,
                                                                 columnNumber: 63
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 379,
+                                                        lineNumber: 389,
                                                         columnNumber: 25
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1514,7 +1524,7 @@ function SearchInterface() {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                                lineNumber: 390,
+                                                                lineNumber: 400,
                                                                 columnNumber: 28
                                                             }, this),
                                                             "₹",
@@ -1522,7 +1532,7 @@ function SearchInterface() {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 388,
+                                                        lineNumber: 398,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
@@ -1538,48 +1548,48 @@ function SearchInterface() {
                                                         children: "View / Book"
                                                     }, void 0, false, {
                                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                        lineNumber: 395,
+                                                        lineNumber: 405,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                                lineNumber: 368,
+                                                lineNumber: 378,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, offer.id, true, {
                                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                        lineNumber: 311,
+                                        lineNumber: 321,
                                         columnNumber: 19
                                     }, this);
                                 })
                             }, void 0, false, {
                                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                                lineNumber: 303,
+                                lineNumber: 313,
                                 columnNumber: 17
                             }, this)
                         ]
                     }, idx, true, {
                         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                        lineNumber: 274,
+                        lineNumber: 284,
                         columnNumber: 13
                     }, this)) : !isSearching && searchTerm && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                     children: "No results found."
                 }, void 0, false, {
                     fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                    lineNumber: 411,
+                    lineNumber: 421,
                     columnNumber: 41
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-                lineNumber: 271,
+                lineNumber: 281,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/apps/web/src/components/SearchInterface.tsx",
-        lineNumber: 146,
+        lineNumber: 156,
         columnNumber: 5
     }, this);
 }
@@ -1603,12 +1613,14 @@ function useStorage() {
     const [location, setLocation] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     const [preferences, setPreferences] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])({});
     const [connections, setConnections] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [wishlist, setWishlist] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         // Load all data on mount to avoid SSR hydration mismatch
         setHistory(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getHistory());
         setLocation(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getLocation());
         setPreferences(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getPreferences());
         setConnections(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getConnections());
+        setWishlist(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getWishlist());
         setIsHydrated(true);
     }, []);
     const addSearchHistory = (term)=>{
@@ -1641,13 +1653,22 @@ function useStorage() {
         location,
         preferences,
         connections,
+        wishlist,
         actions: {
             addSearchHistory,
             clearSearchHistory,
             saveLocation,
             updatePreferences,
             connectProvider,
-            disconnectProvider
+            disconnectProvider,
+            toggleWishlist: (item)=>{
+                __TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].toggleWishlist({
+                    id: item.id,
+                    title: item.title,
+                    category: item.category
+                });
+                setWishlist(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$storage$2f$src$2f$web$2f$LocalStorageManager$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["LocalStorageManager"].getWishlist());
+            }
         }
     };
 }

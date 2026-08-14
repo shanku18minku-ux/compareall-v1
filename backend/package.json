@@ -23,6 +23,7 @@
         "typescript": "^5.9.3"
     },
     "scripts": {
+        "test": "jest",
         "build": "tsc",
         "dev": "nodemon src/server.ts",
         "start": "node dist/server.js"

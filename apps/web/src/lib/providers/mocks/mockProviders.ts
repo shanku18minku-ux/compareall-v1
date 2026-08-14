@@ -1,4 +1,4 @@
-﻿import { SearchQuery, NormalizedResult } from '@compareall/shared-types';
+import { SearchQuery, NormalizedResult } from '@compareall/shared-types';
 import { FoodProvider } from '../categories/FoodProvider';
 import { GroceryProvider } from '../categories/GroceryProvider';
 import { ShoppingProvider } from '../categories/ShoppingProvider';
@@ -18,16 +18,25 @@ export class FoodProviderA extends FoodProvider {
     
     if (query.term.toLowerCase().includes('biryani')) {
       const deliveryFee = isConnected ? 0 : 30; // Free delivery if connected
-      const discount = 50;
+      const discount = isConnected ? 50 : 0;
       
       return [
         createMockResult(this.config.id, this.config.name, 'b1', {
-          title: 'Chicken Biryani',
+          title: 'Chicken Biryani (Behrouz Biryani)',
           category: 'food',
           price: calculateFinalPrice(250, deliveryFee, 5, 12, discount, 10, 0),
           originalPrice: 250,
           estimatedTimeMins: 30,
           rating: 4.2,
+          accountBenefits: isConnected ? ['[DEMO] Mock Swiggy One Benefit: Free Delivery'] : []
+        }),
+        createMockResult(this.config.id, this.config.name, 'b2', {
+          title: 'Chicken Dum Biryani (Meghana Foods)',
+          category: 'food',
+          price: calculateFinalPrice(280, deliveryFee, 5, 14, discount, 15, 0),
+          originalPrice: 280,
+          estimatedTimeMins: 40,
+          rating: 4.6,
           accountBenefits: isConnected ? ['[DEMO] Mock Swiggy One Benefit: Free Delivery'] : []
         })
       ];
@@ -45,17 +54,26 @@ export class FoodProviderB extends FoodProvider {
     const isConnected = query.connectedProviders?.includes(this.config.id);
     
     if (query.term.toLowerCase().includes('biryani')) {
-      const discount = isConnected ? 60 : 0; // Flat â‚¹60 off if connected
+      const discount = isConnected ? 60 : 0; // Flat ₹60 off if connected
       
       return [
         createMockResult(this.config.id, this.config.name, 'b1', {
-          title: 'Chicken Biryani',
+          title: 'Chicken Biryani (Behrouz Biryani)',
           category: 'food',
           price: calculateFinalPrice(240, 40, 6, 12, discount, 15, 0),
           originalPrice: 240,
           estimatedTimeMins: 45,
           rating: 4.5,
-          accountBenefits: isConnected ? ['[DEMO] Mock Zomato Gold Benefit: â‚¹60 Off'] : []
+          accountBenefits: isConnected ? ['[DEMO] Mock Zomato Gold Benefit: ₹60 Off'] : []
+        }),
+        createMockResult(this.config.id, this.config.name, 'b2', {
+          title: 'Chicken Dum Biryani (Meghana Foods)',
+          category: 'food',
+          price: calculateFinalPrice(290, 40, 6, 14, discount, 15, 0),
+          originalPrice: 290,
+          estimatedTimeMins: 35,
+          rating: 4.7,
+          accountBenefits: isConnected ? ['[DEMO] Mock Zomato Gold Benefit: ₹60 Off'] : []
         })
       ];
     }
@@ -72,7 +90,7 @@ export class FoodProviderC extends FoodProvider {
     if (query.term.toLowerCase().includes('biryani')) {
       return [
         createMockResult(this.config.id, this.config.name, 'b1', {
-          title: 'Chicken Biryani',
+          title: 'Chicken Biryani (Behrouz Biryani)',
           category: 'food',
           price: calculateFinalPrice(260, 0, 0, 13, 0, 0, 0), // Free delivery
           originalPrice: 260,

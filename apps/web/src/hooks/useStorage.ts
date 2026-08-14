@@ -10,6 +10,7 @@ export function useStorage() {
   const [location, setLocation] = useState<LocationContext | null>(null);
   const [preferences, setPreferences] = useState<Record<string, any>>({});
   const [connections, setConnections] = useState<ProviderConnection[]>([]);
+  const [wishlist, setWishlist] = useState<any[]>([]);
 
   useEffect(() => {
     // Load all data on mount to avoid SSR hydration mismatch
@@ -17,6 +18,7 @@ export function useStorage() {
     setLocation(LocalStorageManager.getLocation());
     setPreferences(LocalStorageManager.getPreferences());
     setConnections(LocalStorageManager.getConnections());
+    setWishlist(LocalStorageManager.getWishlist());
     setIsHydrated(true);
   }, []);
 
@@ -56,13 +58,22 @@ export function useStorage() {
     location,
     preferences,
     connections,
+    wishlist,
     actions: {
       addSearchHistory,
       clearSearchHistory,
       saveLocation,
       updatePreferences,
       connectProvider,
-      disconnectProvider
+      disconnectProvider,
+      toggleWishlist: (item: any) => {
+        LocalStorageManager.toggleWishlist({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+        });
+        setWishlist(LocalStorageManager.getWishlist());
+      }
     }
   };
 }
