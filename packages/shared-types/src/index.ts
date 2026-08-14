@@ -8,6 +8,8 @@ export type Category =
   | 'travel'
   | 'jobs'
   | 'education'
+  | 'medicine'
+  | 'services'
   | 'other';
 
 export type ResultStatus = 'LIVE' | 'ESTIMATED' | 'CACHED' | 'UNAVAILABLE';
@@ -27,6 +29,7 @@ export interface SearchFilters {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  category?: string;
 }
 
 export interface SearchQuery {

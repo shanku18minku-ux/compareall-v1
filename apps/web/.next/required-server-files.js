@@ -104,7 +104,7 @@ self.__SERVER_FILES_MANIFEST={
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "C:\\Users\\HP\\Desktop\\app",
+    "outputFileTracingRoot": "C:\\Users\\HP\\.gemini\\antigravity\\worktrees\\app\\integrate_account_data_comparison",
     "enablePrerenderSourceMaps": true,
     "cacheComponents": false,
     "cacheLife": {
@@ -325,12 +325,12 @@ self.__SERVER_FILES_MANIFEST={
       "@compareall/storage"
     ],
     "turbopack": {
-      "root": "C:\\Users\\HP\\Desktop\\app"
+      "root": "C:\\Users\\HP\\.gemini\\antigravity\\worktrees\\app\\integrate_account_data_comparison"
     },
-    "repoRoot": "C:\\Users\\HP\\Desktop\\app",
+    "repoRoot": "C:\\Users\\HP\\.gemini\\antigravity\\worktrees\\app\\integrate_account_data_comparison",
     "distDirRoot": ".next"
   },
-  "appDir": "C:\\Users\\HP\\Desktop\\app\\apps\\web",
+  "appDir": "C:\\Users\\HP\\.gemini\\antigravity\\worktrees\\app\\integrate_account_data_comparison\\apps\\web",
   "relativeAppDir": "apps\\web",
   "files": [
     ".next\\package.json",

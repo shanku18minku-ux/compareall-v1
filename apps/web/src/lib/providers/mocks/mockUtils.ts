@@ -1,4 +1,4 @@
-﻿import { NormalizedResult, PriceBreakdown } from '@compareall/shared-types';
+import { NormalizedResult, PriceBreakdown } from '@compareall/shared-types';
 
 export function calculateFinalPrice(
   basePrice: number,
@@ -38,7 +38,7 @@ export function createMockResult(
     status: 'LIVE',
     price: data.price || calculateFinalPrice(0),
     isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
-    deepLinkUrl: data.deepLinkUrl || `https://example.com/redirect?provider=${providerId}&item=${id}`,
+    deepLinkUrl: data.deepLinkUrl || `https://www.google.com/search?q=${encodeURIComponent(providerName + ' ' + (data.title || ''))}`,
     ...data
   };
 }

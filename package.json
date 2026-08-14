@@ -15,6 +15,7 @@
         "build:backend": "npm run build --workspace=@compareall/backend"
     },
     "devDependencies": {
+        "puppeteer": "^25.7.0",
         "typescript": "^5"
     }
 }

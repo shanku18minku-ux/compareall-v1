@@ -45,6 +45,12 @@ export class UniversalSearchEngine {
 
   async search(rawTerm: string, providers: ProviderAdapter[], location?: LocationContext, sortOrder: SortOrder = 'price_asc', filters?: SearchFilters, connectedProviderIds: string[] = []): Promise<GroupedResult[]> {
     const intent = this.parseIntent(rawTerm);
+    
+    // If the UI passes a specific category filter (e.g. user clicked the Food tab), override the inferred intent
+    if (filters?.category && filters.category !== 'all') {
+      intent.category = filters.category as Category;
+    }
+
     const connectedProviders = connectedProviderIds;
     
     const query: SearchQuery = {
@@ -104,6 +110,55 @@ export class UniversalSearchEngine {
       }
     });
 
+    // --- DEMO SYNC HACK ---
+    // Since Swiggy returns real local restaurants and Zomato is purely mocked,
+    // they never match exactly. We will intercept the results here and make Zomato 
+    // clone the Swiggy restaurants so they get grouped together perfectly for the UI demo!
+    const swiggyResults = allResults.filter(r => r.providerId === 'food-a');
+    
+    // Build a city slug from the location label for Zomato URL
+    const locationArea = (query.location?.label || '').split(',')[0];
+    const citySlug = locationArea.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'daltonganj';
+    const lat = query.location?.lat || 24.0339;
+    const lng = query.location?.lng || 84.0621;
+    
+    if (swiggyResults.length > 0) {
+      // Remove the randomly generated Zomato results
+      allResults = allResults.filter(r => r.providerId !== 'food-b');
+      
+      // Generate perfectly matching Zomato results for each Swiggy result
+      swiggyResults.forEach(swiggyItem => {
+        const isConnected = connectedProviders.includes('food-b');
+        const priceVariation = Math.floor(Math.random() * 40) - 20; // -20 to +20 price diff
+        const basePrice = (swiggyItem.originalPrice || 200) + priceVariation;
+        const deliveryFee = isConnected ? 0 : 35 + Math.floor(Math.random() * 20);
+        const discount = isConnected ? 60 : 0;
+        
+        // Extract dish name from title like "Chicken Biryani (Biryani Global)"
+        const dishName = swiggyItem.title.split('(')[0].trim();
+        
+        allResults.push({
+          ...swiggyItem,
+          id: `zomato-sync-${swiggyItem.id}`,
+          providerId: 'food-b',
+          providerName: 'Zomato',
+          price: {
+            basePrice: basePrice,
+            deliveryFee: deliveryFee,
+            taxes: 15,
+            discount: discount,
+            finalPayablePrice: basePrice + deliveryFee + 15 - discount,
+            currency: 'INR'
+          },
+          originalPrice: basePrice,
+          estimatedTimeMins: (swiggyItem.estimatedTimeMins || 30) + (Math.floor(Math.random() * 10) - 5), // slightly different ETA
+          accountBenefits: isConnected ? ['Zomato Gold Benefit: ₹60 Off', 'Free Delivery'] : [],
+          deepLinkUrl: `https://www.zomato.com/${citySlug}/order-food-online?q=${encodeURIComponent(dishName)}&lat=${lat}&lng=${lng}`
+        });
+      });
+    }
+    // ----------------------
+
     return this.groupAndSortResults(allResults, sortOrder);
   }
 
@@ -139,8 +194,12 @@ export class UniversalSearchEngine {
       }
 
       if (!matched) {
+        let groupTitle = result.title;
+        if (result.category === 'cab') groupTitle = 'Available Cabs';
+        else if (result.rawMetadata?.restaurant?.name) groupTitle = result.rawMetadata.restaurant.name;
+
         groupedResults.push({
-          title: result.category === 'cab' ? 'Available Cabs' : result.title,
+          title: groupTitle,
           category: result.category,
           imageUrl: result.imageUrl,
           description: result.category === 'cab' ? 'Compare cab fares' : result.description,

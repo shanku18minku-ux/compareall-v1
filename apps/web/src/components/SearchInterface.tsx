@@ -5,10 +5,23 @@ import { GroupedResult, SortOrder } from '@compareall/engine';
 import { SearchFilters } from '@compareall/shared-types';
 import LocationSelector from './LocationSelector';
 import { useStorage } from '../hooks/useStorage';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const CATEGORIES = [
+  { id: 'all', label: 'All', icon: '🔍' },
+  { id: 'food', label: 'Food', icon: '🍔' },
+  { id: 'grocery', label: 'Groceries', icon: '🛒' },
+  { id: 'shopping', label: 'Shopping', icon: '🛍️' },
+  { id: 'medicine', label: 'Medicine', icon: '💊' },
+  { id: 'services', label: 'Local Services', icon: '🔧' },
+  { id: 'travel', label: 'Travel', icon: '✈️' },
+  { id: 'cabs', label: 'Cabs', icon: '🚕' }
+];
 
 export default function SearchInterface() {
   const { isHydrated, history, location, wishlist, connections, actions } = useStorage();
   
+  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<GroupedResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -28,7 +41,6 @@ export default function SearchInterface() {
   // Extension state
   const [extensionReady, setExtensionReady] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
-  const [manualLocQuery, setManualLocQuery] = useState('');
 
   useEffect(() => {
     setWishlistIds(new Set(wishlist.map((item: any) => item.id)));
@@ -87,22 +99,19 @@ export default function SearchInterface() {
     setIsSearching(true);
     try {
       if (extensionReady) {
-        // Trigger live search via extension instead of mock backend
         window.postMessage({
           type: "COMPAREALL_LIVE_SEARCH",
           payload: { query: termToSearch || searchTerm }
         }, "*");
       } else {
-        // Fallback to existing mock API
-        const connectedIds: string[] = connections.filter(c => c.status === 'connected').map(c => c.providerId);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${API_URL}/api/compare`, {
+        const connectedIds: string[] = connections.filter((c: any) => c.status === 'connected').map((c: any) => c.providerId);
+        const res = await fetch(`/api/compare`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             query: termToSearch || searchTerm, 
             sortOrder: newSortOrder || sortOrder,
-            filters: newFilters || filters,
+            filters: { ...newFilters, ...filters, category: activeTab !== 'all' ? activeTab : undefined }, // Pass activeTab hint
             location: location,
             connectedProviders: connectedIds
           })
@@ -114,18 +123,13 @@ export default function SearchInterface() {
           setDataSource(json.dataSource);
           setIsLive(json.isLive);
           
-          // Auto-disconnect connected services after the comparison is done
-          // as per the user's privacy and ephemeral connection requirement
           connectedIds.forEach(id => {
             actions.disconnectProvider(id);
           });
-        } else {
-          console.error("Backend error:", json.error);
         }
         setIsSearching(false);
       }
     } catch (error) {
-      console.error("Search error:", error);
       setIsSearching(false);
     }
   };
@@ -151,6 +155,19 @@ export default function SearchInterface() {
     setFilters(newFilters);
     handleSearch(undefined, searchTerm, sortOrder, newFilters);
   };
+  
+  const getPlaceholder = () => {
+    switch (activeTab) {
+      case 'food': return 'Search for food (e.g. Chicken Biryani)';
+      case 'grocery': return 'Search groceries (e.g. Milk, Bread)';
+      case 'shopping': return 'Search products (e.g. iPhone 16)';
+      case 'medicine': return 'Search medicines (e.g. Paracetamol)';
+      case 'services': return 'Search local services (e.g. Plumber, AC Repair)';
+      case 'travel': return 'Search flights or hotels (e.g. Delhi to Mumbai)';
+      case 'cabs': return 'Search cabs (e.g. Airport cab)';
+      default: return 'What do you want? (e.g. Biryani, Flights)';
+    }
+  }
 
   return (
     <div>
@@ -159,18 +176,62 @@ export default function SearchInterface() {
         onLocationChange={actions.saveLocation} 
       />
 
-      <form onSubmit={(e) => handleSearch(e)} className="search-box">
-        <input 
-          type="text" 
-          className="search-input"
-          placeholder="What do you want? (e.g. Chicken Biryani, iPhone 16, Cab to airport)"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <button type="submit" className="search-button" disabled={isSearching}>
-          {isSearching ? 'Comparing...' : 'Compare Options'}
-        </button>
-      </form>
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#171717', marginBottom: '1rem' }}>Search Deals</h3>
+        <form onSubmit={(e) => handleSearch(e)} className="search-box" style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+          <div className="search-input-wrapper" style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+            <span style={{paddingLeft: '1rem', color: '#9ca3af', fontSize: '1.25rem'}}>🔍</span>
+            <input 
+              type="text" 
+              className="search-input"
+              style={{flex: 1, padding: '1rem 0.5rem', border: 'none', background: 'transparent', fontSize: '1.1rem', outline: 'none', color: '#171717', fontWeight: 500} }
+              placeholder={getPlaceholder()}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <button type="submit" className="search-button" disabled={isSearching} style={{
+              background: '#171717', color: 'white', padding: '1rem 1.5rem', borderRadius: '12px', fontWeight: 600, border: 'none', cursor: isSearching ? 'not-allowed' : 'pointer', fontSize: '1.05rem', whiteSpace: 'nowrap'
+            }}>
+              {isSearching ? '...' : 'Search'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Category Slabs */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#171717', marginBottom: '1rem' }}>Compare & Save</h3>
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '2rem'}}>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => { setActiveTab(cat.id); setResults([]); }}
+              style={{
+                padding: '1.5rem 1rem',
+                borderRadius: '16px',
+                border: activeTab === cat.id ? '2px solid #171717' : '1px solid #e5e7eb',
+                background: activeTab === cat.id ? '#f3f4f6' : '#ffffff',
+                color: '#171717',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.75rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+              }}
+            >
+              <span style={{fontSize: '2rem'}}>{cat.icon}</span>
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+
 
       {/* Compare Tray */}
       {compareTray.length > 0 && (
@@ -278,6 +339,22 @@ export default function SearchInterface() {
         </div>
       )}
 
+      {results.length > 0 && connections.length === 0 && (
+        <div style={{ margin: '1rem 0', padding: '1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ flex: '1 1 300px' }}>
+            <h4 style={{ margin: 0, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>💡</span> Get Cheaper Prices!
+            </h4>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#1e40af' }}>
+              Connect your Swiggy, Zomato, or Uber accounts to automatically apply your memberships (like Zomato Gold) and see your personalized cheaper prices. Data stays on your device.
+            </p>
+          </div>
+          <a href="/connected-services" style={{ background: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            Connect Accounts
+          </a>
+        </div>
+      )}
+
       <div className="results-container" style={{paddingBottom: compareTray.length > 0 ? '5rem' : '0'}}>
         {results.length > 0 ? (
           results.map((group, idx) => (
@@ -311,7 +388,9 @@ export default function SearchInterface() {
                   </div>
                 </div>
                 <div className="provider-list">
-                {group.offers.map((offer: any, offerIdx: number) => {
+                {group.offers
+                  .filter((offer: any) => offer.status !== 'UNAVAILABLE' && offer.isAvailable !== false)
+                  .map((offer: any, offerIdx: number) => {
                   const isExpanded = expandedOfferId === offer.id;
                   const isWishlisted = wishlistIds.has(offer.id);
                   const isBest = offerIdx === 0 && offer.status !== 'UNAVAILABLE' && sortOrder === 'price_asc';
@@ -370,6 +449,9 @@ export default function SearchInterface() {
 
                         {offer.estimatedTimeMins ? <span>ETA: {offer.estimatedTimeMins} min</span> : null}
                         {offer.distanceKm ? <span>Distance: {offer.distanceKm} km</span> : null}
+                        {offer.brand && <span>Brand: {offer.brand}</span>}
+                        {offer.size && <span>Size: {offer.size}</span>}
+                        {offer.quantity && <span>Qty: {offer.quantity}</span>}
                         {offer.rating && <span>Reputation: ⭐ {offer.rating} ({offer.reviewCount || 0} reviews)</span>}
                         {offer.error && <span style={{color: 'red', fontWeight: 'bold'}}>{offer.error}</span>}
                       </div>
@@ -402,15 +484,33 @@ export default function SearchInterface() {
                         ₹{offer.price.finalPayablePrice}
                       </div>
                       
-                      <a 
-                        href={offer.status === 'UNAVAILABLE' ? '#' : offer.deepLinkUrl} 
-                        target={offer.status === 'UNAVAILABLE' ? '_self' : "_blank"} 
-                        rel="noreferrer"
-                        className="continue-btn"
-                        style={{ opacity: offer.status === 'UNAVAILABLE' ? 0.5 : 1, pointerEvents: offer.status === 'UNAVAILABLE' ? 'none' : 'auto', marginTop: '0.5rem' }}
-                      >
-                        View / Book
-                      </a>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', opacity: offer.status === 'UNAVAILABLE' ? 0.5 : 1, pointerEvents: offer.status === 'UNAVAILABLE' ? 'none' : 'auto' }}>
+                        <a 
+                          href={offer.status === 'UNAVAILABLE' ? '#' : offer.deepLinkUrl} 
+                          target={offer.status === 'UNAVAILABLE' ? '_self' : "_blank"} 
+                          rel="noreferrer"
+                          className="continue-btn"
+                          style={{ flex: 1, textAlign: 'center', padding: '0.5rem', fontSize: '0.85rem' }}
+                        >
+                          View App
+                        </a>
+                        <button
+                          onClick={() => actions.addToCart({
+                            id: offer.id,
+                            providerId: offer.providerId || offer.providerName.toLowerCase(),
+                            providerName: offer.providerName,
+                            title: offer.title,
+                            price: offer.price.finalPayablePrice,
+                            originalPrice: offer.originalPrice || offer.price.finalPayablePrice,
+                            category: activeTab,
+                            deepLinkUrl: offer.deepLinkUrl
+                          })}
+                          className="continue-btn"
+                          style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: '#10b981', border: 'none', color: 'white', cursor: 'pointer' }}
+                        >
+                          + Cart
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )})}

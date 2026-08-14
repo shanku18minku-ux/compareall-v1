@@ -24,7 +24,7 @@
     },
     "scripts": {
         "test": "jest",
-        "build": "tsc",
+        "build:tsc": "tsc",
         "dev": "nodemon src/server.ts",
         "start": "node dist/server.js"
     }

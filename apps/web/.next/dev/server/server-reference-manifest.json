@@ -1,5 +1,17 @@
 {
-  "node": {},
+  "node": {
+    "00de53649b3ef3ff4c7247ce25068877147739a055": {
+      "workers": {
+        "app/connected-services/page": {
+          "moduleId": "[project]/apps/web/.next-internal/server/app/connected-services/page/actions.js { ACTIONS_MODULE0 => \"[project]/apps/web/src/actions/authActions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "codeHash": null
+        }
+      },
+      "filename": "apps/web/src/actions/authActions.ts",
+      "exportedName": "handleSignOut"
+    }
+  },
   "edge": {},
   "encryptionKey": "MUaGkRggJQ/c8iN0kK095ffozKtkQlFo372wmydGlOY="
 }

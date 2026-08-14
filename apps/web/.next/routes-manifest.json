@@ -21,7 +21,16 @@
     "afterFiles": [],
     "fallback": []
   },
-  "dynamicRoutes": [],
+  "dynamicRoutes": [
+    {
+      "page": "/api/auth/[...nextauth]",
+      "regex": "^/api/auth/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPnextauth": "nxtPnextauth"
+      },
+      "namedRegex": "^/api/auth/(?<nxtPnextauth>.+?)(?:/)?$"
+    }
+  ],
   "staticRoutes": [
     {
       "page": "/",
@@ -42,6 +51,24 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
+      "page": "/api/compare",
+      "regex": "^/api/compare(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/compare(?:/)?$"
+    },
+    {
+      "page": "/api/proxy/swiggy",
+      "regex": "^/api/proxy/swiggy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/proxy/swiggy(?:/)?$"
+    },
+    {
+      "page": "/api/proxy/zomato",
+      "regex": "^/api/proxy/zomato(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/proxy/zomato(?:/)?$"
+    },
+    {
       "page": "/connected-services",
       "regex": "^/connected\\-services(?:/)?$",
       "routeKeys": {},
@@ -58,6 +85,12 @@
       "regex": "^/history(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/history(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
     },
     {
       "page": "/wishlist",

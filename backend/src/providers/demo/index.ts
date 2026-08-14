@@ -21,6 +21,10 @@ function createDemoProvider(id: string, name: string, priceOffset: number, categ
 
       const finalPrice = basePrice + priceOffset;
 
+      let restaurantName = "Famous Restaurant";
+      if (term.includes("biryani")) restaurantName = "Behrouz Biryani";
+      if (term.includes("pizza")) restaurantName = "Domino's Pizza";
+
       return [
         {
           id: `${id}-${term}-1`,
@@ -37,7 +41,8 @@ function createDemoProvider(id: string, name: string, priceOffset: number, categ
           },
           deepLinkUrl: "#",
           rating: 4.0 + (Math.random() * 1),
-          reviewCount: Math.floor(Math.random() * 1000)
+          reviewCount: Math.floor(Math.random() * 1000),
+          rawMetadata: category === 'food' ? { restaurant: { name: restaurantName } } : undefined
         }
       ];
     }
@@ -48,7 +53,7 @@ export const demoProviders = [
   createDemoProvider("demo-electronics-a", "Demo Electronics Store A", 0, "electronics"),
   createDemoProvider("demo-electronics-b", "Demo Electronics Store B", -200, "electronics"),
   createDemoProvider("demo-electronics-c", "Demo Electronics Store C", -100, "electronics"),
-  createDemoProvider("demo-food-a", "Demo Food Platform A", 50, "food"),
-  createDemoProvider("demo-food-b", "Demo Food Platform B", -20, "food"),
+  createDemoProvider("zomato", "Zomato", 50, "food"),
+  createDemoProvider("swiggy", "Swiggy", -20, "food"),
 ];
 

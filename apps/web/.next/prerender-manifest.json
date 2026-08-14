@@ -1,39 +1,11 @@
 {
   "version": 4,
   "routes": {
-    "/": {
-      "routeType": "page",
-      "response": "complete",
-      "compute": "static",
-      "htmlSize": 12701,
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/",
-      "dataRoute": "/index.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/_global-error": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 9133,
+      "htmlSize": 9203,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -62,7 +34,7 @@
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 8735,
+      "htmlSize": 8805,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -90,7 +62,7 @@
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 15477,
+      "htmlSize": 7821,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -146,11 +118,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/history": {
+    "/login": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 8563,
+      "htmlSize": 12507,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -163,36 +135,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/history",
-      "dataRoute": "/history.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/wishlist": {
-      "routeType": "page",
-      "response": "complete",
-      "compute": "static",
-      "htmlSize": 8473,
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/wishlist",
-      "dataRoute": "/wishlist.rsc",
+      "srcRoute": "/login",
+      "dataRoute": "/login.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",

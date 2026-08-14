@@ -11,6 +11,19 @@ export interface WishlistItem {
   addedAt: number;
 }
 
+export interface CartItem {
+  id: string;
+  providerId: string;
+  providerName: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  category?: string;
+  quantity: number;
+  image?: string;
+  deepLinkUrl?: string;
+}
+
 export type ConnectionStatus = 'not_connected' | 'connecting' | 'connected' | 'expired' | 'error';
 
 export interface ProviderConnection {
@@ -133,6 +146,47 @@ export class LocalStorageManager {
 
   static setLocation(location: any) {
     this.set(this.LOCATION_KEY, location);
+  }
+
+  // --- Cart ---
+  private static readonly CART_KEY = 'ca_cart';
+
+  static getCart(): CartItem[] {
+    return this.get<CartItem[]>(this.CART_KEY, []);
+  }
+
+  static addToCart(item: Omit<CartItem, 'quantity'>) {
+    const cart = this.getCart();
+    const existing = cart.find(c => c.id === item.id && c.providerId === item.providerId);
+    
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      cart.push({ ...item, quantity: 1 });
+    }
+    this.set(this.CART_KEY, cart);
+  }
+
+  static removeFromCart(id: string, providerId: string) {
+    const cart = this.getCart();
+    this.set(this.CART_KEY, cart.filter(c => !(c.id === id && c.providerId === providerId)));
+  }
+
+  static updateCartQuantity(id: string, providerId: string, quantity: number) {
+    const cart = this.getCart();
+    const existing = cart.find(c => c.id === id && c.providerId === providerId);
+    if (existing) {
+      if (quantity <= 0) {
+        this.removeFromCart(id, providerId);
+      } else {
+        existing.quantity = quantity;
+        this.set(this.CART_KEY, cart);
+      }
+    }
+  }
+
+  static clearCart() {
+    this.set(this.CART_KEY, []);
   }
 }
 

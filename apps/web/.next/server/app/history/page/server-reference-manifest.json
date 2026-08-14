@@ -1,4 +1,16 @@
 {
-  "node": {},
+  "node": {
+    "00b69e9471e3aa87c1c59f83bb3420bafed025ac37": {
+      "workers": {
+        "app/history/page": {
+          "moduleId": 36248,
+          "async": false,
+          "codeHash": null
+        }
+      },
+      "exportedName": "handleSignOut",
+      "filename": "apps/web/src/actions/authActions.ts"
+    }
+  },
   "edge": {}
 }

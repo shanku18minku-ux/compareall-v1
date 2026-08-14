@@ -1,9 +1,14 @@
 {
   "/_global-error/page": "app/_global-error/page.js",
   "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/compare/route": "app/api/compare/route.js",
+  "/api/proxy/swiggy/route": "app/api/proxy/swiggy/route.js",
+  "/api/proxy/zomato/route": "app/api/proxy/zomato/route.js",
   "/connected-services/page": "app/connected-services/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/history/page": "app/history/page.js",
+  "/login/page": "app/login/page.js",
   "/page": "app/page.js",
   "/wishlist/page": "app/wishlist/page.js"
 }
