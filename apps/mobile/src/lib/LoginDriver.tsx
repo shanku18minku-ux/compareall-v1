@@ -331,18 +331,22 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    simulateType(phoneInput, phoneValue);
                    window.__PHONE_DONE = true;
 
-                   // ── Step 3: Poll for Send OTP button at 50ms ─────────
-                   pollUntil(
-                       findSendOtpButton,
-                       function(sendBtn) {
-                           dbg('handlePhone: Send OTP btn found! clicking...');
-                           clickElement(sendBtn);
-                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
-                           dbg('handlePhone: OTP_REQUESTED sent!');
-                       },
-                       80, // 80 x 50ms = 4 seconds max
-                       function() { dbg('handlePhone: WARN - Send OTP btn not found in 4s!'); }
-                   );
+                   // Wait 150ms for Swiggy's React form validation to
+                   // process the blur event and ENABLE the Continue button
+                   setTimeout(function() {
+                       // ── Step 3: Poll for Send OTP button at 50ms ─────────
+                       pollUntil(
+                           findSendOtpButton,
+                           function(sendBtn) {
+                               dbg('handlePhone: Send OTP btn found! clicking...');
+                               clickElement(sendBtn);
+                               window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                               dbg('handlePhone: OTP_REQUESTED sent!');
+                           },
+                           80, // 80 x 50ms = 4 seconds max
+                           function() { dbg('handlePhone: WARN - Send OTP btn not found in 4s!'); }
+                       );
+                   }, 150);
                },
                10000 // wait up to 10s for phone modal
            );
