@@ -70,6 +70,11 @@ export const getSwiggyLoginScript = () => `
 
     // ─── STEP 1: Open Swiggy Login Modal ─────────────────────────────────────
     function openLoginModal() {
+        // If the mobile input is already visible (pre-warmed), do nothing!
+        if (document.querySelector('input#mobile') || document.querySelector('input[name="mobile"]')) {
+            return true;
+        }
+
         // Strategy 1: Look for Sign In / Login button in header
         var btn = findByText(['span', 'div', 'button', 'a'], ['Sign In', 'Login', 'Sign in', 'LOG IN']);
         if (btn) {
@@ -77,7 +82,7 @@ export const getSwiggyLoginScript = () => `
             return true;
         }
 
-        // Strategy 2: Look for mobile user avatar icon (href="/my-account" or "/auth")
+        // Strategy 2: Look for mobile user avatar icon
         var headerIcon = findEl([
             'a[href*="/my-account"]',
             'a[href*="/auth"]',
@@ -99,12 +104,6 @@ export const getSwiggyLoginScript = () => `
         
         if (headerIcon) {
             headerIcon.click();
-            return true;
-        }
-
-        // Strategy 3: Directly redirect to /my-account which triggers the login drawer natively on mobile
-        if (!window.location.href.includes('/my-account') && !window.location.href.includes('/auth') && !window.location.href.includes('login')) {
-            window.location.href = 'https://www.swiggy.com/my-account';
             return true;
         }
 
@@ -325,13 +324,20 @@ export const getSwiggyLoginScript = () => `
         }
     });
 
-    // On load, check if already logged in
+    // On load, check if already logged in. If not, auto-open the login modal to pre-warm the DOM
+    function init() {
+        if (checkIfLoggedIn()) {
+            safePost({ type: 'SESSION_ACTIVE' });
+        } else {
+            // Auto-click the profile icon to open the drawer secretly in the background
+            setTimeout(openLoginModal, 1000); 
+        }
+    }
+
     if (document.readyState === 'complete') {
-        if (checkIfLoggedIn()) safePost({ type: 'SESSION_ACTIVE' });
+        init();
     } else {
-        window.addEventListener('load', function() {
-            if (checkIfLoggedIn()) safePost({ type: 'SESSION_ACTIVE' });
-        });
+        window.addEventListener('load', init);
     }
 })();
 true;
