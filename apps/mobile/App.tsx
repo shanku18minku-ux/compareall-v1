@@ -5,12 +5,19 @@ import { LoginDriver } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', name: 'Swiggy', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
-  { id: 'food-b', name: 'Zomato', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' }
+  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
+  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' },
+  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', url: 'https://www.ecatering.irctc.co.in', desc: '' },
+  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', url: 'https://www.zoopindia.com', desc: '' },
+  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', url: 'https://www.railrestro.com', desc: '' },
+  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', url: 'https://www.travelkhana.com', desc: '' }
 ];
+
+const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Connections');
+  const [activeCategory, setActiveCategory] = useState('Food');
   
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
@@ -187,90 +194,123 @@ export default function App() {
             </ScrollView>
           </View>
         ) : (
-          <ScrollView style={styles.tabContent}>
-            <Text style={styles.title}>Food Delivery</Text>
-            <Text style={styles.subtitle}>Connect Swiggy and Zomato for live menu and cart pricing.</Text>
-            
-            <View style={styles.providerList}>
-              {PROVIDERS.map(provider => {
-                const isConnected = connectedProviders.includes(provider.id);
-                const currentStep = loginSteps[provider.id] || 'idle';
-                
-                return (
-                  <View key={provider.id} style={styles.premiumCard}>
-                    <View style={styles.premiumCardHeader}>
-                       <View style={styles.providerBrandBox}>
-                          <Text style={styles.providerBrandText}>{provider.name[0]}</Text>
-                       </View>
-                       <View style={styles.providerInfo}>
-                          <Text style={styles.providerName}>{provider.name}</Text>
-                          <Text style={styles.providerDesc}>{provider.desc}</Text>
-                       </View>
-                       {isConnected ? (
-                          <View style={styles.badgeConnected}><Text style={styles.badgeTextConnected}>Connected</Text></View>
-                       ) : (
-                          <View style={styles.badgeNotConnected}><Text style={styles.badgeTextNotConnected}>Not Connected</Text></View>
-                       )}
-                    </View>
-
-                    {isConnected ? (
-                        <TouchableOpacity style={styles.disconnectBtnFull} onPress={() => handleDisconnect(provider.id)}>
-                            <Text style={styles.disconnectBtnTextFull}>Disconnect</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.authContainer}>
-                            {currentStep === 'idle' || currentStep === 'sending_phone' ? (
-                                <View style={styles.inputRow}>
-                                   <TextInput 
-                                      style={styles.nativeInput}
-                                      placeholder="Mobile number"
-                                      keyboardType="phone-pad"
-                                      value={phoneInputs[provider.id] || ''}
-                                      onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
-                                      editable={currentStep === 'idle'}
-                                   />
-                                   <TouchableOpacity 
-                                      style={[styles.actionBtn, currentStep === 'sending_phone' && styles.actionBtnLoading]}
-                                      onPress={() => handleGetOtp(provider.id)}
-                                      disabled={currentStep === 'sending_phone'}
-                                   >
-                                      {currentStep === 'sending_phone' ? (
-                                          <ActivityIndicator size="small" color="#555" />
-                                      ) : (
-                                          <Text style={styles.actionBtnText}>Get OTP</Text>
-                                      )}
-                                   </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <View style={styles.inputRow}>
-                                   <TextInput 
-                                      style={styles.nativeInput}
-                                      placeholder="Enter OTP"
-                                      keyboardType="number-pad"
-                                      value={otpInputs[provider.id] || ''}
-                                      onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
-                                      editable={currentStep === 'awaiting_otp'}
-                                   />
-                                   <TouchableOpacity 
-                                      style={[styles.actionBtn, currentStep === 'sending_otp' && styles.actionBtnLoading]}
-                                      onPress={() => handleVerifyOtp(provider.id)}
-                                      disabled={currentStep === 'sending_otp'}
-                                   >
-                                      {currentStep === 'sending_otp' ? (
-                                          <ActivityIndicator size="small" color="#555" />
-                                      ) : (
-                                          <Text style={styles.actionBtnText}>Verify</Text>
-                                      )}
-                                   </TouchableOpacity>
-                                </View>
-                            )}
-                        </View>
-                    )}
-                  </View>
-                );
-              })}
+          <View style={{flex: 1}}>
+            <View style={styles.categoryBar}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                 {CATEGORIES.map(cat => (
+                    <TouchableOpacity 
+                       key={cat} 
+                       style={[styles.categoryTab, activeCategory === cat && styles.categoryTabActive]} 
+                       onPress={() => setActiveCategory(cat)}
+                    >
+                       <Text style={[styles.categoryTabText, activeCategory === cat && styles.categoryTabTextActive]}>{cat}</Text>
+                    </TouchableOpacity>
+                 ))}
+              </ScrollView>
             </View>
-          </ScrollView>
+
+            <ScrollView style={styles.tabContent}>
+              <Text style={styles.pageTitle}>Link Accounts</Text>
+              
+              {Array.from(new Set(PROVIDERS.filter(p => p.category === activeCategory).map(p => p.subcategory))).map(subcat => {
+                 const subcatProviders = PROVIDERS.filter(p => p.category === activeCategory && p.subcategory === subcat);
+                 if (subcatProviders.length === 0) return null;
+                 
+                 return (
+                    <View key={subcat} style={styles.subcatSection}>
+                       <Text style={styles.subcatTitle}>{subcat}</Text>
+                       <View style={styles.gridContainer}>
+                          {subcatProviders.map(provider => {
+                             const isConnected = connectedProviders.includes(provider.id);
+                             const isExpanded = activeLoginProvider === provider.id;
+                             const currentStep = loginSteps[provider.id] || 'idle';
+                             
+                             return (
+                               <View key={provider.id} style={[styles.gridCard, isExpanded && styles.gridCardExpanded]}>
+                                  <View style={styles.gridCardTop}>
+                                     <View style={styles.gridIconBox}>
+                                        <Text style={styles.gridIconText}>{provider.icon}</Text>
+                                     </View>
+                                     <Text style={styles.gridProviderName}>{provider.name}</Text>
+                                  </View>
+                                  
+                                  {isConnected ? (
+                                     <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
+                                         <Text style={styles.disconnectBtnTextSmall}>Disconnect</Text>
+                                     </TouchableOpacity>
+                                  ) : (
+                                     !isExpanded ? (
+                                        <TouchableOpacity 
+                                           style={styles.linkNowBtn} 
+                                           onPress={() => {
+                                              setActiveLoginProvider(provider.id);
+                                              setLoginSteps(prev => ({...prev, [provider.id]: 'idle'}));
+                                           }}
+                                        >
+                                           <Text style={styles.linkNowText}>LINK NOW</Text>
+                                        </TouchableOpacity>
+                                     ) : (
+                                        <View style={styles.authContainer}>
+                                            {currentStep === 'idle' || currentStep === 'sending_phone' ? (
+                                                <View style={styles.inputCol}>
+                                                   <TextInput 
+                                                      style={styles.nativeInputSmall}
+                                                      placeholder="Mobile number"
+                                                      keyboardType="phone-pad"
+                                                      value={phoneInputs[provider.id] || ''}
+                                                      onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
+                                                      editable={currentStep === 'idle'}
+                                                   />
+                                                   <TouchableOpacity 
+                                                      style={[styles.actionBtnSmall, currentStep === 'sending_phone' && styles.actionBtnLoading]}
+                                                      onPress={() => handleGetOtp(provider.id)}
+                                                      disabled={currentStep === 'sending_phone'}
+                                                   >
+                                                      {currentStep === 'sending_phone' ? (
+                                                          <ActivityIndicator size="small" color="#555" />
+                                                      ) : (
+                                                          <Text style={styles.actionBtnTextSmall}>Get OTP</Text>
+                                                      )}
+                                                   </TouchableOpacity>
+                                                </View>
+                                            ) : (
+                                                <View style={styles.inputCol}>
+                                                   <TextInput 
+                                                      style={styles.nativeInputSmall}
+                                                      placeholder="Enter OTP"
+                                                      keyboardType="number-pad"
+                                                      value={otpInputs[provider.id] || ''}
+                                                      onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
+                                                      editable={currentStep === 'awaiting_otp'}
+                                                   />
+                                                   <TouchableOpacity 
+                                                      style={[styles.actionBtnSmall, currentStep === 'sending_otp' && styles.actionBtnLoading]}
+                                                      onPress={() => handleVerifyOtp(provider.id)}
+                                                      disabled={currentStep === 'sending_otp'}
+                                                   >
+                                                      {currentStep === 'sending_otp' ? (
+                                                          <ActivityIndicator size="small" color="#555" />
+                                                      ) : (
+                                                          <Text style={styles.actionBtnTextSmall}>Verify</Text>
+                                                      )}
+                                                   </TouchableOpacity>
+                                                </View>
+                                            )}
+                                            <TouchableOpacity style={styles.cancelBtnSmall} onPress={() => setActiveLoginProvider(null)}>
+                                               <Text style={styles.cancelBtnText}>Cancel</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                     )
+                                  )}
+                               </View>
+                             );
+                          })}
+                       </View>
+                    </View>
+                 );
+              })}
+            </ScrollView>
+          </View>
         )}
       </View>
 
@@ -413,115 +453,158 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  premiumCard: {
+  categoryBar: {
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+    paddingHorizontal: 10,
+  },
+  categoryTab: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    backgroundColor: '#f5f5f5',
+  },
+  categoryTabActive: {
+    backgroundColor: '#000',
+  },
+  categoryTabText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+  categoryTabTextActive: {
+    color: '#fff',
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333'
+  },
+  subcatSection: {
+    marginBottom: 30,
+  },
+  subcatTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 15,
+    color: '#111',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    padding: 15,
+    marginBottom: 15,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
-  premiumCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+  gridCardExpanded: {
+    width: '100%',
   },
-  providerBrandBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#FF5722',
+  gridCardTop: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  gridIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginBottom: 10,
   },
-  providerBrandText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+  gridIconText: {
+    fontSize: 26,
   },
-  providerInfo: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  providerDesc: {
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
-  },
-  badgeConnected: {
-    backgroundColor: '#e6ffe6',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  badgeTextConnected: {
-    color: '#008000',
-    fontSize: 12,
+  gridProviderName: {
+    fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
-  badgeNotConnected: {
-    backgroundColor: '#f2f2f7',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  badgeTextNotConnected: {
-    color: '#666',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  authContainer: {
-    marginTop: 5,
-  },
-  inputRow: {
-    flexDirection: 'row',
+  linkNowBtn: {
+    backgroundColor: '#000',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    width: '100%',
     alignItems: 'center',
   },
-  nativeInput: {
-    flex: 1,
+  linkNowText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  disconnectBtnSmall: {
+    backgroundColor: '#f8f8f8',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  disconnectBtnTextSmall: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  authContainer: {
+    width: '100%',
+    marginTop: 10,
+  },
+  inputCol: {
+    width: '100%',
+  },
+  nativeInputSmall: {
+    width: '100%',
     borderWidth: 1,
     borderColor: '#ddd',
     padding: 12,
     borderRadius: 8,
-    fontSize: 16,
-    marginRight: 10,
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  actionBtn: {
+  actionBtnSmall: {
     backgroundColor: '#000',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 100,
+    width: '100%',
+    marginBottom: 10,
   },
   actionBtnLoading: {
     backgroundColor: '#e0e0e0',
   },
-  actionBtnText: {
+  actionBtnTextSmall: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 14,
   },
-  disconnectBtnFull: {
-    backgroundColor: '#ff3b30',
-    padding: 15,
-    borderRadius: 8,
+  cancelBtnSmall: {
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  disconnectBtnTextFull: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+  cancelBtnText: {
+    color: '#888',
+    fontWeight: '600',
+    fontSize: 13,
   },
   bottomNav: {
     flexDirection: 'row',
