@@ -583,6 +583,10 @@ export default function App() {
             if (connectedProviders.includes(p.id)) return null;
             
             const isActive = activeLoginProvider === p.id;
+            // ONLY mount the WebView if this provider is actively selected by the user.
+            // Preloading all providers causes session/CSRF tokens to expire and wastes memory.
+            if (!isActive) return null;
+
             return (
                <LoginDriver 
                   key={p.id}
