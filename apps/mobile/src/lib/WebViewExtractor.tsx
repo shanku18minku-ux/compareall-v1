@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { getSwiggySearchInjection, getZomatoSearchInjection } from './extractors';
+// Extractor imports removed. Injections will be provided via props.
 
 export type ExtractionStatus = 'idle' | 'connecting' | 'extracting' | 'completed' | 'error';
 
@@ -12,6 +12,7 @@ interface WebViewExtractorProps {
   onDataExtracted: (data: any) => void;
   onError: (err: string) => void;
   isActive: boolean;
+  injectionScript?: string; // New prop for dynamic packets
 }
 
 /**
@@ -19,22 +20,15 @@ interface WebViewExtractorProps {
  * This acts as our "Browser Extension" on mobile, securely parsing DOM data directly 
  * on the user's device.
  */
-export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, providerId, onDataExtracted, onError, isActive }) => {
+export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, providerId, onDataExtracted, onError, isActive, injectionScript }) => {
   const webViewRef = useRef<WebView>(null);
   
-  // Get the appropriate injection script based on the provider
-  let injectedJavascript = '';
-  
-  if (providerId === 'food-a') {
-      injectedJavascript = getSwiggySearchInjection(url);
-  } else if (providerId === 'food-b') {
-      injectedJavascript = getZomatoSearchInjection(url);
-  } else {
-      injectedJavascript = `
-        window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: 'Unknown provider' }));
-        true;
-      `;
-  }
+  // Script provided dynamically by the packet driver
+  let injectedJavascript = injectionScript || `
+    window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: 'No extractor script provided' }));
+    true;
+  `;
+
 
   if (!isActive) return null;
 

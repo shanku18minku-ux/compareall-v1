@@ -1,2 +1,1 @@
-export * from './swiggy';
-export * from './zomato';
+// Extractor scripts removed for modular packet rewrite.
