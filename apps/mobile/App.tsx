@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
-import { LoginDriver } from './src/lib/LoginDriver';
+import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
@@ -29,6 +29,9 @@ export default function App() {
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [loginSteps, setLoginSteps] = useState<Record<string, 'idle' | 'sending_phone' | 'awaiting_otp' | 'sending_otp'>>({});
   
+  // Ref for imperative zero-latency injection
+  const driverRefs = useRef<Record<string, LoginDriverRef | null>>({});
+  
   // Google Auth State (Modal)
   const [googleAuthProvider, setGoogleAuthProvider] = useState<string | null>(null);
 
@@ -52,6 +55,8 @@ export default function App() {
       if (!phone || phone.length < 10) return;
       Vibration.vibrate(50);
       setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
+      // Synchronous bypass of React render loop for 0 latency
+      if (driverRefs.current[id]) driverRefs.current[id]?.submitPhone(phone);
   };
 
   const handleVerifyOtp = (id: string, overrideOtp?: string) => {
@@ -59,6 +64,8 @@ export default function App() {
       if (!otp || otp.length < 4) return;
       Vibration.vibrate(50);
       setLoginSteps(prev => ({...prev, [id]: 'sending_otp'}));
+      // Synchronous bypass of React render loop for 0 latency
+      if (driverRefs.current[id]) driverRefs.current[id]?.submitOtp(otp);
   };
 
   const handleSearch = () => {
@@ -120,6 +127,7 @@ export default function App() {
           return (
              <LoginDriver 
                 key={p.id}
+                ref={(el) => { driverRefs.current[p.id] = el; }}
                 providerId={p.id}
                 url={p.url}
                 phone={phoneInputs[p.id] || ''}

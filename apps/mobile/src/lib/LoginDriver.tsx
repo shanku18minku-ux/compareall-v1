@@ -1,8 +1,13 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 export type LoginStep = 'idle' | 'sending_phone' | 'awaiting_otp' | 'sending_otp' | 'success' | 'error';
+
+export interface LoginDriverRef {
+    submitPhone: (phoneVal: string) => void;
+    submitOtp: (otpVal: string) => void;
+}
 
 interface LoginDriverProps {
   providerId: string;
@@ -16,10 +21,25 @@ interface LoginDriverProps {
   onError: (msg: string) => void;
 }
 
-export const LoginDriver: React.FC<LoginDriverProps> = ({ 
+export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({ 
     providerId, url, phone, otp, triggerPhone, triggerOtp, onOtpRequested, onSuccess, onError 
-}) => {
+}, ref) => {
   const webViewRef = useRef<WebView>(null);
+
+  useImperativeHandle(ref, () => ({
+      submitPhone: (phoneVal: string) => {
+          if (webViewRef.current) {
+              const script = `window.dispatchEvent(new CustomEvent('NATIVE_ACTION', { detail: { type: 'PHONE', value: '${phoneVal}' } })); true;`;
+              webViewRef.current.injectJavaScript(script);
+          }
+      },
+      submitOtp: (otpVal: string) => {
+          if (webViewRef.current) {
+              const script = `window.dispatchEvent(new CustomEvent('NATIVE_ACTION', { detail: { type: 'OTP', value: '${otpVal}' } })); true;`;
+              webViewRef.current.injectJavaScript(script);
+          }
+      }
+  }));
 
   // When triggerPhone becomes true, we tell the WebView to execute the phone injection script
   useEffect(() => {
@@ -223,7 +243,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   hiddenContainer: {
