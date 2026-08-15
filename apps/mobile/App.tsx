@@ -52,8 +52,8 @@ export default function App() {
       setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
   };
 
-  const handleVerifyOtp = (id: string) => {
-      const otp = otpInputs[id];
+  const handleVerifyOtp = (id: string, overrideOtp?: string) => {
+      const otp = overrideOtp || otpInputs[id];
       if (!otp || otp.length < 4) return;
       setLoginSteps(prev => ({...prev, [id]: 'sending_otp'}));
   };
@@ -108,27 +108,36 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hidden OTP Automation Driver */}
-      {activeLoginProvider && PROVIDERS.find(p => p.id === activeLoginProvider)?.authType !== 'google' && (
-          <LoginDriver 
-             providerId={activeLoginProvider}
-             url={PROVIDERS.find(p => p.id === activeLoginProvider)?.url || ''}
-             phone={phoneInputs[activeLoginProvider] || ''}
-             otp={otpInputs[activeLoginProvider] || ''}
-             triggerPhone={loginSteps[activeLoginProvider] === 'sending_phone'}
-             triggerOtp={loginSteps[activeLoginProvider] === 'sending_otp'}
-             onOtpRequested={() => setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'awaiting_otp'}))}
-             onSuccess={() => {
-                 setConnectedProviders(prev => [...prev, activeLoginProvider]);
-                 setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'idle'}));
-                 setActiveLoginProvider(null);
-             }}
-             onError={(msg) => {
-                 console.log('Login error:', msg);
-                 setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'idle'}));
-             }}
-          />
-      )}
+      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
+      {PROVIDERS.map(p => {
+          if (p.authType === 'google') return null;
+          if (connectedProviders.includes(p.id)) return null;
+          
+          const isActive = activeLoginProvider === p.id;
+          return (
+             <LoginDriver 
+                key={p.id}
+                providerId={p.id}
+                url={p.url}
+                phone={phoneInputs[p.id] || ''}
+                otp={otpInputs[p.id] || ''}
+                triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
+                triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
+                onOtpRequested={() => {
+                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
+                }}
+                onSuccess={() => {
+                   setConnectedProviders(prev => [...prev, p.id]);
+                   setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                   if (isActive) setActiveLoginProvider(null);
+                }}
+                onError={(msg) => {
+                   console.log('Login error:', msg);
+                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                }}
+             />
+          );
+      })}
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
@@ -288,7 +297,13 @@ export default function App() {
                                                               placeholder="Enter OTP"
                                                               keyboardType="number-pad"
                                                               value={otpInputs[provider.id] || ''}
-                                                              onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
+                                                              onChangeText={(t) => {
+                                                                  setOtpInputs(prev => ({...prev, [provider.id]: t}));
+                                                                  // Auto-verify when 6 digits are typed to save manual click time
+                                                                  if (t.length === 6) {
+                                                                      handleVerifyOtp(provider.id, t);
+                                                                  }
+                                                              }}
                                                               editable={currentStep === 'awaiting_otp'}
                                                            />
                                                            <TouchableOpacity 
