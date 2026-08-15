@@ -28,21 +28,23 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
       - name: Install Dependencies
         run: |
           cd apps/mobile
           npm install --legacy-peer-deps
 
-      - name: Run EAS Build (Local APK)
+      - name: Expo Prebuild
         run: |
           cd apps/mobile
-          eas build -p android --profile preview --local --non-interactive
+          npx expo prebuild --platform android --clean
+
+      - name: Build APK with Gradle
+        run: |
+          cd apps/mobile/android
+          ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CompareAll-Native-App.apk
-          path: apps/mobile/build/*.apk
+          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
