@@ -116,6 +116,8 @@ export default function App() {
      if (!location || !location.name) return PROVIDERS;
      const locName = location.name.toLowerCase();
      return PROVIDERS.filter(p => {
+         // If no regions defined, show everywhere (default to 'all')
+         if (!p.regions || p.regions.length === 0) return true;
          if (p.regions.includes('all')) return true;
          return p.regions.some(region => locName.includes(region));
      });

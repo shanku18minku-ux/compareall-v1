@@ -29,6 +29,7 @@ export interface PlatformMetadata {
   loginUrl: string;
   desc: string;
   authType?: 'otp' | 'google' | 'both';
+  regions?: string[]; // 'all' for everywhere, or list of city/region keywords
 }
 
 export interface PlatformPacket {

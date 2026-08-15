@@ -13,7 +13,8 @@ export const swiggyPacket: PlatformPacket = {
     url: 'https://www.swiggy.com',
     loginUrl: 'https://www.swiggy.com',
     desc: 'Local packet handles OTP safely.',
-    authType: 'otp'
+    authType: 'otp',
+    regions: ['all'],
   },
 
   connect: async () => {

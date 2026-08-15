@@ -106,15 +106,45 @@ export const getSwiggyLoginScript = () => `
         });
     }
 
-    // Monitor for success (URL changes or user menu appears)
+    function checkIfLoggedIn() {
+        // Check 1: User name span appears
+        var userSpan = document.querySelector('span.global-nav__name, div[class*="user-name"], span[class*="user-name"]');
+        if (userSpan && userSpan.textContent.trim() !== '' && userSpan.textContent.trim() !== 'Sign In') {
+            return true;
+        }
+        // Check 2: Logout/account link appears in nav
+        var allLinks = document.querySelectorAll('a, button, span');
+        for (var i = 0; i < allLinks.length; i++) {
+            var t = allLinks[i].textContent.trim().toLowerCase();
+            if (t === 'logout' || t === 'my account' || t === 'sign out') return true;
+        }
+        // Check 3: URL contains account/profile/home indicating post-login
+        if (window.location.href.includes('/profile') || 
+            window.location.href.includes('/my-account') ||
+            document.cookie.includes('tid=') ||
+            document.cookie.includes('_session_tid')) {
+            return true;
+        }
+        return false;
+    }
+
+    // Monitor for success via MutationObserver + periodic check
     __ca_observer = new MutationObserver(function() {
-        var userSpan = document.querySelector('span.global-nav__name');
-        if (userSpan && userSpan.textContent.trim() !== 'Sign In') {
+        if (checkIfLoggedIn()) {
             safePost({ type: 'SUCCESS' });
             __ca_observer.disconnect();
         }
     });
     __ca_observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Also poll every 1s as fallback (MutationObserver can miss some changes)
+    var successPoller = setInterval(function() {
+        if (checkIfLoggedIn()) {
+            safePost({ type: 'SUCCESS' });
+            clearInterval(successPoller);
+            if (__ca_observer) __ca_observer.disconnect();
+        }
+    }, 1000);
 
     window.addEventListener('NATIVE_ACTION', function(e) {
         try {
