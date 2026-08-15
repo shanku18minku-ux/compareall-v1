@@ -12,7 +12,8 @@ export const swiggyPacket: PlatformPacket = {
     subcategory: 'Food Delivery',
     url: 'https://www.swiggy.com',
     loginUrl: 'https://www.swiggy.com',
-    desc: 'Local packet handles OTP safely.'
+    desc: 'Local packet handles OTP safely.',
+    authType: 'otp'
   },
 
   connect: async () => {

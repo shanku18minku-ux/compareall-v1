@@ -28,6 +28,7 @@ export interface PlatformMetadata {
   url: string;
   loginUrl: string;
   desc: string;
+  authType?: 'otp' | 'google' | 'both';
 }
 
 export interface PlatformPacket {
