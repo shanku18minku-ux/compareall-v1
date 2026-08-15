@@ -7,12 +7,12 @@ import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', authType: 'otp', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.', regions: ['all'] },
-  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', authType: 'both', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.', regions: ['all'] },
-  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', authType: 'google', url: 'https://www.ecatering.irctc.co.in', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
-  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', authType: 'otp', url: 'https://www.zoopindia.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
-  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', authType: 'both', url: 'https://www.railrestro.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
-  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', authType: 'google', url: 'https://www.travelkhana.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] }
+  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', authType: 'otp', url: 'https://www.swiggy.com', loginUrl: 'https://www.swiggy.com/login', desc: 'Account-specific menu and cart pricing is available.', regions: ['all'] },
+  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', authType: 'both', url: 'https://www.zomato.com', loginUrl: 'https://www.zomato.com/login', desc: 'Connect to see live menu and cart pricing.', regions: ['all'] },
+  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', authType: 'google', url: 'https://www.ecatering.irctc.co.in', loginUrl: 'https://www.ecatering.irctc.co.in/etcmobile/loginPage.aspx', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', authType: 'otp', url: 'https://www.zoopindia.com', loginUrl: 'https://www.zoopindia.com/login', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', authType: 'both', url: 'https://www.railrestro.com', loginUrl: 'https://www.railrestro.com/login', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', authType: 'google', url: 'https://www.travelkhana.com', loginUrl: 'https://www.travelkhana.com/login', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] }
 ];
 
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
@@ -199,7 +199,7 @@ export default function App() {
                 key={p.id}
                 ref={(el) => { driverRefs.current[p.id] = el; }}
                 providerId={p.id}
-                url={p.url}
+                url={p.loginUrl || p.url}
                 phone={phoneInputs[p.id] || ''}
                 otp={otpInputs[p.id] || ''}
                 triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}

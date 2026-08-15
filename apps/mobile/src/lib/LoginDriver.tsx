@@ -218,22 +218,19 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                function(phoneInput) {
                    simulateType(phoneInput, phoneValue);
                    
-                   // Step 3: Wait a tick then find and click the send OTP button
-                   setTimeout(function() {
-                       // For Zomato: re-check disabled state after React re-render
-                       var attempts = 0;
-                       var findAndClick = setInterval(function() {
-                           attempts++;
-                           if (attempts > 20) { clearInterval(findAndClick); return; }
-                           
-                           var btn = findSendOtpButton();
-                           if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
-                               clearInterval(findAndClick);
-                               clickElement(btn);
-                               window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
-                           }
-                       }, 100); // Check every 100ms for 2 seconds max
-                   }, 200);
+                   // Poll every 50ms for maximum speed — no artificial wait
+                   var attempts = 0;
+                   var findAndClick = setInterval(function() {
+                       attempts++;
+                       if (attempts > 40) { clearInterval(findAndClick); return; }
+                       
+                       var btn = findSendOtpButton();
+                       if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
+                           clearInterval(findAndClick);
+                           clickElement(btn);
+                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                       }
+                   }, 50); // 50ms = ultra-fast
                }
            );
        }
@@ -265,14 +262,14 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    var verifyAttempts = 0;
                    var findVerify = setInterval(function() {
                        verifyAttempts++;
-                       if (verifyAttempts > 30) { clearInterval(findVerify); return; }
+                       if (verifyAttempts > 60) { clearInterval(findVerify); return; }
                        
                        var btn = findOtpSubmitButton();
                        if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
                            clearInterval(findVerify);
-                           setTimeout(function() { clickElement(btn); }, 50);
+                           setTimeout(function() { clickElement(btn); }, 30);
                        }
-                   }, 100);
+                   }, 50); // 50ms polling = instant reaction
                }
            );
        }
@@ -289,14 +286,15 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        });
 
        // ─── PRE-EMPTIVE LOGIN DRAWER OPEN ─────────────────────────────
-       setTimeout(function() {
+       // Try immediately and also after a short wait (no artificial delay)
+       (function tryOpenLogin() {
            var loginOpeners = Array.from(document.querySelectorAll('a, span, div, button, [role="button"]'));
            var loginBtn = loginOpeners.find(function(el) {
                var t = (el.textContent || '').trim().toLowerCase();
                return t === 'login' || t === 'sign in' || t === 'log in';
            });
            if (loginBtn) clickElement(loginBtn);
-       }, 500);
+       })();
 
        // ─── NETWORK INTERCEPTOR: Lightning speed success detection ─────
        var origFetch = window.fetch;
