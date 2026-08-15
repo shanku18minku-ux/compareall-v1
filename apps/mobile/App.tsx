@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
+import * as Clipboard from 'expo-clipboard';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
@@ -137,6 +138,47 @@ export default function App() {
       // Synchronous bypass of React render loop for 0 latency
       if (driverRefs.current[id]) driverRefs.current[id]?.submitOtp(otp);
   };
+
+  // ─── PHASE 1: Clipboard OTP Auto-Read ──────────────────────────────────────
+  // Polls clipboard every 500ms when waiting for OTP.
+  // Android auto-suggests OTPs from SMS → user taps suggestion → clipboard has OTP
+  // → our app auto-reads, auto-fills, auto-verifies. Zero manual typing needed!
+  useEffect(() => {
+    // Find any provider currently waiting for OTP
+    const waitingId = Object.entries(loginSteps).find(
+      ([, step]) => step === 'awaiting_otp'
+    )?.[0];
+
+    if (!waitingId) return; // Nobody is waiting for OTP, no need to poll
+
+    let lastClipboardValue = '';
+    const interval = setInterval(async () => {
+      try {
+        const text = await Clipboard.getStringAsync();
+        if (!text || text === lastClipboardValue) return;
+        lastClipboardValue = text;
+
+        // Extract only digits
+        const digits = text.replace(/\D/g, '');
+
+        // Valid OTP: 4 to 8 digits only
+        if (digits.length >= 4 && digits.length <= 8) {
+          const otp = digits.slice(0, 6); // Take first 6 digits
+          clearInterval(interval);
+          // Auto-fill OTP in UI
+          setOtpInputs(prev => ({...prev, [waitingId]: otp}));
+          // Auto-verify immediately
+          handleVerifyOtp(waitingId, otp);
+          Vibration.vibrate([0, 30, 50, 30]); // Double vibrate = auto-detected!
+        }
+      } catch (_) {
+        // Clipboard read failed silently (permission denied etc.)
+      }
+    }, 500);
+
+    return () => clearInterval(interval); // Cleanup when OTP state changes
+  }, [loginSteps]);
+  // ───────────────────────────────────────────────────────────────────────────
 
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
@@ -405,16 +447,18 @@ export default function App() {
                                                         <View style={styles.inputCol}>
                                                            <TextInput 
                                                               style={styles.nativeInputSmall}
-                                                              placeholder="Enter OTP"
+                                                              placeholder="OTP (auto-detects from SMS)"
                                                               keyboardType="number-pad"
                                                               autoFocus={true}
                                                               autoComplete="one-time-code"
                                                               textContentType="oneTimeCode"
                                                               value={otpInputs[provider.id] || ''}
                                                               onChangeText={(t) => {
-                                                                  setOtpInputs(prev => ({...prev, [provider.id]: t}));
-                                                                  if (t.length === 6) {
-                                                                      handleVerifyOtp(provider.id, t);
+                                                                  const cleaned = t.replace(/\D/g, '');
+                                                                  setOtpInputs(prev => ({...prev, [provider.id]: cleaned}));
+                                                                  // Auto-verify on 4-digit (Zomato) or 6-digit (Swiggy)
+                                                                  if (cleaned.length === 4 || cleaned.length === 6) {
+                                                                      handleVerifyOtp(provider.id, cleaned);
                                                                   }
                                                               }}
                                                               editable={currentStep === 'awaiting_otp'}
