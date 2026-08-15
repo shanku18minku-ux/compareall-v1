@@ -130,6 +130,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                }
                
                if (action.type === 'OTP') {
+                   window.__OTP_SUBMITTED = true; // Mark as submitted so interceptor allows SUCCESS
                    // 1. Wait for OTP Inputs
                    waitForElement(
                        () => {
@@ -168,13 +169,15 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            }
        });
 
+       window.__OTP_SUBMITTED = false;
+       
        // Network Interceptor for Lightning Speed Success Detection
        // Bypasses DOM rendering delay by listening directly to API responses
        const origFetch = window.fetch;
        window.fetch = async function(...args) {
            const res = await origFetch.apply(this, args);
            const url = String(args[0]).toLowerCase();
-           if ((url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth')) && res.ok) {
+           if (window.__OTP_SUBMITTED && (url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth') || url.includes('graphql')) && res.ok) {
                try {
                    const clone = res.clone();
                    const text = await clone.text();
@@ -191,7 +194,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            this.addEventListener('load', function() {
                if (this.status >= 200 && this.status < 300) {
                    const u = String(url).toLowerCase();
-                   if (u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth')) {
+                   if (window.__OTP_SUBMITTED && (u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('graphql'))) {
                        try {
                            const text = this.responseText;
                            if (text.includes('"token"') || text.includes('success":true') || text.includes('"userId"') || text.includes('user_id') || text.includes('"account"')) {
@@ -207,9 +210,13 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        // Global success checker fallback (checks every 50ms for ultra-fast DOM fallback)
        setInterval(() => {
            if (!document.body) return; // Prevent crash before body is loaded
-           const html = document.body.innerText.toLowerCase();
+           // IMPORTANT: Do NOT use innerText. It triggers layout reflows and lags the UI thread by 100ms+. Use textContent.
+           const html = document.body.textContent.toLowerCase();
            if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
-               window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+               // Only trigger success if the user actually submitted OTP, or if a clear logout button exists in DOM
+               if (window.__OTP_SUBMITTED || document.querySelector('a[href*="logout"], button[id*="logout"]')) {
+                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+               }
            }
        }, 50);
     })();
