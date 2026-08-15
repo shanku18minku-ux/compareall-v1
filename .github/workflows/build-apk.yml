@@ -28,7 +28,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Create Gradle Init Script (fix repo resolution for included builds)
+      - name: Create Gradle Init Script (fix repo resolution + force gson version)
         run: |
           mkdir -p ~/.gradle/init.d
           cat > ~/.gradle/init.d/fix-repos.gradle << 'GRADLE_EOF'
@@ -52,7 +52,7 @@ jobs:
               resolutionStrategy.eachDependency { DependencyResolveDetails details ->
                 if (details.requested.group == 'com.google.code.gson' && details.requested.name == 'gson') {
                   details.useVersion '2.10.1'
-                  details.because 'gson 2.9.1 is unavailable, use 2.10.1 instead'
+                  details.because 'gson 2.9.1 unavailable on Maven Central'
                 }
               }
             }
@@ -73,10 +73,21 @@ jobs:
       - name: Build Debug APK with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleDebug --no-daemon \
-            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g" \
-            -Dkotlin.daemon.jvm.options="-Xmx4g" \
-            --stacktrace
+          ./gradlew assembleDebug \
+            --no-daemon \
+            --no-parallel \
+            --no-configuration-cache \
+            --info \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8" \
+            -Dkotlin.daemon.jvm.options="-Xmx4g -XX:MaxMetaspaceSize=1g" \
+            2>&1 | tee /tmp/gradle-build.log ; exit ${PIPESTATUS[0]}
+
+      - name: Upload Build Log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log.txt
+          path: /tmp/gradle-build.log
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

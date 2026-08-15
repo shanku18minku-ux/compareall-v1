@@ -7,6 +7,7 @@ buildscript {
   repositories {
     google()
     mavenCentral()
+    maven { url 'https://www.jitpack.io' }
   }
   dependencies {
     classpath('com.android.tools.build:gradle')
@@ -20,6 +21,24 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+    maven { url 'https://maven.google.com' }
+  }
+}
+
+// Force jvmTarget=17 for all Kotlin compilation in all subprojects
+subprojects {
+  afterEvaluate {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+      kotlinOptions {
+        jvmTarget = "17"
+        suppressWarnings = true
+        freeCompilerArgs += [
+          "-Xskip-metadata-version-check",
+          "-opt-in=kotlin.RequiresOptIn",
+          "-Xallow-unstable-dependencies"
+        ]
+      }
+    }
   }
 }
 
