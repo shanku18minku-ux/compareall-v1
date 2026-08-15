@@ -153,14 +153,50 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
            }
        });
 
-       // Global success checker (checks every 500ms instead of 2000ms for faster detection)
+       // Network Interceptor for Lightning Speed Success Detection
+       // Bypasses DOM rendering delay by listening directly to API responses
+       const origFetch = window.fetch;
+       window.fetch = async function(...args) {
+           const res = await origFetch.apply(this, args);
+           const url = String(args[0]).toLowerCase();
+           if ((url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth')) && res.ok) {
+               try {
+                   const clone = res.clone();
+                   const text = await clone.text();
+                   if (text.includes('"token"') || text.includes('success":true') || text.includes('"userId"') || text.includes('user_id') || text.includes('"account"')) {
+                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                   }
+               } catch (e) {}
+           }
+           return res;
+       };
+
+       const origXHR = window.XMLHttpRequest.prototype.open;
+       window.XMLHttpRequest.prototype.open = function(method, url, ...args) {
+           this.addEventListener('load', function() {
+               if (this.status >= 200 && this.status < 300) {
+                   const u = String(url).toLowerCase();
+                   if (u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth')) {
+                       try {
+                           const text = this.responseText;
+                           if (text.includes('"token"') || text.includes('success":true') || text.includes('"userId"') || text.includes('user_id') || text.includes('"account"')) {
+                               window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                           }
+                       } catch(e) {}
+                   }
+               }
+           });
+           origXHR.call(this, method, url, ...args);
+       };
+
+       // Global success checker fallback (checks every 50ms for ultra-fast DOM fallback)
        setInterval(() => {
            if (!document.body) return; // Prevent crash before body is loaded
            const html = document.body.innerText.toLowerCase();
            if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
            }
-       }, 500);
+       }, 50);
     })();
     true;
   `;
