@@ -239,11 +239,32 @@ export default function App() {
                    javaScriptEnabled={true}
                    sharedCookiesEnabled={true}
                    thirdPartyCookiesEnabled={true}
+                   setBuiltInZoomControls={true}
+                   setDisplayZoomControls={false}
+                   scalesPageToFit={true}
                    userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
                    injectedJavaScript={`
+                      // Inject a viewport meta tag to force scaling if missing
+                      let meta = document.createElement('meta');
+                      meta.name = 'viewport';
+                      meta.content = 'width=1024, initial-scale=' + (window.innerWidth / 1024);
+                      document.head.appendChild(meta);
+
+                      // Try to auto-click the login button to help the user
+                      setTimeout(() => {
+                         const loginElements = Array.from(document.querySelectorAll('a, span, div, button'));
+                         const loginBtn = loginElements.find(el => {
+                            const text = (el.innerText || '').trim().toLowerCase();
+                            return text === 'login' || text === 'sign in' || text === 'log in';
+                         });
+                         if (loginBtn) {
+                             loginBtn.click();
+                         }
+                      }, 2000);
+
                       // Detect when user is logged in
                       setInterval(() => {
-                         // Very basic login detection: if there is a 'Logout' button, or a profile icon, or no 'Login' button
+                         // Very basic login detection
                          const html = document.body.innerText.toLowerCase();
                          if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
                              window.ReactNativeWebView.postMessage('LOGIN_SUCCESS');
