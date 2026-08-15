@@ -375,9 +375,16 @@ export default function App() {
                                                               textContentType="telephoneNumber"
                                                               value={phoneInputs[provider.id] || ''}
                                                               onChangeText={(t) => {
-                                                                  setPhoneInputs(prev => ({...prev, [provider.id]: t}));
-                                                                  if (t.length === 10) {
-                                                                      handleGetOtp(provider.id, t);
+                                                                  let cleaned = t.replace(/\D/g, '');
+                                                                  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+                                                                      cleaned = cleaned.substring(2);
+                                                                  } else if (cleaned.length > 10) {
+                                                                      cleaned = cleaned.substring(cleaned.length - 10);
+                                                                  }
+                                                                  
+                                                                  setPhoneInputs(prev => ({...prev, [provider.id]: cleaned}));
+                                                                  if (cleaned.length === 10) {
+                                                                      handleGetOtp(provider.id, cleaned);
                                                                   }
                                                               }}
                                                               editable={currentStep === 'idle'}
