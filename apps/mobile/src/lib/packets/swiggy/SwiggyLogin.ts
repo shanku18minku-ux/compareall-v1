@@ -99,6 +99,8 @@ export const getSwiggyLoginScript = () => `
     function fillPhone(phone) {
         function findPhoneInput() {
             return findEl([
+                'input#mobile',
+                'input[name="mobile"]',
                 'input[type="tel"]',
                 'input[inputmode="numeric"][placeholder*="mobile"]',
                 'input[inputmode="numeric"][placeholder*="Mobile"]',
@@ -117,15 +119,16 @@ export const getSwiggyLoginScript = () => `
         fastPoll(findPhoneInput, function(input) {
             simulateType(input, phone);
 
-            // Wait 300ms for React to process then find+click Continue
+            // Wait 500ms for React to process then find+click Continue (React validation can be slow)
             setTimeout(function() {
                 var continueBtn = findByText(
                     ['button', 'a', 'div[role="button"]', 'span'],
-                    ['Continue', 'GET OTP', 'Get OTP', 'SEND OTP', 'Send OTP', 'LOGIN', 'Login', 'NEXT', 'Next']
+                    ['LOGIN', 'Login', 'Continue', 'GET OTP', 'Get OTP', 'SEND OTP', 'Send OTP', 'NEXT', 'Next']
                 );
 
                 if (!continueBtn) {
                     continueBtn = findEl([
+                        'a.a-ayg',
                         'button[type="submit"]',
                         '[data-testid="continue-btn"]',
                         '[data-testid="login-submit"]',
@@ -144,7 +147,7 @@ export const getSwiggyLoginScript = () => `
                     input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, bubbles: true }));
                     safePost({ type: 'OTP_REQUESTED' });
                 }
-            }, 300);
+            }, 500);
         }, 10000);
     }
 
@@ -162,8 +165,8 @@ export const getSwiggyLoginScript = () => `
         // Strategy B: Single OTP input
         function findSingleOtpInput() {
             return findEl([
+                'input#otp',
                 'input[name="otp"]',
-                'input[id="otp"]',
                 'input[placeholder*="OTP" i]',
                 'input[placeholder*="verification" i]',
                 'input[placeholder*="code" i]',
@@ -197,11 +200,12 @@ export const getSwiggyLoginScript = () => `
             setTimeout(function() {
                 var verifyBtn = findByText(
                     ['button', 'a', 'div[role="button"]', 'span'],
-                    ['Verify', 'VERIFY', 'Submit', 'SUBMIT', 'Confirm', 'CONFIRM', 'Done', 'DONE']
+                    ['VERIFY OTP', 'Verify OTP', 'Verify', 'VERIFY', 'Submit', 'SUBMIT', 'Confirm', 'CONFIRM', 'Done', 'DONE']
                 );
 
                 if (!verifyBtn) {
                     verifyBtn = findEl([
+                        'a:has-text("VERIFY OTP")',
                         'button[type="submit"]',
                         '[data-testid="verify-btn"]',
                         '[data-testid="otp-submit"]',
@@ -222,7 +226,7 @@ export const getSwiggyLoginScript = () => `
                         );
                     }
                 }
-            }, 300);
+            }, 500);
         }, 10000);
     }
 
