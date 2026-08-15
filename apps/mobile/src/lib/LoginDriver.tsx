@@ -148,12 +148,31 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            if (isZomato) {
                // Zomato mobile: red CTA button with class 'jRryuq' or 'gsVULG'
                btn = document.querySelector('.jRryuq, .gsVULG');
-               // Also try text-based (Zomato mobile says "Verify" or "Submit")
                if (!btn) {
                    var btns = Array.from(document.querySelectorAll('button, [class*="jRryuq"], [class*="gsVULG"]'));
                    btn = btns.find(function(el) {
                        var t = (el.textContent || '').trim().toLowerCase();
                        return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed';
+                   });
+               }
+           }
+
+           if (isSwiggy) {
+               // Swiggy mobile: orange CTA button (#FC8019)
+               var sbtns = Array.from(document.querySelectorAll('button'));
+               btn = sbtns.find(function(el) {
+                   if (el.disabled) return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'verify' || t === 'confirm' || t === 'submit' || t === 'proceed';
+               });
+               if (!btn) {
+                   sbtns.forEach(function(el) {
+                       if (btn || el.disabled) return;
+                       var bg = window.getComputedStyle(el).backgroundColor;
+                       // Swiggy orange: rgb(252,128,25) or rgb(255,102,0)
+                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)' || bg === 'rgb(240, 90, 40)') {
+                           btn = el;
+                       }
                    });
                }
            }
@@ -197,6 +216,25 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    });
                }
            }
+
+           if (isSwiggy) {
+               // Swiggy mobile: The orange primary CTA
+               var sbtns = Array.from(document.querySelectorAll('button'));
+               btn = sbtns.find(function(el) {
+                   if (el.disabled) return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed' || t === 'login';
+               });
+               if (!btn) {
+                   sbtns.forEach(function(el) {
+                       if (btn || el.disabled) return;
+                       var bg = window.getComputedStyle(el).backgroundColor;
+                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)' || bg === 'rgb(240, 90, 40)') {
+                           btn = el;
+                       }
+                   });
+               }
+           }
            
            if (!btn) {
                // Universal fallback
@@ -212,22 +250,22 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
        // ─── PHONE SUBMISSION FLOW ─────────────────────────────────────
        function handlePhone(phoneValue) {
-           // Step 1: For Zomato - aggressively poll for login button
-           // Zomato's home page shows a "Log in" link in the top navigation
-           if (isZomato) {
+           // For Zomato & Swiggy: aggressively poll for login button at 50ms
+           // Both load home page and show login in header nav
+           if (isZomato || isSwiggy) {
                var loginPollAttempts = 0;
                var loginPoll = setInterval(function() {
                    loginPollAttempts++;
-                   if (loginPollAttempts > 40) { clearInterval(loginPoll); }
-                   // Zomato header login link
+                   if (loginPollAttempts > 60) { clearInterval(loginPoll); }
                    var allLinks = Array.from(document.querySelectorAll('a, button, [role="button"], span, div'));
-                   var zLoginBtn = allLinks.find(function(el) {
+                   var loginBtn = allLinks.find(function(el) {
                        var t = (el.textContent || '').trim().toLowerCase();
-                       return t === 'log in' || t === 'login' || t === 'sign in';
+                       // Zomato: "Log in", Swiggy: "Sign In" or "Login"
+                       return t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin';
                    });
-                   if (zLoginBtn) {
+                   if (loginBtn) {
                        clearInterval(loginPoll);
-                       clickElement(zLoginBtn);
+                       clickElement(loginBtn);
                    }
                }, 50);
            } else {
