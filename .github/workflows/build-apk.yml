@@ -28,7 +28,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Root)
+        run: npm install --legacy-peer-deps
+
+      - name: Install Dependencies (Mobile)
         run: |
           cd apps/mobile
           npm install --legacy-peer-deps
@@ -38,13 +41,16 @@ jobs:
           cd apps/mobile
           npx expo prebuild --platform android --clean
 
-      - name: Build APK with Gradle
+      - name: Make gradlew executable
+        run: chmod +x apps/mobile/android/gradlew
+
+      - name: Build Debug APK with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CompareAll-Native-App.apk
-          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          name: CompareAll-Debug.apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
