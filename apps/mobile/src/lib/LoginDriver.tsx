@@ -109,10 +109,12 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                        },
                        (phoneInput) => {
                            // Set value
+                           phoneInput.focus();
                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
                            nativeInputValueSetter.call(phoneInput, action.value);
                            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
                            phoneInput.dispatchEvent(new Event('change', { bubbles: true }));
+                           phoneInput.blur();
                            
                            // 3. Wait for Submit Button
                            waitForElement(
@@ -124,9 +126,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                                (submitBtn) => {
                                    // Give the React app 50ms to settle its state before clicking, some SPAs drop clicks if done instantly on enable
                                    setTimeout(() => {
-                                       submitBtn.click();
+                                       (submitBtn.closest('button') || submitBtn).click();
                                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
-                                   }, 50);
+                                   }, 150);
                                }
                            );
                        }
@@ -145,14 +147,18 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                            if (inputs.length === 6) {
                                const digits = action.value.split('');
                                inputs.forEach((inp, idx) => {
+                                   inp.focus();
                                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
                                    nativeInputValueSetter.call(inp, digits[idx] || '');
                                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                                   inp.blur();
                                });
                            } else if (inputs.length > 0) {
+                               inputs[0].focus();
                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
                                nativeInputValueSetter.call(inputs[0], action.value);
                                inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+                               inputs[0].blur();
                            }
 
                            // 2. Wait for Verify Button
@@ -164,8 +170,8 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                                }),
                                (verifyBtn) => {
                                    setTimeout(() => {
-                                       verifyBtn.click();
-                                   }, 50);
+                                       (verifyBtn.closest('button') || verifyBtn).click();
+                                   }, 150);
                                }
                            );
                        }
