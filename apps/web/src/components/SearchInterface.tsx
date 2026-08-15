@@ -22,6 +22,7 @@ export default function SearchInterface() {
   const { isHydrated, history, location, wishlist, connections, actions } = useStorage();
   
   const [activeTab, setActiveTab] = useState('all');
+  const [activeTravelSubTab, setActiveTravelSubTab] = useState('local');
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<GroupedResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -111,7 +112,7 @@ export default function SearchInterface() {
           body: JSON.stringify({ 
             query: termToSearch || searchTerm, 
             sortOrder: newSortOrder || sortOrder,
-            filters: { ...newFilters, ...filters, category: activeTab !== 'all' ? activeTab : undefined }, // Pass activeTab hint
+            filters: { ...newFilters, ...filters, category: activeTab !== 'all' ? activeTab : undefined, subCategory: activeTab === 'travel' ? activeTravelSubTab : undefined }, // Pass activeTab hint
             location: location,
             connectedProviders: connectedIds
           })
@@ -229,6 +230,33 @@ export default function SearchInterface() {
             </button>
           ))}
         </div>
+        
+        {/* Travel Subtabs */}
+        {activeTab === 'travel' && (
+          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', marginBottom: '1.5rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="hide-scrollbar">
+            {['local', 'outstation', 'stay', 'tour'].map(subtab => (
+              <button
+                key={subtab}
+                onClick={() => setActiveTravelSubTab(subtab)}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '24px',
+                  border: activeTravelSubTab === subtab ? '1px solid #171717' : '1px solid #e5e7eb',
+                  background: activeTravelSubTab === subtab ? '#171717' : '#ffffff',
+                  color: activeTravelSubTab === subtab ? '#ffffff' : '#4b5563',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  textTransform: 'capitalize',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  boxShadow: activeTravelSubTab === subtab ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                {subtab}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
 
