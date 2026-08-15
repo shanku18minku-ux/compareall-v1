@@ -117,12 +117,16 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                            // 3. Wait for Submit Button
                            waitForElement(
                                () => Array.from(document.querySelectorAll('button, a, div[role="button"], span')).reverse().find(el => {
+                                   if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled') || el.classList.contains('inactive')) return false;
                                    const t = (el.textContent || '').trim().toLowerCase();
                                    return t === 'login' || t === 'continue' || t.includes('send one') || t.includes('send otp') || t.includes('get otp') || t === 'next';
                                }),
                                (submitBtn) => {
-                                   submitBtn.click();
-                                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                                   // Give the React app 50ms to settle its state before clicking, some SPAs drop clicks if done instantly on enable
+                                   setTimeout(() => {
+                                       submitBtn.click();
+                                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                                   }, 50);
                                }
                            );
                        }
@@ -154,11 +158,14 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                            // 2. Wait for Verify Button
                            waitForElement(
                                () => Array.from(document.querySelectorAll('button, span, a')).find(el => {
+                                   if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled') || el.classList.contains('inactive')) return false;
                                    const t = (el.textContent || '').trim().toLowerCase();
                                    return t === 'verify' || t === 'submit' || t === 'confirm';
                                }),
                                (verifyBtn) => {
-                                   verifyBtn.click();
+                                   setTimeout(() => {
+                                       verifyBtn.click();
+                                   }, 50);
                                }
                            );
                        }
