@@ -206,7 +206,14 @@ export default function SearchInterface() {
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
-              onClick={() => { setActiveTab(cat.id); setResults([]); }}
+              onClick={() => { 
+                setActiveTab(cat.id); 
+                if (searchTerm.trim()) {
+                  handleSearch(undefined, searchTerm, sortOrder, { ...filters, category: cat.id !== 'all' ? cat.id : undefined, subCategory: cat.id === 'travel' ? activeTravelSubTab : undefined });
+                } else {
+                  setResults([]); 
+                }
+              }}
               style={{
                 padding: '1.5rem 1rem',
                 borderRadius: '16px',
@@ -237,7 +244,12 @@ export default function SearchInterface() {
             {['local', 'outstation', 'stay', 'tour'].map(subtab => (
               <button
                 key={subtab}
-                onClick={() => setActiveTravelSubTab(subtab)}
+                onClick={() => {
+                  setActiveTravelSubTab(subtab);
+                  if (searchTerm.trim()) {
+                    handleSearch(undefined, searchTerm, sortOrder, { ...filters, category: 'travel', subCategory: subtab });
+                  }
+                }}
                 style={{
                   padding: '0.5rem 1.25rem',
                   borderRadius: '24px',
