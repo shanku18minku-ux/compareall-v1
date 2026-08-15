@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 
@@ -39,6 +40,66 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
+
+  // Location State
+  const [location, setLocation] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
+  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
+  const [manualLocationInput, setManualLocationInput] = useState('');
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  const fetchCurrentLocation = async () => {
+    setIsFetchingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access location was denied');
+        setIsFetchingLocation(false);
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+      const geocode = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      
+      let name = 'Unknown Location';
+      if (geocode && geocode.length > 0) {
+        const place = geocode[0];
+        name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
+      }
+
+      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
+      setIsLocationModalVisible(false);
+    } catch (error) {
+      alert('Error fetching location: ' + String(error));
+    }
+    setIsFetchingLocation(false);
+  };
+
+  const handleManualLocationSubmit = async () => {
+    if (!manualLocationInput.trim()) return;
+    setIsFetchingLocation(true);
+    try {
+      const results = await Location.geocodeAsync(manualLocationInput);
+      if (results && results.length > 0) {
+        const { latitude, longitude } = results[0];
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        
+        let name = manualLocationInput;
+        if (geocode && geocode.length > 0) {
+          const place = geocode[0];
+          name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
+        }
+        
+        setLocation({ latitude, longitude, name });
+        setIsLocationModalVisible(false);
+        setManualLocationInput('');
+      } else {
+        alert('Location not found');
+      }
+    } catch (error) {
+      alert('Error searching location: ' + String(error));
+    }
+    setIsFetchingLocation(false);
+  };
 
   // Disconnect logic
   const handleDisconnect = (id: string) => {
@@ -158,6 +219,13 @@ export default function App() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
+        <TouchableOpacity style={styles.locationBar} onPress={() => setIsLocationModalVisible(true)}>
+           <Text style={styles.locationIcon}>📍</Text>
+           <Text style={styles.locationText} numberOfLines={1}>
+              {location ? location.name : 'Select your location...'}
+           </Text>
+           <Text style={styles.locationChevron}>▼</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -436,6 +504,40 @@ export default function App() {
          </SafeAreaView>
       </Modal>
 
+      {/* Location Modal */}
+      <Modal visible={isLocationModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsLocationModalVisible(false)}>
+        <View style={styles.locModalOverlay}>
+          <View style={styles.locationModal}>
+            <View style={styles.locModalHeader}>
+              <Text style={styles.locModalTitle}>Select Location</Text>
+              <TouchableOpacity onPress={() => setIsLocationModalVisible(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity style={styles.autoDetectBtn} onPress={fetchCurrentLocation} disabled={isFetchingLocation}>
+              <Text style={styles.autoDetectText}>{isFetchingLocation ? 'Detecting...' : '📍 Use Current GPS Location'}</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.locOrText}>— OR —</Text>
+            
+            <View style={styles.manualLocationBox}>
+              <TextInput 
+                style={styles.manualInput} 
+                placeholder="Enter city or area name..." 
+                placeholderTextColor="#999"
+                value={manualLocationInput}
+                onChangeText={setManualLocationInput}
+                onSubmitEditing={handleManualLocationSubmit}
+              />
+              <TouchableOpacity style={styles.manualSubmitBtn} onPress={handleManualLocationSubmit} disabled={isFetchingLocation}>
+                <Text style={styles.manualSubmitText}>Go</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -450,11 +552,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     alignItems: 'center',
     paddingTop: 50,
+    paddingBottom: 15,
   },
   headerTitle: {
     color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  locationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+    maxWidth: '90%',
+  },
+  locationIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  locationText: {
+    color: '#ccc',
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  locationChevron: {
+    color: '#888',
+    fontSize: 10,
+    marginLeft: 6,
   },
   content: {
     flex: 1,
@@ -781,6 +908,72 @@ const styles = StyleSheet.create({
   },
   navTextActive: {
     color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  locModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  locationModal: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    minHeight: 300,
+  },
+  locModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  locModalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    color: '#888',
+    fontSize: 24,
+  },
+  autoDetectBtn: {
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  autoDetectText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  locOrText: {
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  manualLocationBox: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  manualInput: {
+    flex: 1,
+    backgroundColor: '#333',
+    color: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    marginRight: 10,
+  },
+  manualSubmitBtn: {
+    backgroundColor: '#4caf50',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  manualSubmitText: {
+    color: '#fff',
     fontWeight: 'bold',
   }
 });
