@@ -41,7 +41,7 @@ jobs:
       - name: Build APK with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
