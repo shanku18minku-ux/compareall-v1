@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
-  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' },
-  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', url: 'https://www.ecatering.irctc.co.in', desc: '' },
-  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', url: 'https://www.zoopindia.com', desc: '' },
-  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', url: 'https://www.railrestro.com', desc: '' },
-  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', url: 'https://www.travelkhana.com', desc: '' }
+  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', authType: 'otp', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
+  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', authType: 'both', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' },
+  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', authType: 'google', url: 'https://www.ecatering.irctc.co.in', desc: '' },
+  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', authType: 'otp', url: 'https://www.zoopindia.com', desc: '' },
+  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', authType: 'both', url: 'https://www.railrestro.com', desc: '' },
+  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', authType: 'google', url: 'https://www.travelkhana.com', desc: '' }
 ];
 
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
@@ -22,12 +23,15 @@ export default function App() {
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
   
-  // Native UI Login States
+  // Native UI Login States (OTP)
   const [activeLoginProvider, setActiveLoginProvider] = useState<string | null>(null);
   const [phoneInputs, setPhoneInputs] = useState<Record<string, string>>({});
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [loginSteps, setLoginSteps] = useState<Record<string, 'idle' | 'sending_phone' | 'awaiting_otp' | 'sending_otp'>>({});
   
+  // Google Auth State (Modal)
+  const [googleAuthProvider, setGoogleAuthProvider] = useState<string | null>(null);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -45,7 +49,6 @@ export default function App() {
   const handleGetOtp = (id: string) => {
       const phone = phoneInputs[id];
       if (!phone || phone.length < 10) return;
-      setActiveLoginProvider(id);
       setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
   };
 
@@ -105,7 +108,8 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {activeLoginProvider && (
+      {/* Hidden OTP Automation Driver */}
+      {activeLoginProvider && PROVIDERS.find(p => p.id === activeLoginProvider)?.authType !== 'google' && (
           <LoginDriver 
              providerId={activeLoginProvider}
              url={PROVIDERS.find(p => p.id === activeLoginProvider)?.url || ''}
@@ -244,58 +248,80 @@ export default function App() {
                                            style={styles.linkNowBtn} 
                                            onPress={() => {
                                               setActiveLoginProvider(provider.id);
-                                              setLoginSteps(prev => ({...prev, [provider.id]: 'idle'}));
+                                              if (provider.authType !== 'google') {
+                                                  setLoginSteps(prev => ({...prev, [provider.id]: 'idle'}));
+                                              }
                                            }}
                                         >
                                            <Text style={styles.linkNowText}>LINK NOW</Text>
                                         </TouchableOpacity>
                                      ) : (
                                         <View style={styles.authContainer}>
-                                            {currentStep === 'idle' || currentStep === 'sending_phone' ? (
-                                                <View style={styles.inputCol}>
-                                                   <TextInput 
-                                                      style={styles.nativeInputSmall}
-                                                      placeholder="Mobile number"
-                                                      keyboardType="phone-pad"
-                                                      value={phoneInputs[provider.id] || ''}
-                                                      onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
-                                                      editable={currentStep === 'idle'}
-                                                   />
-                                                   <TouchableOpacity 
-                                                      style={[styles.actionBtnSmall, currentStep === 'sending_phone' && styles.actionBtnLoading]}
-                                                      onPress={() => handleGetOtp(provider.id)}
-                                                      disabled={currentStep === 'sending_phone'}
-                                                   >
-                                                      {currentStep === 'sending_phone' ? (
-                                                          <ActivityIndicator size="small" color="#555" />
-                                                      ) : (
-                                                          <Text style={styles.actionBtnTextSmall}>Get OTP</Text>
-                                                      )}
-                                                   </TouchableOpacity>
-                                                </View>
-                                            ) : (
-                                                <View style={styles.inputCol}>
-                                                   <TextInput 
-                                                      style={styles.nativeInputSmall}
-                                                      placeholder="Enter OTP"
-                                                      keyboardType="number-pad"
-                                                      value={otpInputs[provider.id] || ''}
-                                                      onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
-                                                      editable={currentStep === 'awaiting_otp'}
-                                                   />
-                                                   <TouchableOpacity 
-                                                      style={[styles.actionBtnSmall, currentStep === 'sending_otp' && styles.actionBtnLoading]}
-                                                      onPress={() => handleVerifyOtp(provider.id)}
-                                                      disabled={currentStep === 'sending_otp'}
-                                                   >
-                                                      {currentStep === 'sending_otp' ? (
-                                                          <ActivityIndicator size="small" color="#555" />
-                                                      ) : (
-                                                          <Text style={styles.actionBtnTextSmall}>Verify</Text>
-                                                      )}
-                                                   </TouchableOpacity>
-                                                </View>
+                                            {(provider.authType === 'otp' || provider.authType === 'both') && (
+                                                <>
+                                                    {currentStep === 'idle' || currentStep === 'sending_phone' ? (
+                                                        <View style={styles.inputCol}>
+                                                           <TextInput 
+                                                              style={styles.nativeInputSmall}
+                                                              placeholder="Mobile number"
+                                                              keyboardType="phone-pad"
+                                                              value={phoneInputs[provider.id] || ''}
+                                                              onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
+                                                              editable={currentStep === 'idle'}
+                                                           />
+                                                           <TouchableOpacity 
+                                                              style={[styles.actionBtnSmall, currentStep === 'sending_phone' && styles.actionBtnLoading]}
+                                                              onPress={() => handleGetOtp(provider.id)}
+                                                              disabled={currentStep === 'sending_phone'}
+                                                           >
+                                                              {currentStep === 'sending_phone' ? (
+                                                                  <ActivityIndicator size="small" color="#555" />
+                                                              ) : (
+                                                                  <Text style={styles.actionBtnTextSmall}>Get OTP</Text>
+                                                              )}
+                                                           </TouchableOpacity>
+                                                        </View>
+                                                    ) : (
+                                                        <View style={styles.inputCol}>
+                                                           <TextInput 
+                                                              style={styles.nativeInputSmall}
+                                                              placeholder="Enter OTP"
+                                                              keyboardType="number-pad"
+                                                              value={otpInputs[provider.id] || ''}
+                                                              onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
+                                                              editable={currentStep === 'awaiting_otp'}
+                                                           />
+                                                           <TouchableOpacity 
+                                                              style={[styles.actionBtnSmall, currentStep === 'sending_otp' && styles.actionBtnLoading]}
+                                                              onPress={() => handleVerifyOtp(provider.id)}
+                                                              disabled={currentStep === 'sending_otp'}
+                                                           >
+                                                              {currentStep === 'sending_otp' ? (
+                                                                  <ActivityIndicator size="small" color="#555" />
+                                                              ) : (
+                                                                  <Text style={styles.actionBtnTextSmall}>Verify</Text>
+                                                              )}
+                                                           </TouchableOpacity>
+                                                        </View>
+                                                    )}
+                                                </>
                                             )}
+
+                                            {provider.authType === 'both' && (
+                                                <Text style={styles.orText}>- OR -</Text>
+                                            )}
+
+                                            {(provider.authType === 'google' || provider.authType === 'both') && (
+                                                <TouchableOpacity 
+                                                   style={styles.googleBtn}
+                                                   onPress={() => {
+                                                       setGoogleAuthProvider(provider.id);
+                                                   }}
+                                                >
+                                                   <Text style={styles.googleBtnText}>Continue with Google</Text>
+                                                </TouchableOpacity>
+                                            )}
+
                                             <TouchableOpacity style={styles.cancelBtnSmall} onPress={() => setActiveLoginProvider(null)}>
                                                <Text style={styles.cancelBtnText}>Cancel</Text>
                                             </TouchableOpacity>
@@ -315,19 +341,59 @@ export default function App() {
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={[styles.navItem, activeTab === 'Search' && styles.navItemActive]}
-          onPress={() => setActiveTab('Search')}
-        >
-          <Text style={[styles.navText, activeTab === 'Search' && styles.navTextActive]}>🔍 Search</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
+          <Text style={styles.navIcon}>🔍</Text>
+          <Text style={[styles.navText, activeTab === 'Search' && styles.navTextActive]}>Search</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navItem, activeTab === 'Connections' && styles.navItemActive]}
-          onPress={() => setActiveTab('Connections')}
-        >
-          <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>🔗 Connections</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Connections')}>
+          <Text style={styles.navIcon}>🔗</Text>
+          <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>Connections</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Google Auth Modal */}
+      <Modal
+         visible={googleAuthProvider !== null}
+         animationType="slide"
+         onRequestClose={() => setGoogleAuthProvider(null)}
+      >
+         <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+            <View style={styles.modalHeader}>
+               <Text style={styles.modalTitle}>Sign In</Text>
+               <TouchableOpacity onPress={() => setGoogleAuthProvider(null)} style={styles.modalCloseBtn}>
+                  <Text style={styles.modalCloseText}>Cancel</Text>
+               </TouchableOpacity>
+            </View>
+            {googleAuthProvider && (
+               <WebView 
+                  source={{ uri: PROVIDERS.find(p => p.id === googleAuthProvider)?.url || 'https://google.com' }}
+                  style={{flex: 1}}
+                  thirdPartyCookiesEnabled={true}
+                  userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+                  injectedJavaScript={`
+                      // Basic logic: if we land on the provider's logged-in page, send SUCCESS message
+                      window.addEventListener('load', () => {
+                          // Very basic check, in production you'd use a better indicator
+                          if (document.cookie.includes('session') || document.body.innerText.toLowerCase().includes('logout')) {
+                              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'GOOGLE_SUCCESS' }));
+                          }
+                      });
+                      true;
+                  `}
+                  onMessage={(event) => {
+                      try {
+                          const data = JSON.parse(event.nativeEvent.data);
+                          if (data.type === 'GOOGLE_SUCCESS') {
+                              setConnectedProviders(prev => [...prev, googleAuthProvider]);
+                              setGoogleAuthProvider(null);
+                          }
+                      } catch (e) {}
+                  }}
+               />
+            )}
+         </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -606,25 +672,70 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
+  orText: {
+    textAlign: 'center',
+    marginVertical: 10,
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  googleBtn: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd'
+  },
+  googleBtnText: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff'
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold'
+  },
+  modalCloseBtn: {
+    padding: 5
+  },
+  modalCloseText: {
+    color: '#ff3b30',
+    fontWeight: '600'
+  },
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderColor: '#ddd',
-    paddingBottom: 20,
+    borderTopColor: '#e0e0e0',
+    paddingBottom: 25,
+    paddingTop: 10,
   },
   navItem: {
     flex: 1,
-    padding: 15,
     alignItems: 'center',
+    paddingVertical: 10,
   },
-  navItemActive: {
-    borderTopWidth: 3,
-    borderColor: '#007AFF',
+  navIcon: {
+    fontSize: 20,
+    marginBottom: 4,
   },
   navText: {
+    fontSize: 12,
     color: '#888',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   navTextActive: {
     color: '#007AFF',
