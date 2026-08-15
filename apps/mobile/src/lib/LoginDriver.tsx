@@ -81,13 +81,22 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        // ── Simulate typing into React-controlled input ─────────────────
        function simulateType(input, value) {
            input.focus();
+           // Bypass React controlled input
            var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
            nativeSetter.call(input, value);
+           // Fire all events React + vanilla JS listens to
            input.dispatchEvent(new Event('focus',  { bubbles: true }));
            input.dispatchEvent(new Event('input',  { bubbles: true }));
            input.dispatchEvent(new Event('change', { bubbles: true }));
-           input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-           input.dispatchEvent(new KeyboardEvent('keyup',   { bubbles: true }));
+           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+           input.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', bubbles: true }));
+           // CRITICAL for Swiggy: blur triggers form validation which ENABLES the Continue button
+           input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+           // Re-focus after blur so it feels natural
+           setTimeout(function() {
+               input.dispatchEvent(new Event('input',  { bubbles: true }));
+               input.dispatchEvent(new Event('change', { bubbles: true }));
+           }, 50);
        }
 
        // ── Fill split OTP boxes ────────────────────────────────────────
@@ -154,29 +163,54 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        // SELECTORS
        // ================================================================
 
-       function findLoginHeaderButton() {
-           var all = Array.from(document.querySelectorAll('a, button, [role="button"], span, p, li'));
-           return all.find(function(el) {
-               var t = (el.textContent || '').trim().toLowerCase();
-               return (t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin') && t.length <= 10;
-           }) || null;
-       }
+        function findLoginHeaderButton() {
+            // Try exact text match first (fastest)
+            var all = Array.from(document.querySelectorAll('a, button, [role="button"], span, p, li, div'));
+            var exact = all.find(function(el) {
+                var t = (el.textContent || '').trim().toLowerCase();
+                return (t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin') && t.length <= 12;
+            });
+            if (exact) return exact;
 
-       function findPhoneInput() {
-           var sel = [
-               'input[type="tel"]:not([maxlength="1"])',
-               'input[name="mobile"]',
-               'input[name="phone"]',
-               'input[name="mobileNumber"]',
-               'input[placeholder*="mobile" i]',
-               'input[placeholder*="phone" i]',
-               'input[placeholder*="number" i]',
-               'input[placeholder*="10 digit" i]',
-               'input[placeholder*="enter mobile" i]',
-               'input[maxlength="10"]'
-           ].join(',');
-           return document.querySelector(sel) || null;
-       }
+            // Partial text match fallback (for buttons with icon + text)
+            var partial = all.find(function(el) {
+                var t = (el.textContent || '').trim().toLowerCase();
+                // Swiggy sometimes has icon glyphs before text, so use includes
+                return (t.includes('sign in') || t.includes('log in') || t.includes('login')) && t.length <= 30;
+            });
+            return partial || null;
+        }
+
+        function findPhoneInput() {
+            // Priority order — most specific to most generic
+            var candidates = [
+                // Swiggy uses inputmode=numeric with type=text (NOT type=tel!)
+                'input[inputmode="numeric"]:not([maxlength="1"])',
+                'input[inputmode="decimal"]:not([maxlength="1"])',
+                // Standard tel type
+                'input[type="tel"]:not([maxlength="1"])',
+                // Name-based (very reliable)
+                'input[name="mobile"]',
+                'input[name="phone"]',
+                'input[name="mobileNumber"]',
+                'input[name="phoneNumber"]',
+                'input[name="number"]',
+                // Placeholder-based
+                'input[placeholder*="mobile" i]',
+                'input[placeholder*="phone" i]',
+                'input[placeholder*="10 digit" i]',
+                'input[placeholder*="enter mobile" i]',
+                'input[placeholder*="enter your mobile" i]',
+                // maxlength=10 (phone numbers are 10 digits)
+                'input[maxlength="10"]',
+                'input[maxlength="11"]'
+            ];
+            for (var i = 0; i < candidates.length; i++) {
+                var el = document.querySelector(candidates[i]);
+                if (el && el.offsetParent !== null) return el; // must be visible
+            }
+            return null;
+        }
 
        function findSendOtpButton() {
            var btn = null;
