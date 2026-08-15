@@ -20,23 +20,22 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
     providerId, url, phone, otp, triggerPhone, triggerOtp, onOtpRequested, onSuccess, onError 
 }) => {
   const webViewRef = useRef<WebView>(null);
-  const [isLoaded, setIsLoaded] = React.useState(false);
 
   // When triggerPhone becomes true, we tell the WebView to execute the phone injection script
   useEffect(() => {
-     if (triggerPhone && phone && webViewRef.current && isLoaded) {
+     if (triggerPhone && phone && webViewRef.current) {
         // Send a message to the injected script to start the phone flow
         const script = `window.dispatchEvent(new CustomEvent('NATIVE_ACTION', { detail: { type: 'PHONE', value: '${phone}' } })); true;`;
         webViewRef.current.injectJavaScript(script);
      }
-  }, [triggerPhone, phone, isLoaded]);
+  }, [triggerPhone, phone]);
 
   useEffect(() => {
-     if (triggerOtp && otp && webViewRef.current && isLoaded) {
+     if (triggerOtp && otp && webViewRef.current) {
         const script = `window.dispatchEvent(new CustomEvent('NATIVE_ACTION', { detail: { type: 'OTP', value: '${otp}' } })); true;`;
         webViewRef.current.injectJavaScript(script);
      }
-  }, [triggerOtp, otp, isLoaded]);
+  }, [triggerOtp, otp]);
 
   const baseScript = `
     (function() {
@@ -153,7 +152,6 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
         thirdPartyCookiesEnabled={true}
         userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
         injectedJavaScript={baseScript}
-        onLoadEnd={() => setIsLoaded(true)}
         onMessage={(event) => {
            try {
                const data = JSON.parse(event.nativeEvent.data);
