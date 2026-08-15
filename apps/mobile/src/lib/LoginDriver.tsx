@@ -40,85 +40,105 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
   const baseScript = `
     (function() {
+       // Helper to wait for an element as fast as possible
+       function waitForElement(selectorFn, callback, maxAttempts = 100) {
+           let attempts = 0;
+           const int = setInterval(() => {
+               attempts++;
+               const el = selectorFn();
+               if (el) {
+                   clearInterval(int);
+                   callback(el);
+               } else if (attempts >= maxAttempts) {
+                   clearInterval(int);
+                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: 'Element timeout' }));
+               }
+           }, 100);
+       }
+
        // Setup event listener to receive commands from Native app
        window.addEventListener('NATIVE_ACTION', function(e) {
            const action = e.detail;
            try {
                if (action.type === 'PHONE') {
-                   // Generic logic (will be overridden by provider specific later if needed, but we can do a broad search here)
-                   // For Zomato Desktop: The login button is usually at the top right
+                   // 1. Click Login Button
                    const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
                       const text = (el.innerText || '').trim().toLowerCase();
                       return text === 'login' || text === 'sign in' || text === 'log in';
                    });
                    if (loginBtn) loginBtn.click();
 
-                   // Wait for the input box to appear
-                   setTimeout(() => {
-                       const phoneInput = document.querySelector('input[type="tel"], input[type="number"]');
-                       if (phoneInput) {
+                   // 2. Wait for Phone Input
+                   waitForElement(
+                       () => document.querySelector('input[type="tel"], input[type="number"], input[name="mobile"]'),
+                       (phoneInput) => {
                            // Set value
                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
                            nativeInputValueSetter.call(phoneInput, action.value);
                            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
                            phoneInput.dispatchEvent(new Event('change', { bubbles: true }));
                            
-                           // Find submit button ("Send OTP" or "Continue")
-                           setTimeout(() => {
-                               const submitBtn = Array.from(document.querySelectorAll('button, span')).find(el => {
+                           // 3. Wait for Submit Button
+                           waitForElement(
+                               () => Array.from(document.querySelectorAll('button, span, a')).find(el => {
                                    const t = (el.innerText || '').toLowerCase();
                                    return t.includes('send otp') || t.includes('continue') || t.includes('get otp');
-                               });
-                               if (submitBtn) {
-                                  submitBtn.click();
-                                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                               }),
+                               (submitBtn) => {
+                                   submitBtn.click();
+                                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
                                }
-                           }, 500);
-                       } else {
-                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: 'Phone input not found' }));
+                           );
                        }
-                   }, 2000);
+                   );
                }
                
                if (action.type === 'OTP') {
-                   // Try to find the 6 boxes or 1 box for OTP
-                   const inputs = document.querySelectorAll('input[type="tel"], input[type="number"], input[autocomplete="one-time-code"]');
-                   if (inputs.length === 6) {
-                       // 6 separate boxes
-                       const digits = action.value.split('');
-                       inputs.forEach((inp, idx) => {
-                           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                           nativeInputValueSetter.call(inp, digits[idx] || '');
-                           inp.dispatchEvent(new Event('input', { bubbles: true }));
-                       });
-                   } else if (inputs.length > 0) {
-                       // 1 single box
-                       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                       nativeInputValueSetter.call(inputs[0], action.value);
-                       inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-                   }
+                   // 1. Wait for OTP Inputs
+                   waitForElement(
+                       () => {
+                           const inputs = document.querySelectorAll('input[type="tel"], input[type="number"], input[autocomplete="one-time-code"]');
+                           return inputs.length > 0 ? inputs : null;
+                       },
+                       (inputs) => {
+                           if (inputs.length === 6) {
+                               const digits = action.value.split('');
+                               inputs.forEach((inp, idx) => {
+                                   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                   nativeInputValueSetter.call(inp, digits[idx] || '');
+                                   inp.dispatchEvent(new Event('input', { bubbles: true }));
+                               });
+                           } else if (inputs.length > 0) {
+                               const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                               nativeInputValueSetter.call(inputs[0], action.value);
+                               inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+                           }
 
-                   // Auto submit usually happens on 6th digit, but if there's a verify button:
-                   setTimeout(() => {
-                       const verifyBtn = Array.from(document.querySelectorAll('button, span')).find(el => {
-                           const t = (el.innerText || '').toLowerCase();
-                           return t.includes('verify') || t.includes('submit') || t.includes('confirm');
-                       });
-                       if (verifyBtn) verifyBtn.click();
-                   }, 500);
+                           // 2. Wait for Verify Button
+                           waitForElement(
+                               () => Array.from(document.querySelectorAll('button, span, a')).find(el => {
+                                   const t = (el.innerText || '').toLowerCase();
+                                   return t.includes('verify') || t.includes('submit') || t.includes('confirm');
+                               }),
+                               (verifyBtn) => {
+                                   verifyBtn.click();
+                               }
+                           );
+                       }
+                   );
                }
            } catch (err) {
                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: err.message }));
            }
        });
 
-       // Global success checker
+       // Global success checker (checks every 500ms instead of 2000ms for faster detection)
        setInterval(() => {
            const html = document.body.innerText.toLowerCase();
            if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
            }
-       }, 2000);
+       }, 500);
     })();
     true;
   `;
