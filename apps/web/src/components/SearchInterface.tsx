@@ -14,7 +14,7 @@ const CATEGORIES = [
   { id: 'shopping', label: 'Shopping', icon: '🛍️' },
   { id: 'medicine', label: 'Medicine', icon: '💊' },
   { id: 'services', label: 'Local Services', icon: '🔧' },
-  { id: 'travel', label: 'Travel', icon: '✈️' },
+  { id: 'travel', label: 'Tour and Travel', icon: '✈️' },
   { id: 'cabs', label: 'Cabs', icon: '🚕' }
 ];
 

@@ -42,7 +42,7 @@ export default function SavingsPage() {
     'shopping': 'Shopping',
     'medicine': 'Medicine',
     'services': 'Local Services',
-    'travel': 'Travel',
+    'travel': 'Tour and Travel',
     'cabs': 'Cabs',
     'other': 'Other'
   };
@@ -53,7 +53,7 @@ export default function SavingsPage() {
     <div className="container" style={{ paddingBottom: '6rem' }}>
       <Navigation />
       
-      <main style={{ marginTop: '2rem', maxWidth: '800px', margin: '2rem auto 0 auto', padding: '0 1rem' }}>
+      <main style={{ paddingTop: '1rem', width: '100%', padding: '0 1rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 2rem 0', color: '#171717' }}>
           Your Savings Overview
         </h1>

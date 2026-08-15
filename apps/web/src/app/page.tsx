@@ -5,7 +5,7 @@ import Link from 'next/link';
 export default function Home() {
 
   return (
-    <div className="container" style={{ paddingBottom: '4rem', background: '#fafafa', minHeight: '100vh', maxWidth: '800px', margin: '0 auto' }}>
+    <div className="container" style={{ paddingBottom: '4rem', background: 'var(--background)', minHeight: '100vh', width: '100%' }}>
       
       <main style={{ paddingTop: '1rem' }}>
         <SearchInterface />

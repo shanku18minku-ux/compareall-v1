@@ -7,7 +7,7 @@ export default function ProfilePage() {
     <div className="container" style={{ paddingBottom: '6rem' }}>
       <Navigation />
       
-      <main style={{ marginTop: '2rem', maxWidth: '600px', margin: '2rem auto 0 auto' }}>
+      <main style={{ paddingTop: '1rem', width: '100%', padding: '0 1rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '2rem', color: 'var(--foreground)' }}>
           Profile
         </h1>

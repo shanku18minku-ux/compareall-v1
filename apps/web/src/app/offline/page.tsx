@@ -16,7 +16,7 @@ export default function OfflinePage() {
     }}>
       <div style={{ fontSize: '4rem' }}>📡</div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>You're offline</h1>
-      <p style={{ color: '#64748b', maxWidth: '300px' }}>
+      <p style={{ color: '#64748b', width: '100%', padding: '0 2rem' }}>
         Please check your internet connection and try again.
       </p>
       <button
