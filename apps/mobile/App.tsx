@@ -7,12 +7,12 @@ import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', authType: 'otp', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
-  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', authType: 'both', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' },
-  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', authType: 'google', url: 'https://www.ecatering.irctc.co.in', desc: '' },
-  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', authType: 'otp', url: 'https://www.zoopindia.com', desc: '' },
-  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', authType: 'both', url: 'https://www.railrestro.com', desc: '' },
-  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', authType: 'google', url: 'https://www.travelkhana.com', desc: '' }
+  { id: 'food-a', category: 'Food', subcategory: 'Food Delivery', name: 'Swiggy', icon: '🍔', authType: 'otp', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.', regions: ['all'] },
+  { id: 'food-b', category: 'Food', subcategory: 'Food Delivery', name: 'Zomato', icon: '🍕', authType: 'both', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.', regions: ['all'] },
+  { id: 'train-a', category: 'Food', subcategory: 'Train Food', name: 'IRCTC eCatering', icon: '🚂', authType: 'google', url: 'https://www.ecatering.irctc.co.in', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-b', category: 'Food', subcategory: 'Train Food', name: 'Zoop', icon: '🍱', authType: 'otp', url: 'https://www.zoopindia.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-c', category: 'Food', subcategory: 'Train Food', name: 'RailRestro', icon: '🍛', authType: 'both', url: 'https://www.railrestro.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] },
+  { id: 'train-d', category: 'Food', subcategory: 'Train Food', name: 'Travelkhana', icon: '🚂', authType: 'google', url: 'https://www.travelkhana.com', desc: '', regions: ['station', 'junction', 'terminal', 'cantt', 'railway'] }
 ];
 
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
@@ -99,6 +99,15 @@ export default function App() {
       alert('Error searching location: ' + String(error));
     }
     setIsFetchingLocation(false);
+  };
+
+  const getFilteredProviders = () => {
+     if (!location || !location.name) return PROVIDERS;
+     const locName = location.name.toLowerCase();
+     return PROVIDERS.filter(p => {
+         if (p.regions.includes('all')) return true;
+         return p.regions.some(region => locName.includes(region));
+     });
   };
 
   // Disconnect logic
@@ -250,7 +259,7 @@ export default function App() {
               <View style={styles.loadingBox}>
                 <Text>Extracting private data in background...</Text>
                 {connectedProviders.map(id => {
-                   const provider = PROVIDERS.find(p => p.id === id);
+                   const provider = getFilteredProviders().find(p => p.id === id);
                    if (!provider) return null;
                    
                    let searchUrl = provider.url;
@@ -310,8 +319,10 @@ export default function App() {
             <ScrollView style={styles.tabContent}>
               <Text style={styles.pageTitle}>Link Accounts</Text>
               
-              {Array.from(new Set(PROVIDERS.filter(p => p.category === activeCategory).map(p => p.subcategory))).map(subcat => {
-                 const subcatProviders = PROVIDERS.filter(p => p.category === activeCategory && p.subcategory === subcat);
+              {!location && <Text style={{color: '#e91e63', marginBottom: 15, fontSize: 13, fontWeight: '600', paddingHorizontal: 15}}>📍 Note: Train delivery apps will only appear if your location is a railway station.</Text>}
+              
+              {Array.from(new Set(getFilteredProviders().filter(p => p.category === activeCategory).map(p => p.subcategory))).map(subcat => {
+                 const subcatProviders = getFilteredProviders().filter(p => p.category === activeCategory && p.subcategory === subcat);
                  if (subcatProviders.length === 0) return null;
                  
                  return (
