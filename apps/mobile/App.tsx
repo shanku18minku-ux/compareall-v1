@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver } from './src/lib/LoginDriver';
@@ -44,17 +44,20 @@ export default function App() {
       setPhoneInputs(prev => ({...prev, [id]: ''}));
       setOtpInputs(prev => ({...prev, [id]: ''}));
       setActiveLoginProvider(null);
+      Vibration.vibrate(50);
   };
 
-  const handleGetOtp = (id: string) => {
-      const phone = phoneInputs[id];
+  const handleGetOtp = (id: string, overridePhone?: string) => {
+      const phone = overridePhone || phoneInputs[id];
       if (!phone || phone.length < 10) return;
+      Vibration.vibrate(50);
       setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
   };
 
   const handleVerifyOtp = (id: string, overrideOtp?: string) => {
       const otp = overrideOtp || otpInputs[id];
       if (!otp || otp.length < 4) return;
+      Vibration.vibrate(50);
       setLoginSteps(prev => ({...prev, [id]: 'sending_otp'}));
   };
 
@@ -124,12 +127,18 @@ export default function App() {
                 triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
                 triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
                 onOtpRequested={() => {
-                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
+                   if (isActive) {
+                       Vibration.vibrate(50);
+                       setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
+                   }
                 }}
                 onSuccess={() => {
                    setConnectedProviders(prev => [...prev, p.id]);
                    setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                   if (isActive) setActiveLoginProvider(null);
+                   if (isActive) {
+                       Vibration.vibrate(50);
+                       setActiveLoginProvider(null);
+                   }
                 }}
                 onError={(msg) => {
                    console.log('Login error:', msg);
@@ -274,8 +283,16 @@ export default function App() {
                                                               style={styles.nativeInputSmall}
                                                               placeholder="Mobile number"
                                                               keyboardType="phone-pad"
+                                                              autoFocus={true}
+                                                              autoComplete="tel"
+                                                              textContentType="telephoneNumber"
                                                               value={phoneInputs[provider.id] || ''}
-                                                              onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
+                                                              onChangeText={(t) => {
+                                                                  setPhoneInputs(prev => ({...prev, [provider.id]: t}));
+                                                                  if (t.length === 10) {
+                                                                      handleGetOtp(provider.id, t);
+                                                                  }
+                                                              }}
                                                               editable={currentStep === 'idle'}
                                                            />
                                                            <TouchableOpacity 
@@ -296,10 +313,12 @@ export default function App() {
                                                               style={styles.nativeInputSmall}
                                                               placeholder="Enter OTP"
                                                               keyboardType="number-pad"
+                                                              autoFocus={true}
+                                                              autoComplete="one-time-code"
+                                                              textContentType="oneTimeCode"
                                                               value={otpInputs[provider.id] || ''}
                                                               onChangeText={(t) => {
                                                                   setOtpInputs(prev => ({...prev, [provider.id]: t}));
-                                                                  // Auto-verify when 6 digits are typed to save manual click time
                                                                   if (t.length === 6) {
                                                                       handleVerifyOtp(provider.id, t);
                                                                   }
