@@ -180,8 +180,10 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            if (window.__OTP_SUBMITTED && (url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth') || url.includes('graphql')) && res.ok) {
                try {
                    const clone = res.clone();
-                   const text = await clone.text();
-                   if (text.includes('"token"') || text.includes('success":true') || text.includes('"userId"') || text.includes('user_id') || text.includes('"account"')) {
+                   const text = await clone.text().catch(() => '');
+                   const tLower = text.toLowerCase();
+                   // If it's a 2xx response to an auth endpoint after OTP submission, and doesn't explicitly scream "error"
+                   if (!tLower.includes('invalid') && !tLower.includes('incorrect') && !tLower.includes('wrong') && !tLower.includes('expired')) {
                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                    }
                } catch (e) {}
@@ -196,8 +198,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    const u = String(url).toLowerCase();
                    if (window.__OTP_SUBMITTED && (u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('graphql'))) {
                        try {
-                           const text = this.responseText;
-                           if (text.includes('"token"') || text.includes('success":true') || text.includes('"userId"') || text.includes('user_id') || text.includes('"account"')) {
+                           const text = this.responseText || '';
+                           const tLower = text.toLowerCase();
+                           if (!tLower.includes('invalid') && !tLower.includes('incorrect') && !tLower.includes('wrong') && !tLower.includes('expired')) {
                                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                            }
                        } catch(e) {}
@@ -209,11 +212,10 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
        // Global success checker fallback (checks every 50ms for ultra-fast DOM fallback)
        setInterval(() => {
-           if (!document.body) return; // Prevent crash before body is loaded
-           // IMPORTANT: Do NOT use innerText. It triggers layout reflows and lags the UI thread by 100ms+. Use textContent.
+           if (!document.body) return;
            const html = document.body.textContent.toLowerCase();
-           if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
-               // Only trigger success if the user actually submitted OTP, or if a clear logout button exists in DOM
+           const hasProfileLink = document.querySelector('a[href*="profile"], a[href*="account"], a[href*="order"], [alt*="profile"], img[alt*="user"], .profile');
+           if (html.includes('logout') || html.includes('sign out') || hasProfileLink) {
                if (window.__OTP_SUBMITTED || document.querySelector('a[href*="logout"], button[id*="logout"]')) {
                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                }
