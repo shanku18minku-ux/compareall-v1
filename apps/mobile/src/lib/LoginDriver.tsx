@@ -41,10 +41,8 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
       }
   }));
 
-  // When triggerPhone becomes true, we tell the WebView to execute the phone injection script
   useEffect(() => {
      if (triggerPhone && phone && webViewRef.current) {
-        // Send a message to the injected script to start the phone flow
         const script = `window.dispatchEvent(new CustomEvent('NATIVE_ACTION', { detail: { type: 'PHONE', value: '${phone}' } })); true;`;
         webViewRef.current.injectJavaScript(script);
      }
@@ -59,64 +57,63 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
   const baseScript = `
     (function() {
+       'use strict';
        // ═══════════════════════════════════════════════════════════════
-       // UNIVERSAL BULLETPROOF OTP ENGINE v2.0
-       // Works on any SPA: Zomato, Swiggy, and future platforms
+       // UNIVERSAL OTP ENGINE v3.0 — Phase 2 Rewrite
+       // Clean separation of Phone Flow vs OTP Flow
+       // Swiggy + Zomato + Universal fallback
        // ═══════════════════════════════════════════════════════════════
-       
-       window.__OTP_SUBMITTED = false;
-       window.__SUCCESS_SENT = false;
 
-       // ─── UTILITY: Send message once (deduplication) ────────────────
+       window.__OTP_SUBMITTED = false;
+       window.__SUCCESS_SENT  = false;
+       window.__PHONE_DONE    = false; // tracks if phone step is complete
+
+       // ─── HELPERS ──────────────────────────────────────────────────
+       function dbg(msg) {
+           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: msg }));
+       }
+
        function sendSuccess() {
            if (!window.__SUCCESS_SENT) {
                window.__SUCCESS_SENT = true;
+               dbg('SUCCESS sent!');
                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
            }
        }
 
-       // ─── UTILITY: Simulate REAL typing into an input ───────────────
-       // Properly triggers React's synthetic event system
+       // ─── Simulate typing into React-controlled input ───────────────
        function simulateType(input, value) {
            input.focus();
-           // Native value setter bypasses React's controlled input
            var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
            nativeSetter.call(input, value);
-           // Fire all events React listens to
-           input.dispatchEvent(new Event('focus', { bubbles: true }));
-           input.dispatchEvent(new Event('input', { bubbles: true }));
+           input.dispatchEvent(new Event('focus',  { bubbles: true }));
+           input.dispatchEvent(new Event('input',  { bubbles: true }));
            input.dispatchEvent(new Event('change', { bubbles: true }));
-           // Fire keyboard events for platforms that rely on key codes
-           [value].forEach(function(ch) {
-               input.dispatchEvent(new KeyboardEvent('keydown', { key: ch, bubbles: true }));
-               input.dispatchEvent(new KeyboardEvent('keypress', { key: ch, bubbles: true }));
-               input.dispatchEvent(new KeyboardEvent('keyup', { key: ch, bubbles: true }));
-           });
-           input.blur();
-           input.dispatchEvent(new Event('blur', { bubbles: true }));
+           input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+           input.dispatchEvent(new KeyboardEvent('keyup',   { bubbles: true }));
        }
 
-       // ─── UTILITY: Simulate OTP into split boxes ────────────────────
+       // ─── Fill split OTP boxes (1 digit each) ─────────────────────
        function fillOtpBoxes(inputs, otpValue) {
-           var digits = otpValue.split('');
+           var digits = otpValue.toString().split('');
            inputs.forEach(function(inp, idx) {
-               var digit = digits[idx] || '';
-               simulateType(inp, digit);
-               // Some SPAs auto-focus next box on input; allow that to happen
+               if (digits[idx] !== undefined) {
+                   simulateType(inp, digits[idx]);
+               }
            });
        }
 
-       // ─── UTILITY: Click a button properly ─────────────────────────
+       // ─── Click a button with all necessary events ─────────────────
        function clickElement(el) {
+           if (!el) return;
            var target = el.closest ? (el.closest('button') || el) : el;
            target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-           target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+           target.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
            target.click();
-           target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+           target.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
        }
 
-       // ─── UTILITY: Wait for element using MutationObserver ─────────
-       // Ultra-fast: fires in microseconds when DOM changes
+       // ─── Wait for element with MutationObserver (instant) ─────────
        function waitForElement(selectorFn, callback, timeoutMs) {
            var result = selectorFn();
            if (result) { callback(result); return; }
@@ -129,235 +126,278 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    callback(el);
                }
            });
-           observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
-           // Auto-cleanup timeout
-           timer = setTimeout(function() {
-               observer.disconnect();
-           }, timeoutMs || 15000);
+           observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+           timer = setTimeout(function() { observer.disconnect(); }, timeoutMs || 15000);
        }
 
-       // ─── PLATFORM DETECTION ────────────────────────────────────────
+       // ─── Poll at 50ms until condition is true ──────────────────────
+       function pollUntil(conditionFn, callback, maxAttempts, onTimeout) {
+           var attempts = 0;
+           var interval = setInterval(function() {
+               attempts++;
+               if (attempts > (maxAttempts || 80)) {
+                   clearInterval(interval);
+                   if (onTimeout) onTimeout();
+                   return;
+               }
+               var result = conditionFn();
+               if (result) {
+                   clearInterval(interval);
+                   callback(result);
+               }
+           }, 50);
+           return interval;
+       }
+
+       // ─── PLATFORM DETECTION ───────────────────────────────────────
        var host = window.location.hostname.toLowerCase();
-       var isZomato  = host.includes('zomato');
-       var isSwiggy  = host.includes('swiggy');
+       var isZomato = host.includes('zomato');
+       var isSwiggy = host.includes('swiggy');
+       dbg('Platform detected: ' + (isZomato ? 'Zomato' : isSwiggy ? 'Swiggy' : 'Unknown'));
 
-       // ─── PLATFORM-SPECIFIC: Find OTP Submit button ─────────────────────────────
-       function findOtpSubmitButton() {
-           var btn = null;
-           
-           if (isZomato) {
-               // Zomato mobile: red CTA button with class 'jRryuq' or 'gsVULG'
-               btn = document.querySelector('.jRryuq, .gsVULG');
-               if (!btn) {
-                   var btns = Array.from(document.querySelectorAll('button, [class*="jRryuq"], [class*="gsVULG"]'));
-                   btn = btns.find(function(el) {
-                       var t = (el.textContent || '').trim().toLowerCase();
-                       return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed';
-                   });
-               }
-           }
-
-           if (isSwiggy) {
-               // Swiggy mobile: orange CTA button (#FC8019)
-               var sbtns = Array.from(document.querySelectorAll('button'));
-               btn = sbtns.find(function(el) {
-                   if (el.disabled) return false;
-                   var t = (el.textContent || '').trim().toLowerCase();
-                   return t === 'verify' || t === 'confirm' || t === 'submit' || t === 'proceed';
-               });
-               if (!btn) {
-                   sbtns.forEach(function(el) {
-                       if (btn || el.disabled) return;
-                       var bg = window.getComputedStyle(el).backgroundColor;
-                       // Swiggy orange: rgb(252,128,25) or rgb(255,102,0)
-                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)' || bg === 'rgb(240, 90, 40)') {
-                           btn = el;
-                       }
-                   });
-               }
-           }
-           
-           // Universal fallback
-           if (!btn) {
-               var allBtns = Array.from(document.querySelectorAll('button, [role="button"], div[class*="btn"]'));
-               btn = allBtns.find(function(el) {
-                   if (el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
-                   var t = (el.textContent || '').trim().toLowerCase();
-                   return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed' || t.includes('verify otp') || t.includes('confirm otp');
-               });
-           }
-           return btn;
+       // ═══════════════════════════════════════════════════════════════
+       // STEP 1: Find & click Login/Sign-In button in header nav
+       // ═══════════════════════════════════════════════════════════════
+       function findLoginHeaderButton() {
+           var all = Array.from(document.querySelectorAll('a, button, [role="button"], span, p'));
+           return all.find(function(el) {
+               // Must be a leaf or near-leaf element to avoid parent containers
+               var t = (el.textContent || '').trim().toLowerCase();
+               return (t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin') && t.length < 10;
+           }) || null;
        }
 
-       // ─── PLATFORM-SPECIFIC: Find Send OTP button ──────────────────
+       // ═══════════════════════════════════════════════════════════════
+       // STEP 2: Find phone number input (NOT OTP)
+       // ═══════════════════════════════════════════════════════════════
+       function findPhoneInput() {
+           // Specific selectors for phone (avoid OTP inputs)
+           var input = document.querySelector(
+               'input[type="tel"]:not([autocomplete="one-time-code"]),' +
+               'input[name="mobile"],' +
+               'input[name="phone"],' +
+               'input[name="mobileNumber"],' +
+               'input[placeholder*="mobile" i],' +
+               'input[placeholder*="phone" i],' +
+               'input[placeholder*="number" i],' +
+               'input[placeholder*="enter mobile" i],' +
+               'input[placeholder*="10 digit" i]'
+           );
+           // Extra check: must allow 10 digit input (maxlength >= 10 or unset)
+           if (input) {
+               var maxLen = input.getAttribute('maxlength');
+               if (maxLen && parseInt(maxLen) < 6) return null; // This is an OTP box
+           }
+           return input;
+       }
+
+       // ═══════════════════════════════════════════════════════════════
+       // STEP 3: Find "Send OTP" / "Continue" CTA button
+       // ═══════════════════════════════════════════════════════════════
        function findSendOtpButton() {
            var btn = null;
-           
-           if (isZomato) {
-               // Zomato mobile: The red primary CTA (class 'jRryuq' or 'gsVULG' from CSS dump)
-               btn = document.querySelector('.jRryuq, .gsVULG');
+
+           // Swiggy-specific: orange button (#FC8019) or text match
+           if (isSwiggy) {
+               var sbtns = Array.from(document.querySelectorAll('button'));
+               // Text match first (most reliable)
+               btn = sbtns.find(function(el) {
+                   if (el.disabled) return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'continue' || t === 'send otp' || t === 'get otp' || t === 'request otp' || t === 'next';
+               });
+               // Orange color fallback
                if (!btn) {
-                   var btns = Array.from(document.querySelectorAll('button'));
-                   btn = btns.find(function(el) {
-                       if (el.disabled) return false;
-                       var t = (el.textContent || '').trim().toLowerCase();
-                       return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed' || t === 'login';
-                   });
-               }
-               // Final fallback: Zomato CTA is always #EF4F5F red
-               if (!btn) {
-                   Array.from(document.querySelectorAll('button, [role="button"], div')).forEach(function(el) {
-                       if (btn || (el.disabled)) return;
-                       var style = window.getComputedStyle(el);
-                       var bg = style.backgroundColor;
-                       if (bg === 'rgb(239, 79, 95)' || bg === 'rgb(226, 55, 68)') {
+                   sbtns.forEach(function(el) {
+                       if (btn || el.disabled) return;
+                       var bg = window.getComputedStyle(el).backgroundColor;
+                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)' || bg === 'rgb(240, 90, 40)' || bg === 'rgb(252, 116, 8)') {
                            btn = el;
                        }
                    });
                }
            }
 
+           // Zomato-specific: red button (#EF4F5F)
+           if (isZomato && !btn) {
+               var zbtns = Array.from(document.querySelectorAll('button'));
+               btn = zbtns.find(function(el) {
+                   if (el.disabled) return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'login';
+               });
+               if (!btn) {
+                   zbtns.forEach(function(el) {
+                       if (btn || el.disabled) return;
+                       var bg = window.getComputedStyle(el).backgroundColor;
+                       if (bg === 'rgb(239, 79, 95)' || bg === 'rgb(226, 55, 68)') btn = el;
+                   });
+               }
+           }
+
+           // Universal fallback
+           if (!btn) {
+               var all = Array.from(document.querySelectorAll('button, [role="button"]'));
+               btn = all.find(function(el) {
+                   if (el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t.includes('send otp') || t.includes('get otp') || t === 'continue' || t === 'next' || t === 'request otp';
+               });
+           }
+           return btn || null;
+       }
+
+       // ═══════════════════════════════════════════════════════════════
+       // STEP 4: Find OTP input boxes (after OTP SMS sent)
+       // ═══════════════════════════════════════════════════════════════
+       function findOtpInputs() {
+           // Swiggy: 4 single-digit boxes with maxlength=1
+           var singleBoxes = Array.from(document.querySelectorAll(
+               'input[maxlength="1"], input[data-index], input[autocomplete="one-time-code"]'
+           ));
+           if (singleBoxes.length >= 4) return singleBoxes;
+
+           // Zomato: 6 single-digit boxes
+           var numericInputs = Array.from(document.querySelectorAll('input[type="number"][maxlength="1"], input[inputmode="numeric"][maxlength="1"]'));
+           if (numericInputs.length >= 4) return numericInputs;
+
+           // Single OTP field (some platforms)
+           var singleField = document.querySelector('input[name*="otp" i], input[name*="code" i], input[placeholder*="otp" i], input[placeholder*="enter otp" i]');
+           if (singleField) return [singleField];
+
+           return null;
+       }
+
+       // ═══════════════════════════════════════════════════════════════
+       // STEP 5: Find "Verify OTP" submit button
+       // ═══════════════════════════════════════════════════════════════
+       function findVerifyButton() {
+           var btn = null;
+
            if (isSwiggy) {
-               // Swiggy mobile: The orange primary CTA
                var sbtns = Array.from(document.querySelectorAll('button'));
                btn = sbtns.find(function(el) {
                    if (el.disabled) return false;
                    var t = (el.textContent || '').trim().toLowerCase();
-                   return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed' || t === 'login';
+                   return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed' || t === 'continue';
                });
                if (!btn) {
                    sbtns.forEach(function(el) {
                        if (btn || el.disabled) return;
                        var bg = window.getComputedStyle(el).backgroundColor;
-                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)' || bg === 'rgb(240, 90, 40)') {
-                           btn = el;
-                       }
+                       if (bg === 'rgb(252, 128, 25)' || bg === 'rgb(255, 102, 0)') btn = el;
                    });
                }
            }
-           
-           if (!btn) {
-               // Universal fallback
-               var allEl = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="btn"]'));
-               btn = allEl.reverse().find(function(el) {
-                   if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled')) return false;
+
+           if (isZomato && !btn) {
+               var zbtns = Array.from(document.querySelectorAll('button'));
+               btn = zbtns.find(function(el) {
+                   if (el.disabled) return false;
                    var t = (el.textContent || '').trim().toLowerCase();
-                   return t.includes('send otp') || t.includes('get otp') || t === 'continue' || t === 'next' || t.includes('send one') || t === 'request otp';
+                   return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed';
+               });
+               if (!btn) {
+                   zbtns.forEach(function(el) {
+                       if (btn || el.disabled) return;
+                       var bg = window.getComputedStyle(el).backgroundColor;
+                       if (bg === 'rgb(239, 79, 95)' || bg === 'rgb(226, 55, 68)') btn = el;
+                   });
+               }
+           }
+
+           if (!btn) {
+               var all = Array.from(document.querySelectorAll('button, [role="button"]'));
+               btn = all.find(function(el) {
+                   if (el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'verify' || t === 'submit' || t === 'confirm' || t.includes('verify otp');
                });
            }
-           return btn;
+           return btn || null;
        }
 
-       // ─── PHONE SUBMISSION FLOW ─────────────────────────────────────
+       // ═══════════════════════════════════════════════════════════════
+       // PHONE FLOW
+       // ═══════════════════════════════════════════════════════════════
        function handlePhone(phoneValue) {
-           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Starting handlePhone flow' }));
-           // For Zomato & Swiggy: aggressively poll for login button at 50ms
-           // Both load home page and show login in header nav
-           if (isZomato || isSwiggy) {
-               var loginPollAttempts = 0;
-               var loginPoll = setInterval(function() {
-                   loginPollAttempts++;
-                   if (loginPollAttempts > 60) { 
-                       clearInterval(loginPoll); 
-                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Login button poll timeout' }));
-                   }
-                   var allLinks = Array.from(document.querySelectorAll('a, button, [role="button"], span, div'));
-                   var loginBtn = allLinks.find(function(el) {
-                       var t = (el.textContent || '').trim().toLowerCase();
-                       // Zomato: "Log in", Swiggy: "Sign In" or "Login"
-                       return t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin';
-                   });
-                   if (loginBtn) {
-                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found login button, clicking...' }));
-                       clearInterval(loginPoll);
-                       clickElement(loginBtn);
-                   }
-               }, 50);
-           } else {
-               // For other platforms: simple single attempt
-               var loginOpeners = Array.from(document.querySelectorAll('a, span, div, button, [role="button"]'));
-               var loginBtn = loginOpeners.find(function(el) {
-                   var t = (el.textContent || '').trim().toLowerCase();
-                   return t === 'login' || t === 'sign in' || t === 'log in' || t === 'signin';
-               });
-               if (loginBtn) clickElement(loginBtn);
-           }
+           dbg('handlePhone: started with phone=' + phoneValue);
 
-           // Step 2: Wait for phone input
-           waitForElement(
-               function() {
-                   return document.querySelector(
-                       'input[type="tel"], input[type="number"], input[name="mobile"], input[name="phone"], input[placeholder*="phone"], input[placeholder*="mobile"], input[placeholder*="number"], input[placeholder*="Enter your"]'
+           // Step 1: Poll for Login/Sign-In header button (50ms, max 3 seconds)
+           pollUntil(
+               findLoginHeaderButton,
+               function(loginBtn) {
+                   dbg('handlePhone: Found login btn, clicking...');
+                   clickElement(loginBtn);
+
+                   // Step 2: After clicking login, wait for phone input to appear
+                   waitForElement(
+                       findPhoneInput,
+                       function(phoneInput) {
+                           dbg('handlePhone: Phone input found, typing...');
+                           simulateType(phoneInput, phoneValue);
+                           window.__PHONE_DONE = true;
+
+                           // Step 3: Poll for Send OTP CTA button (50ms, max 2 seconds)
+                           pollUntil(
+                               findSendOtpButton,
+                               function(sendBtn) {
+                                   dbg('handlePhone: Send OTP btn found, clicking...');
+                                   clickElement(sendBtn);
+                                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
+                                   dbg('handlePhone: OTP_REQUESTED sent!');
+                               },
+                               40,
+                               function() { dbg('handlePhone: Send OTP btn timeout!'); }
+                           );
+                       },
+                       8000 // wait up to 8s for phone input
                    );
                },
-               function(phoneInput) {
-                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found phone input, typing...' }));
-                   simulateType(phoneInput, phoneValue);
-                   
-                   // Poll every 50ms for maximum speed — no artificial wait
-                   var attempts = 0;
-                   var findAndClick = setInterval(function() {
-                       attempts++;
-                       if (attempts > 40) { 
-                           clearInterval(findAndClick); 
-                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Send OTP button poll timeout' }));
-                           return; 
-                       }
-                       
-                       var btn = findSendOtpButton();
-                       if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
-                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found Send OTP button, clicking...' }));
-                           clearInterval(findAndClick);
-                           clickElement(btn);
-                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
-                       }
-                   }, 50); // 50ms = ultra-fast
-               }
+               60, // max 60 * 50ms = 3 seconds
+               function() { dbg('handlePhone: Login btn poll timeout!'); }
            );
        }
 
-       // ─── OTP SUBMISSION FLOW ───────────────────────────────────────
+       // ═══════════════════════════════════════════════════════════════
+       // OTP FLOW
+       // ═══════════════════════════════════════════════════════════════
        function handleOtp(otpValue) {
-           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Starting handleOtp flow' }));
+           dbg('handleOtp: started with otp=' + otpValue);
            window.__OTP_SUBMITTED = true;
-           
-           // Step 1: Wait for OTP input fields
+
+           // Step 1: Wait for OTP boxes to appear
            waitForElement(
-               function() {
-                   var inputs = Array.from(document.querySelectorAll(
-                       'input[type="tel"], input[type="number"], input[autocomplete="one-time-code"], input[inputmode="numeric"], input[name*="otp"], input[name*="OTP"]'
-                   ));
-                   return inputs.length > 0 ? inputs : null;
-               },
+               findOtpInputs,
                function(inputs) {
-                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found OTP input, typing...' }));
-                   // Fill in the OTP
+                   dbg('handleOtp: OTP inputs found (' + inputs.length + ' boxes), filling...');
+
                    if (inputs.length > 1) {
-                       // Split boxes (e.g., Zomato 6-box, Swiggy 4-box)
+                       // Multi-box (Swiggy 4-box, Zomato 6-box)
                        fillOtpBoxes(inputs, otpValue);
                    } else {
-                       // Single input field
+                       // Single field
                        simulateType(inputs[0], otpValue);
                    }
 
-                   // Step 2: Find and click Verify button
-                   // Wait for button to become enabled after OTP is filled
-                   var verifyAttempts = 0;
-                   var findVerify = setInterval(function() {
-                       verifyAttempts++;
-                       if (verifyAttempts > 60) { clearInterval(findVerify); return; }
-                       
-                       var btn = findOtpSubmitButton();
-                       if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
-                           clearInterval(findVerify);
-                           setTimeout(function() { clickElement(btn); }, 30);
-                       }
-                   }, 50); // 50ms polling = instant reaction
-               }
+                   dbg('handleOtp: OTP filled, looking for Verify button...');
+
+                   // Step 2: Poll for Verify button (50ms, max 3 seconds)
+                   pollUntil(
+                       findVerifyButton,
+                       function(verifyBtn) {
+                           dbg('handleOtp: Verify btn found, clicking...');
+                           setTimeout(function() { clickElement(verifyBtn); }, 30);
+                       },
+                       60,
+                       function() { dbg('handleOtp: Verify btn timeout!'); }
+                   );
+               },
+               12000 // wait up to 12s for OTP screen
            );
        }
 
-       // ─── LISTEN FOR NATIVE COMMANDS ────────────────────────────────
+       // ─── LISTEN FOR NATIVE COMMANDS ──────────────────────────────
        window.addEventListener('NATIVE_ACTION', function(e) {
            try {
                var action = e.detail;
@@ -368,26 +408,13 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            }
        });
 
-       // ─── PRE-EMPTIVE LOGIN DRAWER OPEN ─────────────────────────────
-       // Try immediately and also after a short wait (no artificial delay)
-       (function tryOpenLogin() {
-           var loginOpeners = Array.from(document.querySelectorAll('a, span, div, button, [role="button"]'));
-           var loginBtn = loginOpeners.find(function(el) {
-               var t = (el.textContent || '').trim().toLowerCase();
-               return t === 'login' || t === 'sign in' || t === 'log in';
-           });
-           if (loginBtn) clickElement(loginBtn);
-       })();
-
-       // ─── NETWORK INTERCEPTOR: Lightning speed success detection ─────
+       // ─── NETWORK INTERCEPTOR: Detect login success via API ────────
        var origFetch = window.fetch;
        window.fetch = async function() {
            var res = await origFetch.apply(this, arguments);
            if (!window.__OTP_SUBMITTED) return res;
-           
-           var url = String(arguments[0]).toLowerCase();
-           var isAuth = url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth') || url.includes('graphql') || url.includes('validate') || url.includes('token') || url.includes('session');
-           
+           var u = String(arguments[0]).toLowerCase();
+           var isAuth = u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('token') || u.includes('session');
            if (isAuth && res.ok) {
                try {
                    var text = await res.clone().text();
@@ -406,7 +433,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                if (!window.__OTP_SUBMITTED) return;
                if (this.status >= 200 && this.status < 300) {
                    var u = String(url).toLowerCase();
-                   var isAuth = u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('validate') || u.includes('token') || u.includes('session');
+                   var isAuth = u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('token') || u.includes('session');
                    if (isAuth) {
                        try {
                            var t = (this.responseText || '').toLowerCase();
@@ -420,30 +447,34 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            origXHR.apply(this, arguments);
        };
 
-       // ─── DOM FALLBACK: Check every 100ms for sign of success ───────
+       // ─── DOM POLLING: Fallback success detection ──────────────────
        var prevUrl = window.location.href;
        setInterval(function() {
            if (!document.body) return;
-           
-           // URL Change = logged in on many SPAs
+
+           // URL change after OTP submitted = logged in
            if (window.location.href !== prevUrl) {
                prevUrl = window.location.href;
                if (window.__OTP_SUBMITTED) { sendSuccess(); return; }
            }
-           
-           // Profile/Logout indicators = success
-           var hasProfileSign = document.querySelector('a[href*="profile"], a[href*="account"], a[href*="orders"], img[alt*="profile"], img[alt*="user"]');
+
+           // Profile/logout indicators in DOM
+           var hasProfileSign = document.querySelector(
+               'a[href*="profile"], a[href*="account"], a[href*="orders"], img[alt*="profile" i], img[alt*="user" i]'
+           );
            var bodyText = (document.body.textContent || '').toLowerCase();
-           if (hasProfileSign || bodyText.includes('logout') || bodyText.includes('sign out')) {
-               if (window.__OTP_SUBMITTED) { sendSuccess(); return; }
+           if ((hasProfileSign || bodyText.includes('logout') || bodyText.includes('sign out')) && window.__OTP_SUBMITTED) {
+               sendSuccess(); return;
            }
-           
-           // OTP modal disappeared = success
+
+           // OTP inputs disappeared after submit = success
            if (window.__OTP_SUBMITTED) {
-               var otpInputs = document.querySelectorAll('input[type="tel"], input[autocomplete="one-time-code"], input[inputmode="numeric"]');
-               if (otpInputs.length === 0) { sendSuccess(); }
+               var remainingOtpBoxes = document.querySelectorAll('input[maxlength="1"], input[autocomplete="one-time-code"]');
+               if (remainingOtpBoxes.length === 0) { sendSuccess(); }
            }
-       }, 100);
+       }, 200);
+
+       dbg('OTP Engine v3.0 initialized!');
      })();
      true;
   `;
@@ -454,6 +485,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         ref={webViewRef}
         source={{ uri: url }}
         javaScriptEnabled={true}
+        domStorageEnabled={true}
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={true}
         userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36"
@@ -462,7 +494,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            try {
                const data = JSON.parse(event.nativeEvent.data);
                if (data.type === 'DEBUG') {
-                   console.log(`[WebView Debug - ${providerId}]:`, data.message);
+                   console.log(\`[${providerId}] \${data.message}\`);
                }
                if (data.type === 'OTP_REQUESTED') onOtpRequested();
                if (data.type === 'SUCCESS') onSuccess();
@@ -477,8 +509,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 });
 
 const styles = StyleSheet.create({
-  // Full-screen but invisible — SPAs need a real viewport to render properly.
-  // A 10x10 box causes React SPAs to not render their login modals at all!
+  // Full-screen but invisible — SPAs need real viewport to render properly
   hiddenContainer: {
     position: 'absolute',
     top: 0,
