@@ -418,12 +418,16 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 });
 
 const styles = StyleSheet.create({
+  // Full-screen but invisible — SPAs need a real viewport to render properly.
+  // A 10x10 box causes React SPAs to not render their login modals at all!
   hiddenContainer: {
-    height: 10,
-    width: 10,
     position: 'absolute',
     top: 0,
     left: 0,
-    zIndex: -1,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    pointerEvents: 'none',
+    zIndex: -999,
   }
 });
