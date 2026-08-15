@@ -155,6 +155,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
        // Global success checker (checks every 500ms instead of 2000ms for faster detection)
        setInterval(() => {
+           if (!document.body) return; // Prevent crash before body is loaded
            const html = document.body.innerText.toLowerCase();
            if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
@@ -173,7 +174,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={true}
         userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-        injectedJavaScript={baseScript}
+        injectedJavaScriptBeforeContentLoaded={baseScript}
         onMessage={(event) => {
            try {
                const data = JSON.parse(event.nativeEvent.data);
