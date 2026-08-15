@@ -70,10 +70,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x apps/mobile/android/gradlew
 
-      - name: Build Debug APK with Gradle
+      - name: Build Release APK with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleDebug \
+          ./gradlew assembleRelease \
             --no-daemon \
             --no-parallel \
             --no-configuration-cache \
@@ -92,5 +92,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CompareAll-Debug.apk
-          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: CompareAll-Release.apk
+          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
