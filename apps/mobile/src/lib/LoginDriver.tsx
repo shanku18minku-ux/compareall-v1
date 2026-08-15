@@ -173,14 +173,22 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            var btn = null;
            
            if (isZomato) {
-               // Zomato: Primary CTA button after phone input
-               btn = document.querySelector('button[class*="loginBtn"], button[class*="LoginBtn"], [class*="sc-"] button:not([disabled])');
-               // If that fails, look for the blue/primary button
+               // Zomato: The red primary CTA button - text is usually "Continue" or "Request OTP"
+               var btns = Array.from(document.querySelectorAll('button'));
+               btn = btns.find(function(el) {
+                   if (el.disabled) return false;
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   // Zomato uses these exact texts:
+                   return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed';
+               });
+               // Also try by background color (Zomato CTA is always #EF4F5F red)
                if (!btn) {
-                   var btns = Array.from(document.querySelectorAll('button:not([disabled])'));
-                   btn = btns.find(function(el) {
-                       var t = (el.textContent || '').trim().toLowerCase();
-                       return t.includes('otp') || t.includes('continue') || t === 'next' || t.includes('login') || t === 'proceed';
+                   btns.forEach(function(el) {
+                       if (el.disabled) return;
+                       var style = window.getComputedStyle(el);
+                       if (style.backgroundColor === 'rgb(239, 79, 95)' || style.background.includes('EF4F5F') || style.background.includes('ef4f5f')) {
+                           btn = el;
+                       }
                    });
                }
            }
@@ -188,11 +196,10 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            if (!btn) {
                // Universal fallback
                var allEl = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="btn"]'));
-               // Reverse to prefer the LAST match (usually the primary action button)
                btn = allEl.reverse().find(function(el) {
                    if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled')) return false;
                    var t = (el.textContent || '').trim().toLowerCase();
-                   return t.includes('send otp') || t.includes('get otp') || t === 'continue' || t === 'next' || t.includes('send one');
+                   return t.includes('send otp') || t.includes('get otp') || t === 'continue' || t === 'next' || t.includes('send one') || t === 'request otp';
                });
            }
            return btn;
@@ -200,19 +207,39 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
        // ─── PHONE SUBMISSION FLOW ─────────────────────────────────────
        function handlePhone(phoneValue) {
-           // Step 1: Ensure login modal/drawer is open
-           var loginOpeners = Array.from(document.querySelectorAll('a, span, div, button, [role="button"]'));
-           var loginBtn = loginOpeners.find(function(el) {
-               var t = (el.textContent || '').trim().toLowerCase();
-               return t === 'login' || t === 'sign in' || t === 'log in' || t === 'signin';
-           });
-           if (loginBtn) clickElement(loginBtn);
+           // Step 1: For Zomato - aggressively poll for login button
+           // Zomato's home page shows a "Log in" link in the top navigation
+           if (isZomato) {
+               var loginPollAttempts = 0;
+               var loginPoll = setInterval(function() {
+                   loginPollAttempts++;
+                   if (loginPollAttempts > 40) { clearInterval(loginPoll); }
+                   // Zomato header login link
+                   var allLinks = Array.from(document.querySelectorAll('a, button, [role="button"], span, div'));
+                   var zLoginBtn = allLinks.find(function(el) {
+                       var t = (el.textContent || '').trim().toLowerCase();
+                       return t === 'log in' || t === 'login' || t === 'sign in';
+                   });
+                   if (zLoginBtn) {
+                       clearInterval(loginPoll);
+                       clickElement(zLoginBtn);
+                   }
+               }, 50);
+           } else {
+               // For other platforms: simple single attempt
+               var loginOpeners = Array.from(document.querySelectorAll('a, span, div, button, [role="button"]'));
+               var loginBtn = loginOpeners.find(function(el) {
+                   var t = (el.textContent || '').trim().toLowerCase();
+                   return t === 'login' || t === 'sign in' || t === 'log in' || t === 'signin';
+               });
+               if (loginBtn) clickElement(loginBtn);
+           }
 
            // Step 2: Wait for phone input
            waitForElement(
                function() {
                    return document.querySelector(
-                       'input[type="tel"], input[type="number"], input[name="mobile"], input[name="phone"], input[placeholder*="phone"], input[placeholder*="mobile"], input[placeholder*="number"]'
+                       'input[type="tel"], input[type="number"], input[name="mobile"], input[name="phone"], input[placeholder*="phone"], input[placeholder*="mobile"], input[placeholder*="number"], input[placeholder*="Enter your"]'
                    );
                },
                function(phoneInput) {
