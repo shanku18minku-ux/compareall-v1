@@ -44,6 +44,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, provide
         ref={webViewRef}
         source={{ uri: url }}
         javaScriptEnabled={true}
+        userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
         injectedJavaScript={injectedJavascript}
         onMessage={(event) => {
           try {
