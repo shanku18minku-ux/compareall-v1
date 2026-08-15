@@ -28,6 +28,37 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create Gradle Init Script (fix repo resolution for included builds)
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/fix-repos.gradle << 'GRADLE_EOF'
+          allprojects {
+            buildscript {
+              repositories {
+                google()
+                mavenCentral()
+                maven { url 'https://maven.google.com' }
+                maven { url 'https://jitpack.io' }
+                gradlePluginPortal()
+              }
+            }
+            repositories {
+              google()
+              mavenCentral()
+              maven { url 'https://maven.google.com' }
+              maven { url 'https://jitpack.io' }
+            }
+            configurations.all {
+              resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+                if (details.requested.group == 'com.google.code.gson' && details.requested.name == 'gson') {
+                  details.useVersion '2.10.1'
+                  details.because 'gson 2.9.1 is unavailable, use 2.10.1 instead'
+                }
+              }
+            }
+          }
+          GRADLE_EOF
+
       - name: Install Dependencies (Root)
         run: npm install --legacy-peer-deps
 
@@ -42,7 +73,10 @@ jobs:
       - name: Build Debug APK with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g" -Dkotlin.daemon.jvm.options="-Xmx4g"
+          ./gradlew assembleDebug --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g" \
+            -Dkotlin.daemon.jvm.options="-Xmx4g" \
+            --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
