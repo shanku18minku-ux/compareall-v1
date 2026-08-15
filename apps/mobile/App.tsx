@@ -273,87 +273,6 @@ export default function App() {
           </ScrollView>
         )}
       </View>
-
-      <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={[styles.navItem, activeTab === 'Search' && styles.navItemActive]}
-          onPress={() => setActiveTab('Search')}
-        >
-          <Text style={[styles.navText, activeTab === 'Search' && styles.navTextActive]}>🔍 Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navItem, activeTab === 'Connections' && styles.navItemActive]}
-          onPress={() => setActiveTab('Connections')}
-        >
-          <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>🔗 Connections</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Modal visible={isLoginModalVisible} animationType="slide" onRequestClose={() => setIsLoginModalVisible(false)}>
-         <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-            <View style={styles.modalHeader}>
-               <Text style={styles.modalTitle}>Connect to {connectingProvider?.name}</Text>
-               <TouchableOpacity onPress={() => setIsLoginModalVisible(false)} style={styles.modalCloseBtn}>
-                  <Text style={styles.modalCloseText}>Cancel</Text>
-               </TouchableOpacity>
-            </View>
-            <View style={{padding: 15, backgroundColor: '#fff9e6'}}>
-                <Text style={{fontSize: 14, color: '#856404'}}>
-                   Please login normally. We do NOT see or store your passwords. Your login stays securely on your device.
-                </Text>
-            </View>
-            {connectingProvider && (
-                <WebView 
-                   source={{ uri: connectingProvider.url }} 
-                   style={{flex: 1}}
-                   javaScriptEnabled={true}
-                   sharedCookiesEnabled={true}
-                   thirdPartyCookiesEnabled={true}
-                   setBuiltInZoomControls={true}
-                   setDisplayZoomControls={false}
-                   scalesPageToFit={true}
-                   userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-                   injectedJavaScript={`
-                      // Inject a viewport meta tag to force scaling if missing
-                      let meta = document.createElement('meta');
-                      meta.name = 'viewport';
-                      meta.content = 'width=1024, initial-scale=' + (window.innerWidth / 1024);
-                      document.head.appendChild(meta);
-
-                      // Try to auto-click the login button to help the user
-                      setTimeout(() => {
-                         const loginElements = Array.from(document.querySelectorAll('a, span, div, button'));
-                         const loginBtn = loginElements.find(el => {
-                            const text = (el.innerText || '').trim().toLowerCase();
-                            return text === 'login' || text === 'sign in' || text === 'log in';
-                         });
-                         if (loginBtn) {
-                             loginBtn.click();
-                         }
-                      }, 2000);
-
-                      // Detect when user is logged in
-                      setInterval(() => {
-                         // Very basic login detection
-                         const html = document.body.innerText.toLowerCase();
-                         if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
-                             window.ReactNativeWebView.postMessage('LOGIN_SUCCESS');
-                         }
-                      }, 2000);
-                      true;
-                   `}
-                   onMessage={(event) => {
-                      if (event.nativeEvent.data === 'LOGIN_SUCCESS') {
-                          handleLoginSuccess();
-                      }
-                   }}
-                />
-            )}
-            <TouchableOpacity style={styles.manualSuccessBtn} onPress={handleLoginSuccess}>
-                <Text style={styles.manualSuccessText}>I have logged in successfully</Text>
-            </TouchableOpacity>
-         </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -380,6 +299,9 @@ const styles = StyleSheet.create({
   tabContent: {
     flex: 1,
     padding: 20,
+  },
+  providerList: {
+    flex: 1,
   },
   title: {
     fontSize: 24,
