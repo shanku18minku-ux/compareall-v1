@@ -273,6 +273,21 @@ export default function App() {
           </ScrollView>
         )}
       </View>
+
+      <View style={styles.bottomNav}>
+        <TouchableOpacity 
+          style={[styles.navItem, activeTab === 'Search' && styles.navItemActive]}
+          onPress={() => setActiveTab('Search')}
+        >
+          <Text style={[styles.navText, activeTab === 'Search' && styles.navTextActive]}>🔍 Search</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.navItem, activeTab === 'Connections' && styles.navItemActive]}
+          onPress={() => setActiveTab('Connections')}
+        >
+          <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>🔗 Connections</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -507,5 +522,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+    paddingBottom: 20,
+  },
+  navItem: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+  },
+  navItemActive: {
+    borderTopWidth: 3,
+    borderColor: '#007AFF',
+  },
+  navText: {
+    color: '#888',
+    fontWeight: '500',
+  },
+  navTextActive: {
+    color: '#007AFF',
+    fontWeight: 'bold',
   }
 });
