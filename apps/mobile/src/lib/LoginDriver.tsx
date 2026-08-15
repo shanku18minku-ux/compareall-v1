@@ -1,5 +1,6 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useMemo, useEffect } from 'react';
 import { WebView } from 'react-native-webview';
+import { PlatformRegistry } from './packets/registry';
 
 export interface LoginDriverRef {
     submitPhone: (phone: string) => void;
@@ -30,8 +31,10 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
     onError
 }, ref) => {
     const webViewRef = useRef<WebView>(null);
+    
+    // Lazy load the packet logic from registry
+    const packet = useMemo(() => PlatformRegistry.get(providerId), [providerId]);
 
-    // Imperative API for zero-latency form submission from native UI
     useImperativeHandle(ref, () => ({
         submitPhone: (phoneNumber: string) => {
             webViewRef.current?.injectJavaScript(`
@@ -51,20 +54,13 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         }
     }));
 
-    // Generic base script without any platform-specific logic
-    const baseScript = `
-        // Platform specific scripts will be injected here via modular packets
-        window.addEventListener('NATIVE_ACTION', function(e) {
-            try {
-                var action = e.detail;
-                console.log('Action received:', action);
-                // Implementation will be handled by specific provider packets
-            } catch (err) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: err.message }));
-            }
-        });
-        true;
-    `;
+    // Check if the packet actually exists
+    if (!packet) {
+       console.error(`No packet registered for provider: ${providerId}`);
+       return null;
+    }
+
+    const injectedScript = packet.getLoginInjectionScript();
 
     return (
         <WebView
@@ -74,14 +70,20 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
             javaScriptEnabled={true}
             domStorageEnabled={true}
             thirdPartyCookiesEnabled={true}
-            injectedJavaScript={baseScript}
+            injectedJavaScript={injectedScript}
             userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36"
             onMessage={(event) => {
                 try {
                     const data = JSON.parse(event.nativeEvent.data);
-                    if (data.type === 'OTP_REQUESTED') onOtpRequested();
-                    if (data.type === 'SUCCESS') onSuccess();
-                    if (data.type === 'ERROR') onError(data.message);
+                    
+                    // Delegate message parsing back to the specific packet to keep engine clean
+                    if (packet.handleWebViewMessage) {
+                        packet.handleWebViewMessage(data, {
+                            onOtpRequested,
+                            onSuccess,
+                            onError
+                        });
+                    }
                 } catch (e) {
                     onError('Failed to parse message');
                 }
@@ -90,3 +92,4 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         />
     );
 });
+

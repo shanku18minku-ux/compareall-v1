@@ -5,10 +5,10 @@ import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 import * as Clipboard from 'expo-clipboard';
+import { PlatformRegistry } from './src/lib/packets/registry';
 
-// Mock Providers list for Mobile
-// Platform integrations removed. Will be loaded dynamically via modular packets.
-const PROVIDERS: any[] = [];
+// Load platforms dynamically from modular packets
+const PROVIDERS = PlatformRegistry.getAll().map(p => p.metadata);
 
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
@@ -27,6 +27,22 @@ export default function App() {
   
   // Ref for imperative zero-latency injection
   const driverRefs = useRef<Record<string, LoginDriverRef | null>>({});
+  
+  // Initialize connected state from secure storage via packets
+  useEffect(() => {
+    async function loadConnections() {
+      const packets = PlatformRegistry.getAll();
+      const connected: string[] = [];
+      for (const packet of packets) {
+        const status = await packet.getConnectionStatus();
+        if (status === 'CONNECTED') {
+          connected.push(packet.metadata.id);
+        }
+      }
+      setConnectedProviders(connected);
+    }
+    loadConnections();
+  }, []);
   
   // Google Auth State (Modal)
   const [googleAuthProvider, setGoogleAuthProvider] = useState<string | null>(null);
@@ -106,7 +122,11 @@ export default function App() {
   };
 
   // Disconnect logic
-  const handleDisconnect = (id: string) => {
+  const handleDisconnect = async (id: string) => {
+      const packet = PlatformRegistry.get(id);
+      if (packet) {
+         await packet.disconnect();
+      }
       setConnectedProviders(prev => prev.filter(p => p !== id));
       setLoginSteps(prev => ({...prev, [id]: 'idle'}));
       setPhoneInputs(prev => ({...prev, [id]: ''}));
