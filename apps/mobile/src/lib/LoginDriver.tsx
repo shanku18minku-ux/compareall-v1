@@ -39,8 +39,8 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
   const baseScript = `
     (function() {
-       // Helper to wait for an element as fast as possible
-       function waitForElement(selectorFn, callback, maxAttempts = 100) {
+       // Helper to wait for an element as fast as possible (10ms polling for ultra speed)
+       function waitForElement(selectorFn, callback, maxAttempts = 1000) {
            let attempts = 0;
            const int = setInterval(() => {
                attempts++;
@@ -52,15 +52,32 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                    clearInterval(int);
                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: 'Element timeout' }));
                }
-           }, 100);
+           }, 10);
        }
+
+       // PRE-EMPTIVE OPTIMIZATION: Open the login drawer/modal before the user even submits their phone number!
+       // This guarantees zero-latency when they actually click 'Get OTP' in the native UI.
+       function preOpenLoginDrawer() {
+           const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
+              const text = (el.innerText || '').trim().toLowerCase();
+              return text === 'login' || text === 'sign in' || text === 'log in';
+           });
+           if (loginBtn) {
+               loginBtn.click();
+           } else {
+               // If it's a React app, it might render later, try again shortly
+               setTimeout(preOpenLoginDrawer, 300);
+           }
+       }
+       // Start polling to pre-open
+       preOpenLoginDrawer();
 
        // Setup event listener to receive commands from Native app
        window.addEventListener('NATIVE_ACTION', function(e) {
            const action = e.detail;
            try {
                if (action.type === 'PHONE') {
-                   // 1. Click Login Button
+                   // 1. Fallback: Click Login Button if pre-open failed
                    const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
                       const text = (el.innerText || '').trim().toLowerCase();
                       return text === 'login' || text === 'sign in' || text === 'log in';
