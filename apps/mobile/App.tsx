@@ -1,70 +1,67 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Modal } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
+import { LoginDriver } from './src/lib/LoginDriver';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', name: 'Swiggy', url: 'https://www.swiggy.com' },
-  { id: 'food-b', name: 'Zomato', url: 'https://www.zomato.com' }
+  { id: 'food-a', name: 'Swiggy', url: 'https://www.swiggy.com', desc: 'Account-specific menu and cart pricing is available.' },
+  { id: 'food-b', name: 'Zomato', url: 'https://www.zomato.com', desc: 'Connect to see live menu and cart pricing.' }
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Search');
+  const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Connections');
   
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
-  const [connectingProvider, setConnectingProvider] = useState<any>(null);
-  const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
+  
+  // Native UI Login States
+  const [activeLoginProvider, setActiveLoginProvider] = useState<string | null>(null);
+  const [phoneInputs, setPhoneInputs] = useState<Record<string, string>>({});
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [loginSteps, setLoginSteps] = useState<Record<string, 'idle' | 'sending_phone' | 'awaiting_otp' | 'sending_otp'>>({});
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
 
-  // Toggle connection logic
-  const toggleConnection = (id: string) => {
-    if (connectedProviders.includes(id)) {
+  // Disconnect logic
+  const handleDisconnect = (id: string) => {
       setConnectedProviders(prev => prev.filter(p => p !== id));
-    } else {
-      const provider = PROVIDERS.find(p => p.id === id);
-      setConnectingProvider(provider);
-      setIsLoginModalVisible(true);
-    }
+      setLoginSteps(prev => ({...prev, [id]: 'idle'}));
+      setPhoneInputs(prev => ({...prev, [id]: ''}));
+      setOtpInputs(prev => ({...prev, [id]: ''}));
+      setActiveLoginProvider(null);
   };
 
-  const handleLoginSuccess = () => {
-     if (connectingProvider) {
-         setConnectedProviders(prev => [...prev, connectingProvider.id]);
-     }
-     setIsLoginModalVisible(false);
-     setConnectingProvider(null);
+  const handleGetOtp = (id: string) => {
+      const phone = phoneInputs[id];
+      if (!phone || phone.length < 10) return;
+      setActiveLoginProvider(id);
+      setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
+  };
+
+  const handleVerifyOtp = (id: string) => {
+      const otp = otpInputs[id];
+      if (!otp || otp.length < 4) return;
+      setLoginSteps(prev => ({...prev, [id]: 'sending_otp'}));
   };
 
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setResults([]);
-    
-    // We clear previous results and wait for the WebViews to report back.
-    // In a production app, we'd add a timeout to stop searching if they take too long.
-    setTimeout(() => {
-        setIsSearching(false);
-    }, 15000); // 15 sec timeout
+    setTimeout(() => setIsSearching(false), 15000); // 15 sec timeout
   };
 
   const handleDataExtracted = (data: any) => {
     if (data.type === 'SEARCH_RESULTS' && data.data && data.data.length > 0) {
-       // We received extracted data from a WebView!
        setResults(prev => {
-          // Group the new results with existing ones
-          // For now, we just append. To use the engine's grouping, we can import it later.
-          // Let's create a simple grouped structure for the UI
           const newOffers = data.data;
           const updated = [...prev];
           
           newOffers.forEach((offer: any) => {
-             // Find an existing group or create a new one
              const existingGroup = updated.find(g => g.title.toLowerCase() === offer.title.toLowerCase());
              if (existingGroup) {
                  existingGroup.offers.push({
@@ -87,7 +84,6 @@ export default function App() {
              }
           });
           
-          // Calculate savings
           updated.forEach(g => {
               const prices = g.offers.map((o: any) => o.price.finalPayablePrice);
               const max = Math.max(...prices);
@@ -97,14 +93,32 @@ export default function App() {
           
           return updated;
        });
-       
-       // If all providers have responded, we can set isSearching(false)
-       // (Simplified here: we just let the timeout handle it or stop when we get enough)
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      {activeLoginProvider && (
+          <LoginDriver 
+             providerId={activeLoginProvider}
+             url={PROVIDERS.find(p => p.id === activeLoginProvider)?.url || ''}
+             phone={phoneInputs[activeLoginProvider] || ''}
+             otp={otpInputs[activeLoginProvider] || ''}
+             triggerPhone={loginSteps[activeLoginProvider] === 'sending_phone'}
+             triggerOtp={loginSteps[activeLoginProvider] === 'sending_otp'}
+             onOtpRequested={() => setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'awaiting_otp'}))}
+             onSuccess={() => {
+                 setConnectedProviders(prev => [...prev, activeLoginProvider]);
+                 setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'idle'}));
+                 setActiveLoginProvider(null);
+             }}
+             onError={(msg) => {
+                 console.log('Login error:', msg);
+                 setLoginSteps(prev => ({...prev, [activeLoginProvider]: 'idle'}));
+             }}
+          />
+      )}
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
       </View>
@@ -130,10 +144,6 @@ export default function App() {
             {isSearching && (
               <View style={styles.loadingBox}>
                 <Text>Extracting private data in background...</Text>
-                {/* 
-                  Here is where the WebViews are silently mounted.
-                  They are fully invisible but are loading the sites and extracting.
-                */}
                 {connectedProviders.map(id => {
                    const provider = PROVIDERS.find(p => p.id === id);
                    if (!provider) return null;
@@ -170,9 +180,6 @@ export default function App() {
                       <Text style={styles.offerProvider}>{offer.providerName}</Text>
                       <Text style={styles.offerPrice}>₹{offer.price.finalPayablePrice} <Text style={styles.basePrice}>(Base: ₹{offer.price.basePrice})</Text></Text>
                       {offer.price.discount > 0 && <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>}
-                      {offer.accountBenefits.map((b: string, bi: number) => (
-                         <Text key={bi} style={styles.benefit}>✨ {b}</Text>
-                      ))}
                     </View>
                   ))}
                 </View>
@@ -180,27 +187,90 @@ export default function App() {
             </ScrollView>
           </View>
         ) : (
-          <View style={styles.tabContent}>
-            <Text style={styles.title}>Connected Services</Text>
-            <Text style={styles.subtitle}>Connect your accounts to fetch live, personalized data securely. Data never leaves your device.</Text>
+          <ScrollView style={styles.tabContent}>
+            <Text style={styles.title}>Food Delivery</Text>
+            <Text style={styles.subtitle}>Connect Swiggy and Zomato for live menu and cart pricing.</Text>
             
             <View style={styles.providerList}>
               {PROVIDERS.map(provider => {
                 const isConnected = connectedProviders.includes(provider.id);
+                const currentStep = loginSteps[provider.id] || 'idle';
+                
                 return (
-                  <View key={provider.id} style={styles.providerCard}>
-                    <Text style={styles.providerName}>{provider.name}</Text>
-                    <TouchableOpacity 
-                      style={[styles.connectBtn, isConnected && styles.disconnectBtn]}
-                      onPress={() => toggleConnection(provider.id)}
-                    >
-                      <Text style={styles.connectBtnText}>{isConnected ? 'Disconnect' : 'Connect'}</Text>
-                    </TouchableOpacity>
+                  <View key={provider.id} style={styles.premiumCard}>
+                    <View style={styles.premiumCardHeader}>
+                       <View style={styles.providerBrandBox}>
+                          <Text style={styles.providerBrandText}>{provider.name[0]}</Text>
+                       </View>
+                       <View style={styles.providerInfo}>
+                          <Text style={styles.providerName}>{provider.name}</Text>
+                          <Text style={styles.providerDesc}>{provider.desc}</Text>
+                       </View>
+                       {isConnected ? (
+                          <View style={styles.badgeConnected}><Text style={styles.badgeTextConnected}>Connected</Text></View>
+                       ) : (
+                          <View style={styles.badgeNotConnected}><Text style={styles.badgeTextNotConnected}>Not Connected</Text></View>
+                       )}
+                    </View>
+
+                    {isConnected ? (
+                        <TouchableOpacity style={styles.disconnectBtnFull} onPress={() => handleDisconnect(provider.id)}>
+                            <Text style={styles.disconnectBtnTextFull}>Disconnect</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.authContainer}>
+                            {currentStep === 'idle' || currentStep === 'sending_phone' ? (
+                                <View style={styles.inputRow}>
+                                   <TextInput 
+                                      style={styles.nativeInput}
+                                      placeholder="Mobile number"
+                                      keyboardType="phone-pad"
+                                      value={phoneInputs[provider.id] || ''}
+                                      onChangeText={(t) => setPhoneInputs(prev => ({...prev, [provider.id]: t}))}
+                                      editable={currentStep === 'idle'}
+                                   />
+                                   <TouchableOpacity 
+                                      style={[styles.actionBtn, currentStep === 'sending_phone' && styles.actionBtnLoading]}
+                                      onPress={() => handleGetOtp(provider.id)}
+                                      disabled={currentStep === 'sending_phone'}
+                                   >
+                                      {currentStep === 'sending_phone' ? (
+                                          <ActivityIndicator size="small" color="#555" />
+                                      ) : (
+                                          <Text style={styles.actionBtnText}>Get OTP</Text>
+                                      )}
+                                   </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.inputRow}>
+                                   <TextInput 
+                                      style={styles.nativeInput}
+                                      placeholder="Enter OTP"
+                                      keyboardType="number-pad"
+                                      value={otpInputs[provider.id] || ''}
+                                      onChangeText={(t) => setOtpInputs(prev => ({...prev, [provider.id]: t}))}
+                                      editable={currentStep === 'awaiting_otp'}
+                                   />
+                                   <TouchableOpacity 
+                                      style={[styles.actionBtn, currentStep === 'sending_otp' && styles.actionBtnLoading]}
+                                      onPress={() => handleVerifyOtp(provider.id)}
+                                      disabled={currentStep === 'sending_otp'}
+                                   >
+                                      {currentStep === 'sending_otp' ? (
+                                          <ActivityIndicator size="small" color="#555" />
+                                      ) : (
+                                          <Text style={styles.actionBtnText}>Verify</Text>
+                                      )}
+                                   </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                    )}
                   </View>
                 );
               })}
             </View>
-          </View>
+          </ScrollView>
         )}
       </View>
 
@@ -406,90 +476,112 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  providerList: {
-    flex: 1,
-  },
-  providerCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  premiumCard: {
     backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  premiumCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  providerBrandBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FF5722',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  providerBrandText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  providerInfo: {
+    flex: 1,
   },
   providerName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  connectBtn: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-  },
-  disconnectBtn: {
-    backgroundColor: '#ff3b30',
-  },
-  connectBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderColor: '#ddd',
-    paddingBottom: 20,
-  },
-  navItem: {
-    flex: 1,
-    padding: 15,
-    alignItems: 'center',
-  },
-  navItemActive: {
-    borderTopWidth: 3,
-    borderColor: '#007AFF',
-  },
-  navText: {
-    color: '#888',
-    fontWeight: '500',
-  },
-  navTextActive: {
-    color: '#007AFF',
-    fontWeight: 'bold',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
-  modalCloseBtn: {
-    padding: 5,
+  providerDesc: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
   },
-  modalCloseText: {
-    color: '#007AFF',
+  badgeConnected: {
+    backgroundColor: '#e6ffe6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  badgeTextConnected: {
+    color: '#008000',
+    fontSize: 12,
     fontWeight: '600',
   },
-  manualSuccessBtn: {
-    backgroundColor: '#34c759',
-    padding: 15,
-    alignItems: 'center',
-    margin: 10,
-    borderRadius: 8,
+  badgeNotConnected: {
+    backgroundColor: '#f2f2f7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
-  manualSuccessText: {
+  badgeTextNotConnected: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  authContainer: {
+    marginTop: 5,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nativeInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    marginRight: 10,
+  },
+  actionBtn: {
+    backgroundColor: '#000',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  actionBtnLoading: {
+    backgroundColor: '#e0e0e0',
+  },
+  actionBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  disconnectBtnFull: {
+    backgroundColor: '#ff3b30',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  disconnectBtnTextFull: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
