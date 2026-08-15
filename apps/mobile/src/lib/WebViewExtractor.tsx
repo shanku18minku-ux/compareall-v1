@@ -2,10 +2,13 @@ import React, { useRef, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { getSwiggySearchInjection, getZomatoSearchInjection } from './extractors';
+
 export type ExtractionStatus = 'idle' | 'connecting' | 'extracting' | 'completed' | 'error';
 
 interface WebViewExtractorProps {
   url: string;
+  providerId: string;
   onDataExtracted: (data: any) => void;
   onError: (err: string) => void;
   isActive: boolean;
@@ -16,43 +19,22 @@ interface WebViewExtractorProps {
  * This acts as our "Browser Extension" on mobile, securely parsing DOM data directly 
  * on the user's device.
  */
-export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, onDataExtracted, onError, isActive }) => {
+export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, providerId, onDataExtracted, onError, isActive }) => {
   const webViewRef = useRef<WebView>(null);
   
-  // The JavaScript we inject into the provider's page after it loads.
-  const injectedJavascript = `
-    (function() {
-      try {
-        // Example mock extraction logic based on the provider
-        // In reality, this would have complex DOM traversal (e.g. document.querySelector('.price-class'))
-        
-        const pageContent = document.body.innerText.toLowerCase();
-        
-        const extractedData = {
-          success: true,
-          timestamp: Date.now(),
-          url: window.location.href,
-          // Simulated extraction
-          priceData: {
-             basePrice: 0,
-             discount: 0,
-             finalPayablePrice: 0
-          }
-        };
-
-        // If it's a known provider, run specific extractors
-        if (window.location.href.includes('amazon')) {
-           extractedData.priceData = { basePrice: 79900, discount: 5000, finalPayablePrice: 74900 };
-           extractedData.benefits = ['Prime Member'];
-        }
-
-        window.ReactNativeWebView.postMessage(JSON.stringify(extractedData));
-      } catch (e) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: e.message }));
-      }
-    })();
-    true;
-  `;
+  // Get the appropriate injection script based on the provider
+  let injectedJavascript = '';
+  
+  if (providerId === 'food-a') {
+      injectedJavascript = getSwiggySearchInjection(url);
+  } else if (providerId === 'food-b') {
+      injectedJavascript = getZomatoSearchInjection(url);
+  } else {
+      injectedJavascript = `
+        window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: 'Unknown provider' }));
+        true;
+      `;
+  }
 
   if (!isActive) return null;
 

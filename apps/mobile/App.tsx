@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Modal } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 
 // Mock Providers list for Mobile
 const PROVIDERS = [
-  { id: 'food-a', name: 'Swiggy Clone', url: 'https://swiggy-mock.com' },
-  { id: 'food-b', name: 'Zomato Clone', url: 'https://zomato-mock.com' }
+  { id: 'food-a', name: 'Swiggy', url: 'https://www.swiggy.com' },
+  { id: 'food-b', name: 'Zomato', url: 'https://www.zomato.com' }
 ];
 
 export default function App() {
@@ -13,6 +14,8 @@ export default function App() {
   
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
+  const [connectingProvider, setConnectingProvider] = useState<any>(null);
+  const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,8 +27,18 @@ export default function App() {
     if (connectedProviders.includes(id)) {
       setConnectedProviders(prev => prev.filter(p => p !== id));
     } else {
-      setConnectedProviders(prev => [...prev, id]);
+      const provider = PROVIDERS.find(p => p.id === id);
+      setConnectingProvider(provider);
+      setIsLoginModalVisible(true);
     }
+  };
+
+  const handleLoginSuccess = () => {
+     if (connectingProvider) {
+         setConnectedProviders(prev => [...prev, connectingProvider.id]);
+     }
+     setIsLoginModalVisible(false);
+     setConnectingProvider(null);
   };
 
   const handleSearch = () => {
@@ -33,37 +46,61 @@ export default function App() {
     setIsSearching(true);
     setResults([]);
     
-    // Simulate engine processing delay
+    // We clear previous results and wait for the WebViews to report back.
+    // In a production app, we'd add a timeout to stop searching if they take too long.
     setTimeout(() => {
-      // In a real app, this is where we'd invoke the shared @compareall/engine
-      // and wait for WebViewExtractor to fire the 'onDataExtracted' events.
-      
-      const mockResults = [
-        {
-          title: `Chicken Biryani (Behrouz Biryani)`,
-          lowestPrice: 227,
-          savings: 46,
-          offers: [
-            {
-              providerName: 'Swiggy Clone',
-              price: { finalPayablePrice: 227, basePrice: 250, discount: 50 },
-              accountBenefits: connectedProviders.includes('food-a') ? ['[DEMO] Mock Swiggy One Benefit: Free Delivery'] : []
-            },
-            {
-              providerName: 'Zomato Clone',
-              price: { finalPayablePrice: connectedProviders.includes('food-b') ? 253 : 290, basePrice: 240, discount: connectedProviders.includes('food-b') ? 60 : 0 },
-              accountBenefits: connectedProviders.includes('food-b') ? ['[DEMO] Mock Zomato Gold Benefit: ₹60 Off'] : []
-            }
-          ]
-        }
-      ];
-      
-      setResults(mockResults);
-      setIsSearching(false);
-      
-      // Auto-disconnect logic (Privacy Feature)
-      setConnectedProviders([]);
-    }, 2000);
+        setIsSearching(false);
+    }, 15000); // 15 sec timeout
+  };
+
+  const handleDataExtracted = (data: any) => {
+    if (data.type === 'SEARCH_RESULTS' && data.data && data.data.length > 0) {
+       // We received extracted data from a WebView!
+       setResults(prev => {
+          // Group the new results with existing ones
+          // For now, we just append. To use the engine's grouping, we can import it later.
+          // Let's create a simple grouped structure for the UI
+          const newOffers = data.data;
+          const updated = [...prev];
+          
+          newOffers.forEach((offer: any) => {
+             // Find an existing group or create a new one
+             const existingGroup = updated.find(g => g.title.toLowerCase() === offer.title.toLowerCase());
+             if (existingGroup) {
+                 existingGroup.offers.push({
+                     providerName: offer.providerName,
+                     price: offer.price,
+                     accountBenefits: []
+                 });
+                 existingGroup.lowestPrice = Math.min(existingGroup.lowestPrice, offer.price.finalPayablePrice);
+             } else {
+                 updated.push({
+                     title: offer.title,
+                     lowestPrice: offer.price.finalPayablePrice,
+                     savings: 0,
+                     offers: [{
+                         providerName: offer.providerName,
+                         price: offer.price,
+                         accountBenefits: []
+                     }]
+                 });
+             }
+          });
+          
+          // Calculate savings
+          updated.forEach(g => {
+              const prices = g.offers.map((o: any) => o.price.finalPayablePrice);
+              const max = Math.max(...prices);
+              const min = Math.min(...prices);
+              g.savings = max - min;
+          });
+          
+          return updated;
+       });
+       
+       // If all providers have responded, we can set isSearching(false)
+       // (Simplified here: we just let the timeout handle it or stop when we get enough)
+    }
   };
 
   return (
@@ -100,12 +137,21 @@ export default function App() {
                 {connectedProviders.map(id => {
                    const provider = PROVIDERS.find(p => p.id === id);
                    if (!provider) return null;
+                   
+                   let searchUrl = provider.url;
+                   if (id === 'food-a') {
+                       searchUrl = `https://www.swiggy.com/search?resmenu=${encodeURIComponent(searchQuery)}`;
+                   } else if (id === 'food-b') {
+                       searchUrl = `https://www.zomato.com/search?q=${encodeURIComponent(searchQuery)}`;
+                   }
+                   
                    return (
                      <WebViewExtractor 
                         key={id} 
-                        url={provider.url}
+                        url={searchUrl}
+                        providerId={id}
                         isActive={true}
-                        onDataExtracted={(data) => console.log('Extracted:', data)}
+                        onDataExtracted={handleDataExtracted}
                         onError={(err) => console.log('Err:', err)}
                      />
                    );
@@ -172,6 +218,50 @@ export default function App() {
           <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>🔗 Connections</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={isLoginModalVisible} animationType="slide" onRequestClose={() => setIsLoginModalVisible(false)}>
+         <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+            <View style={styles.modalHeader}>
+               <Text style={styles.modalTitle}>Connect to {connectingProvider?.name}</Text>
+               <TouchableOpacity onPress={() => setIsLoginModalVisible(false)} style={styles.modalCloseBtn}>
+                  <Text style={styles.modalCloseText}>Cancel</Text>
+               </TouchableOpacity>
+            </View>
+            <View style={{padding: 15, backgroundColor: '#fff9e6'}}>
+                <Text style={{fontSize: 14, color: '#856404'}}>
+                   Please login normally. We do NOT see or store your passwords. Your login stays securely on your device.
+                </Text>
+            </View>
+            {connectingProvider && (
+                <WebView 
+                   source={{ uri: connectingProvider.url }} 
+                   style={{flex: 1}}
+                   javaScriptEnabled={true}
+                   sharedCookiesEnabled={true}
+                   thirdPartyCookiesEnabled={true}
+                   injectedJavaScript={`
+                      // Detect when user is logged in
+                      setInterval(() => {
+                         // Very basic login detection: if there is a 'Logout' button, or a profile icon, or no 'Login' button
+                         const html = document.body.innerText.toLowerCase();
+                         if (html.includes('logout') || html.includes('sign out') || (window.location.href.includes('zomato') && html.includes('profile'))) {
+                             window.ReactNativeWebView.postMessage('LOGIN_SUCCESS');
+                         }
+                      }, 2000);
+                      true;
+                   `}
+                   onMessage={(event) => {
+                      if (event.nativeEvent.data === 'LOGIN_SUCCESS') {
+                          handleLoginSuccess();
+                      }
+                   }}
+                />
+            )}
+            <TouchableOpacity style={styles.manualSuccessBtn} onPress={handleLoginSuccess}>
+                <Text style={styles.manualSuccessText}>I have logged in successfully</Text>
+            </TouchableOpacity>
+         </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -350,5 +440,36 @@ const styles = StyleSheet.create({
   navTextActive: {
     color: '#007AFF',
     fontWeight: 'bold',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalCloseBtn: {
+    padding: 5,
+  },
+  modalCloseText: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  manualSuccessBtn: {
+    backgroundColor: '#34c759',
+    padding: 15,
+    alignItems: 'center',
+    margin: 10,
+    borderRadius: 8,
+  },
+  manualSuccessText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });
