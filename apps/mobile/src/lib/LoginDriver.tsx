@@ -494,7 +494,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            try {
                const data = JSON.parse(event.nativeEvent.data);
                if (data.type === 'DEBUG') {
-                   console.log(\`[${providerId}] \${data.message}\`);
+                   console.log('[' + providerId + '] ' + data.message);
                }
                if (data.type === 'OTP_REQUESTED') onOtpRequested();
                if (data.type === 'SUCCESS') onSuccess();
