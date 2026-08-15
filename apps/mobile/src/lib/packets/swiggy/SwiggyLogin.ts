@@ -77,18 +77,34 @@ export const getSwiggyLoginScript = () => `
             return true;
         }
 
-        // Strategy 2: Look for user icon in header
+        // Strategy 2: Look for mobile user avatar icon (href="/my-account" or "/auth")
         var headerIcon = findEl([
+            'a[href*="/my-account"]',
+            'a[href*="/auth"]',
+            'a[href*="/login"]',
+            'header a[href*="/my-account"]',
             'header [class*="user"]',
             'header [class*="login"]',
             'header [class*="signin"]',
             'nav [class*="user"]',
             '[data-testid="login-btn"]',
+            '[aria-label="User"]',
+            '[aria-label="Profile"]',
             '[aria-label="Login"]',
-            '[aria-label="Sign In"]'
+            '[aria-label="Sign In"]',
+            // Generic fallback for any user SVG icon in the header
+            'header > div:last-child a',
+            'header > div:last-child div[role="button"]'
         ]);
+        
         if (headerIcon) {
             headerIcon.click();
+            return true;
+        }
+
+        // Strategy 3: Directly redirect to /my-account which triggers the login drawer natively on mobile
+        if (!window.location.href.includes('/my-account') && !window.location.href.includes('/auth') && !window.location.href.includes('login')) {
+            window.location.href = 'https://www.swiggy.com/my-account';
             return true;
         }
 
