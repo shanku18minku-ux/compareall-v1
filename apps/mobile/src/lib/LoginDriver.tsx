@@ -39,8 +39,13 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
   const baseScript = `
     (function() {
-       // Helper to wait for an element as fast as possible (10ms polling for ultra speed)
+       // Helper to wait for an element as fast as possible (0ms immediate check, then 10ms polling)
        function waitForElement(selectorFn, callback, maxAttempts = 1000) {
+           const initial = selectorFn();
+           if (initial) {
+               callback(initial);
+               return;
+           }
            let attempts = 0;
            const int = setInterval(() => {
                attempts++;
@@ -56,20 +61,17 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
        }
 
        // PRE-EMPTIVE OPTIMIZATION: Open the login drawer/modal before the user even submits their phone number!
-       // This guarantees zero-latency when they actually click 'Get OTP' in the native UI.
        function preOpenLoginDrawer() {
            const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
-              const text = (el.innerText || '').trim().toLowerCase();
+              const text = (el.textContent || '').trim().toLowerCase();
               return text === 'login' || text === 'sign in' || text === 'log in';
            });
            if (loginBtn) {
                loginBtn.click();
            } else {
-               // If it's a React app, it might render later, try again shortly
                setTimeout(preOpenLoginDrawer, 300);
            }
        }
-       // Start polling to pre-open
        preOpenLoginDrawer();
 
        // Setup event listener to receive commands from Native app
@@ -79,7 +81,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                if (action.type === 'PHONE') {
                    // 1. Fallback: Click Login Button if pre-open failed
                    const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
-                      const text = (el.innerText || '').trim().toLowerCase();
+                      const text = (el.textContent || '').trim().toLowerCase();
                       return text === 'login' || text === 'sign in' || text === 'log in';
                    });
                    if (loginBtn) loginBtn.click();
@@ -87,8 +89,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                    // 2. Wait for Phone Input
                    waitForElement(
                        () => {
-                           // Find visible tel/number inputs
-                           return Array.from(document.querySelectorAll('input[type="tel"], input[type="number"], input[name="mobile"]')).find(el => el.offsetParent !== null);
+                           return Array.from(document.querySelectorAll('input[type="tel"], input[type="number"], input[name="mobile"]')).find(el => true);
                        },
                        (phoneInput) => {
                            // Set value
@@ -100,9 +101,7 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                            // 3. Wait for Submit Button
                            waitForElement(
                                () => Array.from(document.querySelectorAll('button, a, div[role="button"], span')).reverse().find(el => {
-                                   if (el.offsetParent === null) return false; // must be visible
-                                   const t = (el.innerText || '').trim().toLowerCase();
-                                   // Reverse array so we find the lowest/newest button in the DOM (modal button) rather than header
+                                   const t = (el.textContent || '').trim().toLowerCase();
                                    return t === 'login' || t === 'continue' || t.includes('send one') || t.includes('send otp') || t.includes('get otp') || t === 'next';
                                }),
                                (submitBtn) => {
@@ -138,8 +137,8 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                            // 2. Wait for Verify Button
                            waitForElement(
                                () => Array.from(document.querySelectorAll('button, span, a')).find(el => {
-                                   const t = (el.innerText || '').toLowerCase();
-                                   return t.includes('verify') || t.includes('submit') || t.includes('confirm');
+                                   const t = (el.textContent || '').trim().toLowerCase();
+                                   return t === 'verify' || t === 'submit' || t === 'confirm';
                                }),
                                (verifyBtn) => {
                                    verifyBtn.click();
