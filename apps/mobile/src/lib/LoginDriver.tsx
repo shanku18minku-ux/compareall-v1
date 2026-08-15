@@ -59,38 +59,34 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
   const baseScript = `
     (function() {
-       // Helper to wait for an element as fast as possible (0ms immediate check, then 10ms polling)
-       function waitForElement(selectorFn, callback, maxAttempts = 1000) {
+       // Helper to wait for an element at sub-millisecond speed using the microtask queue
+       function waitForElement(selectorFn, callback) {
            const initial = selectorFn();
            if (initial) {
                callback(initial);
                return;
            }
-           let attempts = 0;
-           const int = setInterval(() => {
-               attempts++;
+           const observer = new MutationObserver((mutations, obs) => {
                const el = selectorFn();
                if (el) {
-                   clearInterval(int);
+                   obs.disconnect();
                    callback(el);
-               } else if (attempts >= maxAttempts) {
-                   clearInterval(int);
-                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: 'Element timeout' }));
                }
-           }, 10);
+           });
+           observer.observe(document, { childList: true, subtree: true, attributes: true });
        }
 
        // PRE-EMPTIVE OPTIMIZATION: Open the login drawer/modal before the user even submits their phone number!
        function preOpenLoginDrawer() {
-           const loginBtn = Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
-              const text = (el.textContent || '').trim().toLowerCase();
-              return text === 'login' || text === 'sign in' || text === 'log in';
-           });
-           if (loginBtn) {
-               loginBtn.click();
-           } else {
-               setTimeout(preOpenLoginDrawer, 300);
-           }
+           waitForElement(
+               () => Array.from(document.querySelectorAll('a, span, div, button')).find(el => {
+                   const text = (el.textContent || '').trim().toLowerCase();
+                   return text === 'login' || text === 'sign in' || text === 'log in';
+               }),
+               (loginBtn) => {
+                   loginBtn.click();
+               }
+           );
        }
        preOpenLoginDrawer();
 
