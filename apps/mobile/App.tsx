@@ -244,43 +244,6 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
-      {PROVIDERS.map(p => {
-          if (p.authType === 'google') return null;
-          if (connectedProviders.includes(p.id)) return null;
-          
-          const isActive = activeLoginProvider === p.id;
-          return (
-             <LoginDriver 
-                key={p.id}
-                ref={(el) => { driverRefs.current[p.id] = el; }}
-                providerId={p.id}
-                url={p.loginUrl || p.url}
-                phone={phoneInputs[p.id] || ''}
-                otp={otpInputs[p.id] || ''}
-                triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
-                triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
-                onOtpRequested={() => {
-                   if (isActive) {
-                       Vibration.vibrate(50);
-                       setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
-                   }
-                }}
-                onSuccess={() => {
-                   setConnectedProviders(prev => [...prev, p.id]);
-                   setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                   if (isActive) {
-                       Vibration.vibrate(50);
-                       setActiveLoginProvider(null);
-                   }
-                }}
-                onError={(msg) => {
-                   console.log('Login error:', msg);
-                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                }}
-             />
-          );
-      })}
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
@@ -547,7 +510,7 @@ export default function App() {
                   <Text style={styles.modalCloseText}>Cancel</Text>
                </TouchableOpacity>
             </View>
-            {googleAuthProvider && (
+             {googleAuthProvider && (
                <WebView 
                   source={{ uri: PROVIDERS.find(p => p.id === googleAuthProvider)?.url || 'https://google.com' }}
                   style={{flex: 1}}
@@ -610,6 +573,46 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
+      <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+        {PROVIDERS.map(p => {
+            if (p.authType === 'google') return null;
+            if (connectedProviders.includes(p.id)) return null;
+            
+            const isActive = activeLoginProvider === p.id;
+            return (
+               <LoginDriver 
+                  key={p.id}
+                  ref={(el) => { driverRefs.current[p.id] = el; }}
+                  providerId={p.id}
+                  url={p.loginUrl || p.url}
+                  phone={phoneInputs[p.id] || ''}
+                  otp={otpInputs[p.id] || ''}
+                  triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
+                  triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
+                  onOtpRequested={() => {
+                     if (isActive) {
+                         Vibration.vibrate(50);
+                         setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
+                     }
+                  }}
+                  onSuccess={() => {
+                     setConnectedProviders(prev => [...prev, p.id]);
+                     setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                     if (isActive) {
+                         Vibration.vibrate(50);
+                         setActiveLoginProvider(null);
+                     }
+                  }}
+                  onError={(msg) => {
+                     console.log('Login error:', msg);
+                     if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                  }}
+               />
+            );
+        })}
+      </View>
 
     </SafeAreaView>
   );

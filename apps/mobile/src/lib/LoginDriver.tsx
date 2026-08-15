@@ -1,4 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef, useMemo, useEffect } from 'react';
+import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { PlatformRegistry } from './packets/registry';
 
@@ -63,10 +64,10 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
     const injectedScript = packet.getLoginInjectionScript();
 
     return (
-        <WebView
-            ref={webViewRef}
-            source={{ uri: url }}
-            style={{ display: 'none', width: 0, height: 0 }}
+        <View style={{ position: 'absolute', top: -1000, left: -1000, width: 1, height: 1, opacity: 0 }}>
+            <WebView
+                ref={webViewRef}
+                source={{ uri: url }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             thirdPartyCookiesEnabled={true}
@@ -90,6 +91,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
             }}
             onError={(e) => onError(e.nativeEvent.description)}
         />
+        </View>
     );
 });
 
