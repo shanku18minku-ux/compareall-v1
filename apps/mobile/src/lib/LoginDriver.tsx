@@ -184,12 +184,13 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        window.fetch = async function(...args) {
            const res = await origFetch.apply(this, args);
            const url = String(args[0]).toLowerCase();
-           if (window.__OTP_SUBMITTED && (url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth') || url.includes('graphql')) && res.ok) {
+           const isAuthCall = url.includes('verify') || url.includes('otp') || url.includes('login') || url.includes('auth') || url.includes('graphql') || url.includes('user') || url.includes('validate') || url.includes('token');
+           
+           if (window.__OTP_SUBMITTED && isAuthCall && res.ok) {
                try {
                    const clone = res.clone();
                    const text = await clone.text().catch(() => '');
                    const tLower = text.toLowerCase();
-                   // If it's a 2xx response to an auth endpoint after OTP submission, and doesn't explicitly scream "error"
                    if (!tLower.includes('invalid') && !tLower.includes('incorrect') && !tLower.includes('wrong') && !tLower.includes('expired')) {
                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                    }
@@ -203,7 +204,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            this.addEventListener('load', function() {
                if (this.status >= 200 && this.status < 300) {
                    const u = String(url).toLowerCase();
-                   if (window.__OTP_SUBMITTED && (u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('graphql'))) {
+                   const isAuthCall = u.includes('verify') || u.includes('otp') || u.includes('login') || u.includes('auth') || u.includes('graphql') || u.includes('user') || u.includes('validate') || u.includes('token');
+                   
+                   if (window.__OTP_SUBMITTED && isAuthCall) {
                        try {
                            const text = this.responseText || '';
                            const tLower = text.toLowerCase();
@@ -222,8 +225,19 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            if (!document.body) return;
            const html = document.body.textContent.toLowerCase();
            const hasProfileLink = document.querySelector('a[href*="profile"], a[href*="account"], a[href*="order"], [alt*="profile"], img[alt*="user"], .profile');
+           
            if (html.includes('logout') || html.includes('sign out') || hasProfileLink) {
                if (window.__OTP_SUBMITTED || document.querySelector('a[href*="logout"], button[id*="logout"]')) {
+                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                   return;
+               }
+           }
+
+           // Ultimate SPA Fallback: If OTP was submitted, and the modal/input field is removed from DOM
+           if (window.__OTP_SUBMITTED) {
+               const otpInputs = document.querySelectorAll('input[type="tel"], input[type="number"], input[autocomplete="one-time-code"]');
+               // If the OTP input is gone, it means the React Modal closed upon success!
+               if (otpInputs.length === 0) {
                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                }
            }
