@@ -250,13 +250,17 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
        // ─── PHONE SUBMISSION FLOW ─────────────────────────────────────
        function handlePhone(phoneValue) {
+           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Starting handlePhone flow' }));
            // For Zomato & Swiggy: aggressively poll for login button at 50ms
            // Both load home page and show login in header nav
            if (isZomato || isSwiggy) {
                var loginPollAttempts = 0;
                var loginPoll = setInterval(function() {
                    loginPollAttempts++;
-                   if (loginPollAttempts > 60) { clearInterval(loginPoll); }
+                   if (loginPollAttempts > 60) { 
+                       clearInterval(loginPoll); 
+                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Login button poll timeout' }));
+                   }
                    var allLinks = Array.from(document.querySelectorAll('a, button, [role="button"], span, div'));
                    var loginBtn = allLinks.find(function(el) {
                        var t = (el.textContent || '').trim().toLowerCase();
@@ -264,6 +268,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                        return t === 'log in' || t === 'login' || t === 'sign in' || t === 'signin';
                    });
                    if (loginBtn) {
+                       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found login button, clicking...' }));
                        clearInterval(loginPoll);
                        clickElement(loginBtn);
                    }
@@ -286,16 +291,22 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    );
                },
                function(phoneInput) {
+                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found phone input, typing...' }));
                    simulateType(phoneInput, phoneValue);
                    
                    // Poll every 50ms for maximum speed — no artificial wait
                    var attempts = 0;
                    var findAndClick = setInterval(function() {
                        attempts++;
-                       if (attempts > 40) { clearInterval(findAndClick); return; }
+                       if (attempts > 40) { 
+                           clearInterval(findAndClick); 
+                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Send OTP button poll timeout' }));
+                           return; 
+                       }
                        
                        var btn = findSendOtpButton();
                        if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
+                           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found Send OTP button, clicking...' }));
                            clearInterval(findAndClick);
                            clickElement(btn);
                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
@@ -307,6 +318,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
 
        // ─── OTP SUBMISSION FLOW ───────────────────────────────────────
        function handleOtp(otpValue) {
+           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Starting handleOtp flow' }));
            window.__OTP_SUBMITTED = true;
            
            // Step 1: Wait for OTP input fields
@@ -318,6 +330,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
                    return inputs.length > 0 ? inputs : null;
                },
                function(inputs) {
+                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DEBUG', message: 'Found OTP input, typing...' }));
                    // Fill in the OTP
                    if (inputs.length > 1) {
                        // Split boxes (e.g., Zomato 6-box, Swiggy 4-box)
@@ -448,6 +461,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         onMessage={(event) => {
            try {
                const data = JSON.parse(event.nativeEvent.data);
+               if (data.type === 'DEBUG') {
+                   console.log(`[WebView Debug - ${providerId}]:`, data.message);
+               }
                if (data.type === 'OTP_REQUESTED') onOtpRequested();
                if (data.type === 'SUCCESS') onSuccess();
                if (data.type === 'ERROR') onError(data.message);
