@@ -141,22 +141,24 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
        var isZomato  = host.includes('zomato');
        var isSwiggy  = host.includes('swiggy');
 
-       // ─── PLATFORM-SPECIFIC: Find OTP Submit button ─────────────────
+       // ─── PLATFORM-SPECIFIC: Find OTP Submit button ─────────────────────────────
        function findOtpSubmitButton() {
-           // Try platform-specific selectors first (FAST PATH)
            var btn = null;
            
            if (isZomato) {
-               // Zomato: "Verify" button, often a <button> or <span> inside a div
-               btn = document.querySelector('button[class*="verify"], [class*="verifyBtn"], [class*="VerifyBtn"]');
-               if (!btn) btn = document.querySelector('button[class*="submit"], button[class*="Submit"]');
-           }
-           if (isSwiggy) {
-               btn = document.querySelector('button[class*="verify"], button[class*="Verify"]');
-               if (!btn) btn = document.querySelector('._27NRA, ._1fZMT'); // Swiggy known class names
+               // Zomato mobile: red CTA button with class 'jRryuq' or 'gsVULG'
+               btn = document.querySelector('.jRryuq, .gsVULG');
+               // Also try text-based (Zomato mobile says "Verify" or "Submit")
+               if (!btn) {
+                   var btns = Array.from(document.querySelectorAll('button, [class*="jRryuq"], [class*="gsVULG"]'));
+                   btn = btns.find(function(el) {
+                       var t = (el.textContent || '').trim().toLowerCase();
+                       return t === 'verify' || t === 'submit' || t === 'confirm' || t === 'proceed';
+                   });
+               }
            }
            
-           // Universal fallback: scan all buttons/divs for verify/submit text
+           // Universal fallback
            if (!btn) {
                var allBtns = Array.from(document.querySelectorAll('button, [role="button"], div[class*="btn"]'));
                btn = allBtns.find(function(el) {
@@ -173,20 +175,23 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
            var btn = null;
            
            if (isZomato) {
-               // Zomato: The red primary CTA button - text is usually "Continue" or "Request OTP"
-               var btns = Array.from(document.querySelectorAll('button'));
-               btn = btns.find(function(el) {
-                   if (el.disabled) return false;
-                   var t = (el.textContent || '').trim().toLowerCase();
-                   // Zomato uses these exact texts:
-                   return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed';
-               });
-               // Also try by background color (Zomato CTA is always #EF4F5F red)
+               // Zomato mobile: The red primary CTA (class 'jRryuq' or 'gsVULG' from CSS dump)
+               btn = document.querySelector('.jRryuq, .gsVULG');
                if (!btn) {
-                   btns.forEach(function(el) {
-                       if (el.disabled) return;
+                   var btns = Array.from(document.querySelectorAll('button'));
+                   btn = btns.find(function(el) {
+                       if (el.disabled) return false;
+                       var t = (el.textContent || '').trim().toLowerCase();
+                       return t === 'continue' || t === 'request otp' || t === 'send otp' || t === 'get otp' || t === 'proceed' || t === 'login';
+                   });
+               }
+               // Final fallback: Zomato CTA is always #EF4F5F red
+               if (!btn) {
+                   Array.from(document.querySelectorAll('button, [role="button"], div')).forEach(function(el) {
+                       if (btn || (el.disabled)) return;
                        var style = window.getComputedStyle(el);
-                       if (style.backgroundColor === 'rgb(239, 79, 95)' || style.background.includes('EF4F5F') || style.background.includes('ef4f5f')) {
+                       var bg = style.backgroundColor;
+                       if (bg === 'rgb(239, 79, 95)' || bg === 'rgb(226, 55, 68)') {
                            btn = el;
                        }
                    });
@@ -400,7 +405,7 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         javaScriptEnabled={true}
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={true}
-        userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36"
         injectedJavaScriptBeforeContentLoaded={baseScript}
         onMessage={(event) => {
            try {
