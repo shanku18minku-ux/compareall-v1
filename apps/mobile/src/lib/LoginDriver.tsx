@@ -192,11 +192,11 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
 const styles = StyleSheet.create({
   hiddenContainer: {
-    height: 1,
-    width: 1,
-    opacity: 0,
+    height: 10,
+    width: 10,
     position: 'absolute',
-    top: -1000,
-    left: -1000,
+    top: 0,
+    left: 0,
+    zIndex: -1,
   }
 });
