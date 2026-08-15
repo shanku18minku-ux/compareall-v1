@@ -69,7 +69,10 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
 
                    // 2. Wait for Phone Input
                    waitForElement(
-                       () => document.querySelector('input[type="tel"], input[type="number"], input[name="mobile"]'),
+                       () => {
+                           // Find visible tel/number inputs
+                           return Array.from(document.querySelectorAll('input[type="tel"], input[type="number"], input[name="mobile"]')).find(el => el.offsetParent !== null);
+                       },
                        (phoneInput) => {
                            // Set value
                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -79,9 +82,11 @@ export const LoginDriver: React.FC<LoginDriverProps> = ({
                            
                            // 3. Wait for Submit Button
                            waitForElement(
-                               () => Array.from(document.querySelectorAll('button, span, a')).find(el => {
-                                   const t = (el.innerText || '').toLowerCase();
-                                   return t.includes('send otp') || t.includes('continue') || t.includes('get otp');
+                               () => Array.from(document.querySelectorAll('button, a, div[role="button"], span')).reverse().find(el => {
+                                   if (el.offsetParent === null) return false; // must be visible
+                                   const t = (el.innerText || '').trim().toLowerCase();
+                                   // Reverse array so we find the lowest/newest button in the DOM (modal button) rather than header
+                                   return t === 'login' || t === 'continue' || t.includes('send one') || t.includes('send otp') || t.includes('get otp') || t === 'next';
                                }),
                                (submitBtn) => {
                                    submitBtn.click();
