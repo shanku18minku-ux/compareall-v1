@@ -36,11 +36,6 @@ jobs:
           cd apps/mobile
           npm install --legacy-peer-deps
 
-      - name: Expo Prebuild
-        run: |
-          cd apps/mobile
-          npx expo prebuild --platform android --clean
-
       - name: Make gradlew executable
         run: chmod +x apps/mobile/android/gradlew
 
