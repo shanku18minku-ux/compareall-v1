@@ -8,6 +8,7 @@ import { UniversalCartModal } from './src/lib/UniversalCartModal';
 import { DynamicSearchBar } from './src/lib/search/DynamicSearchBar';
 import { CartItem } from './src/lib/CartTypes';
 import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
+import { fetchLiveSwiggyDishes } from './src/lib/api/liveSearch';
 
 // Load platform metadata dynamically from registered packets
 const PROVIDERS = getAllProvidersMetadata();
@@ -243,7 +244,18 @@ export default function App() {
     setSearchValues(prev => ({ ...prev, query: q }));
     setIsSearching(true);
     setResults([]);
-    setTimeout(() => setIsSearching(false), 15000);
+
+    // 1. Instant Direct Native Fetch (~200ms ultra-fast response)
+    fetchLiveSwiggyDishes(q, location)
+      .then(items => {
+        if (items && items.length > 0) {
+          handleDataExtracted({ type: 'SEARCH_RESULTS', success: true, data: items });
+        }
+      })
+      .catch(e => console.log('Instant fetch error:', e));
+
+    // Fallback safety timeout
+    setTimeout(() => setIsSearching(false), 8000);
   };
 
   const handleDataExtracted = (data: any) => {
@@ -563,9 +575,19 @@ export default function App() {
                         </View>
                       </View>
                     );
-                  })}
-                </View>
               ))}
+
+              {results.length === 0 && !isSearching && Boolean(searchQuery) && (
+                <View style={{ alignItems: 'center', padding: 30 }}>
+                  <Text style={{ fontSize: 36, marginBottom: 10 }}>🔍</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e293b', textAlign: 'center' }}>
+                    No dishes found for "{searchQuery}"
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 6, lineHeight: 18 }}>
+                    Try searching for popular items like Paneer, Chicken Biryani, Pizza, or Thali in {location?.name || 'Medininagar'}.
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         ) : (
