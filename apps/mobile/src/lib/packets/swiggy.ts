@@ -26,6 +26,25 @@ export const SwiggyPacket: ProviderPacket = {
     // Checks for UI elements only visible to logged-in users.
     getLoginDetectionScript: () => `
         (function() {
+            // Auto-trigger "Sign In" drawer if not already open
+            var openInterval = setInterval(function() {
+                var phoneInput = document.querySelector('input[type="tel"], input[name="mobile"], input[id="mobile"]');
+                if (phoneInput) {
+                    phoneInput.focus();
+                    clearInterval(openInterval);
+                    return;
+                }
+                var signInBtn = document.querySelector('a[href*="/auth"], [data-testid="signin-btn"], [class*="SignIn"], [class*="_1W_xM"]') ||
+                    Array.from(document.querySelectorAll('a, button, span, div')).find(function(el) {
+                        var t = el.textContent.trim().toLowerCase();
+                        return t === 'sign in' || t === 'login' || t === 'log in';
+                    });
+                if (signInBtn) {
+                    signInBtn.click();
+                }
+            }, 600);
+            setTimeout(function() { clearInterval(openInterval); }, 6000);
+
             var checkInterval = setInterval(function() {
                 var isLoginInputVisible = document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"]');
                 if (isLoginInputVisible) return; // User is still on phone/OTP screen

@@ -164,14 +164,19 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
                         <Text style={styles.headerIcon}>{providerIcon}</Text>
-                        <View>
+                        <View style={{ flex: 1 }}>
                             <Text style={styles.headerTitle}>Login to {providerName}</Text>
-                            <Text style={styles.headerSub}>We'll detect when you're logged in automatically</Text>
+                            <Text style={styles.headerSub}>Enter mobile & OTP to link account</Text>
                         </View>
                     </View>
-                    <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Text style={styles.closeText}>✕</Text>
-                    </TouchableOpacity>
+                    <View style={styles.headerRightActions}>
+                        <TouchableOpacity onPress={handleSuccess} style={styles.doneLinkBtn}>
+                            <Text style={styles.doneLinkBtnText}>✓ Connected</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Text style={styles.closeText}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* ── Loading bar ──────────────────────────────────── */}
@@ -240,6 +245,22 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#999',
         marginTop: 1,
+    },
+    headerRightActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    doneLinkBtn: {
+        backgroundColor: '#16a34a',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 14,
+    },
+    doneLinkBtnText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     closeBtn: {
         backgroundColor: '#f5f5f5',
