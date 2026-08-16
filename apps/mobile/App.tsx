@@ -1,11 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
-import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
-import * as Clipboard from 'expo-clipboard';
-
+import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
 import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
 
 // Load platform metadata dynamically from registered packets
@@ -16,21 +14,12 @@ const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Tr
 export default function App() {
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Connections');
   const [activeCategory, setActiveCategory] = useState('Food');
-  
+
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
-  
-  // Native UI Login States (OTP)
-  const [activeLoginProvider, setActiveLoginProvider] = useState<string | null>(null);
-  const [phoneInputs, setPhoneInputs] = useState<Record<string, string>>({});
-  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
-  const [loginSteps, setLoginSteps] = useState<Record<string, 'idle' | 'sending_phone' | 'awaiting_otp' | 'sending_otp'>>({});
-  
-  // Ref for imperative zero-latency injection
-  const driverRefs = useRef<Record<string, LoginDriverRef | null>>({});
-  
-  // Google Auth State (Modal)
-  const [googleAuthProvider, setGoogleAuthProvider] = useState<string | null>(null);
+
+  // Login modal state — which provider's website is shown right now
+  const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,77 +98,14 @@ export default function App() {
   // Disconnect logic
   const handleDisconnect = (id: string) => {
       setConnectedProviders(prev => prev.filter(p => p !== id));
-      setLoginSteps(prev => ({...prev, [id]: 'idle'}));
-      setPhoneInputs(prev => ({...prev, [id]: ''}));
-      setOtpInputs(prev => ({...prev, [id]: ''}));
-      setActiveLoginProvider(null);
       Vibration.vibrate(50);
   };
-
-  const handleGetOtp = (id: string, overridePhone?: string) => {
-      const phone = overridePhone || phoneInputs[id];
-      if (!phone || phone.length < 10) return;
-      Vibration.vibrate(50);
-      setLoginSteps(prev => ({...prev, [id]: 'sending_phone'}));
-      // Synchronous bypass of React render loop for 0 latency
-      if (driverRefs.current[id]) driverRefs.current[id]?.submitPhone(phone);
-  };
-
-  const handleVerifyOtp = (id: string, overrideOtp?: string) => {
-      const otp = overrideOtp || otpInputs[id];
-      if (!otp || otp.length < 4) return;
-      Vibration.vibrate(50);
-      setLoginSteps(prev => ({...prev, [id]: 'sending_otp'}));
-      // Synchronous bypass of React render loop for 0 latency
-      if (driverRefs.current[id]) driverRefs.current[id]?.submitOtp(otp);
-  };
-
-  // ─── PHASE 1: Clipboard OTP Auto-Read ──────────────────────────────────────
-  // Polls clipboard every 500ms when waiting for OTP.
-  // Android auto-suggests OTPs from SMS → user taps suggestion → clipboard has OTP
-  // → our app auto-reads, auto-fills, auto-verifies. Zero manual typing needed!
-  useEffect(() => {
-    // Find any provider currently waiting for OTP
-    const waitingId = Object.entries(loginSteps).find(
-      ([, step]) => step === 'awaiting_otp'
-    )?.[0];
-
-    if (!waitingId) return; // Nobody is waiting for OTP, no need to poll
-
-    let lastClipboardValue = '';
-    const interval = setInterval(async () => {
-      try {
-        const text = await Clipboard.getStringAsync();
-        if (!text || text === lastClipboardValue) return;
-        lastClipboardValue = text;
-
-        // Extract only digits
-        const digits = text.replace(/\D/g, '');
-
-        // Valid OTP: 4 to 8 digits only
-        if (digits.length >= 4 && digits.length <= 8) {
-          const otp = digits.slice(0, 6); // Take first 6 digits
-          clearInterval(interval);
-          // Auto-fill OTP in UI
-          setOtpInputs(prev => ({...prev, [waitingId]: otp}));
-          // Auto-verify immediately
-          handleVerifyOtp(waitingId, otp);
-          Vibration.vibrate([0, 30, 50, 30]); // Double vibrate = auto-detected!
-        }
-      } catch (_) {
-        // Clipboard read failed silently (permission denied etc.)
-      }
-    }, 500);
-
-    return () => clearInterval(interval); // Cleanup when OTP state changes
-  }, [loginSteps]);
-  // ───────────────────────────────────────────────────────────────────────────
 
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setResults([]);
-    setTimeout(() => setIsSearching(false), 15000); // 15 sec timeout
+    setTimeout(() => setIsSearching(false), 15000);
   };
 
   const handleDataExtracted = (data: any) => {
@@ -187,37 +113,19 @@ export default function App() {
        setResults(prev => {
           const newOffers = data.data;
           const updated = [...prev];
-          
           newOffers.forEach((offer: any) => {
              const existingGroup = updated.find(g => g.title.toLowerCase() === offer.title.toLowerCase());
              if (existingGroup) {
-                 existingGroup.offers.push({
-                     providerName: offer.providerName,
-                     price: offer.price,
-                     accountBenefits: []
-                 });
+                 existingGroup.offers.push({ providerName: offer.providerName, price: offer.price, accountBenefits: [] });
                  existingGroup.lowestPrice = Math.min(existingGroup.lowestPrice, offer.price.finalPayablePrice);
              } else {
-                 updated.push({
-                     title: offer.title,
-                     lowestPrice: offer.price.finalPayablePrice,
-                     savings: 0,
-                     offers: [{
-                         providerName: offer.providerName,
-                         price: offer.price,
-                         accountBenefits: []
-                     }]
-                 });
+                 updated.push({ title: offer.title, lowestPrice: offer.price.finalPayablePrice, savings: 0, offers: [{ providerName: offer.providerName, price: offer.price, accountBenefits: [] }] });
              }
           });
-          
           updated.forEach(g => {
               const prices = g.offers.map((o: any) => o.price.finalPayablePrice);
-              const max = Math.max(...prices);
-              const min = Math.min(...prices);
-              g.savings = max - min;
+              g.savings = Math.max(...prices) - Math.min(...prices);
           });
-          
           return updated;
        });
     }
@@ -225,43 +133,22 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
-      {PROVIDERS.map(p => {
-          if (p.authType === 'google') return null;
-          if (connectedProviders.includes(p.id)) return null;
-          
-          const isActive = activeLoginProvider === p.id;
-          return (
-             <LoginDriver 
-                key={p.id}
-                ref={(el) => { driverRefs.current[p.id] = el; }}
-                providerId={p.id}
-                url={p.loginUrl || p.url}
-                phone={phoneInputs[p.id] || ''}
-                otp={otpInputs[p.id] || ''}
-                triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
-                triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
-                onOtpRequested={() => {
-                   if (isActive) {
-                       Vibration.vibrate(50);
-                       setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
-                   }
-                }}
-                onSuccess={() => {
-                   setConnectedProviders(prev => [...prev, p.id]);
-                   setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                   if (isActive) {
-                       Vibration.vibrate(50);
-                       setActiveLoginProvider(null);
-                   }
-                }}
-                onError={(msg) => {
-                   console.log('Login error:', msg);
-                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                }}
-             />
-          );
-      })}
+
+      {/* Login WebView Modal — opens real platform website */}
+      {loginModal && (
+        <LoginWebViewModal
+          visible={true}
+          providerId={loginModal.id}
+          providerName={loginModal.name}
+          providerIcon={loginModal.icon}
+          loginUrl={loginModal.loginUrl}
+          onSuccess={() => {
+            setConnectedProviders(prev => [...prev, loginModal.id]);
+            setLoginModal(null);
+          }}
+          onClose={() => setLoginModal(null)}
+        />
+      )}
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
@@ -366,135 +253,36 @@ export default function App() {
                        <View style={styles.gridContainer}>
                           {subcatProviders.map(provider => {
                              const isConnected = connectedProviders.includes(provider.id);
-                             const isExpanded = activeLoginProvider === provider.id;
-                             const currentStep = loginSteps[provider.id] || 'idle';
-                             
                              return (
-                               <View key={provider.id} style={[styles.gridCard, isExpanded && styles.gridCardExpanded]}>
-                                  <View style={styles.gridCardTop}>
-                                     <View style={styles.gridIconBox}>
-                                        <Text style={styles.gridIconText}>{provider.icon}</Text>
-                                     </View>
-                                     <Text style={styles.gridProviderName}>{provider.name}</Text>
-                                  </View>
-                                  
-                                  {isConnected ? (
-                                     <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
-                                         <Text style={styles.disconnectBtnTextSmall}>Disconnect</Text>
-                                     </TouchableOpacity>
-                                  ) : (
-                                     !isExpanded ? (
-                                        <TouchableOpacity 
-                                           style={styles.linkNowBtn} 
-                                           onPress={() => {
-                                              setActiveLoginProvider(provider.id);
-                                              if (provider.authType !== 'google') {
-                                                  setLoginSteps(prev => ({...prev, [provider.id]: 'idle'}));
-                                              }
-                                           }}
-                                        >
-                                           <Text style={styles.linkNowText}>LINK NOW</Text>
-                                        </TouchableOpacity>
-                                     ) : (
-                                        <View style={styles.authContainer}>
-                                            {(provider.authType === 'otp' || provider.authType === 'both') && (
-                                                <>
-                                                    {currentStep === 'idle' || currentStep === 'sending_phone' ? (
-                                                        <View style={styles.inputCol}>
-                                                           <TextInput 
-                                                              style={styles.nativeInputSmall}
-                                                              placeholder="Mobile number"
-                                                              keyboardType="phone-pad"
-                                                              autoFocus={true}
-                                                              autoComplete="tel"
-                                                              textContentType="telephoneNumber"
-                                                              value={phoneInputs[provider.id] || ''}
-                                                              onChangeText={(t) => {
-                                                                  let cleaned = t.replace(/\D/g, '');
-                                                                  if (cleaned.length === 12 && cleaned.startsWith('91')) {
-                                                                      cleaned = cleaned.substring(2);
-                                                                  } else if (cleaned.length > 10) {
-                                                                      cleaned = cleaned.substring(cleaned.length - 10);
-                                                                  }
-                                                                  
-                                                                  setPhoneInputs(prev => ({...prev, [provider.id]: cleaned}));
-                                                                  if (cleaned.length === 10) {
-                                                                      handleGetOtp(provider.id, cleaned);
-                                                                  }
-                                                              }}
-                                                              editable={currentStep === 'idle'}
-                                                           />
-                                                           <TouchableOpacity 
-                                                              style={[styles.actionBtnSmall, currentStep === 'sending_phone' && styles.actionBtnLoading]}
-                                                              onPress={() => handleGetOtp(provider.id)}
-                                                              disabled={currentStep === 'sending_phone'}
-                                                           >
-                                                              {currentStep === 'sending_phone' ? (
-                                                                  <ActivityIndicator size="small" color="#555" />
-                                                              ) : (
-                                                                  <Text style={styles.actionBtnTextSmall}>Get OTP</Text>
-                                                              )}
-                                                           </TouchableOpacity>
-                                                        </View>
-                                                    ) : (
-                                                        <View style={styles.inputCol}>
-                                                           <TextInput 
-                                                              style={styles.nativeInputSmall}
-                                                              placeholder="OTP (auto-detects from SMS)"
-                                                              keyboardType="number-pad"
-                                                              autoFocus={true}
-                                                              autoComplete="one-time-code"
-                                                              textContentType="oneTimeCode"
-                                                              value={otpInputs[provider.id] || ''}
-                                                              onChangeText={(t) => {
-                                                                  const cleaned = t.replace(/\D/g, '');
-                                                                  setOtpInputs(prev => ({...prev, [provider.id]: cleaned}));
-                                                                  // Auto-verify on 4-digit (Zomato) or 6-digit (Swiggy)
-                                                                  if (cleaned.length === 4 || cleaned.length === 6) {
-                                                                      handleVerifyOtp(provider.id, cleaned);
-                                                                  }
-                                                              }}
-                                                              editable={currentStep === 'awaiting_otp'}
-                                                           />
-                                                           <TouchableOpacity 
-                                                              style={[styles.actionBtnSmall, currentStep === 'sending_otp' && styles.actionBtnLoading]}
-                                                              onPress={() => handleVerifyOtp(provider.id)}
-                                                              disabled={currentStep === 'sending_otp'}
-                                                           >
-                                                              {currentStep === 'sending_otp' ? (
-                                                                  <ActivityIndicator size="small" color="#555" />
-                                                              ) : (
-                                                                  <Text style={styles.actionBtnTextSmall}>Verify</Text>
-                                                              )}
-                                                           </TouchableOpacity>
-                                                        </View>
-                                                    )}
-                                                </>
-                                            )}
+                                <View key={provider.id} style={styles.gridCard}>
+                                   <View style={styles.gridCardTop}>
+                                      <View style={styles.gridIconBox}>
+                                         <Text style={styles.gridIconText}>{provider.icon}</Text>
+                                      </View>
+                                      <Text style={styles.gridProviderName}>{provider.name}</Text>
+                                   </View>
 
-                                            {provider.authType === 'both' && (
-                                                <Text style={styles.orText}>- OR -</Text>
-                                            )}
-
-                                            {(provider.authType === 'google' || provider.authType === 'both') && (
-                                                <TouchableOpacity 
-                                                   style={styles.googleBtn}
-                                                   onPress={() => {
-                                                       setGoogleAuthProvider(provider.id);
-                                                   }}
-                                                >
-                                                   <Text style={styles.googleBtnText}>Continue with Google</Text>
-                                                </TouchableOpacity>
-                                            )}
-
-                                            <TouchableOpacity style={styles.cancelBtnSmall} onPress={() => setActiveLoginProvider(null)}>
-                                               <Text style={styles.cancelBtnText}>Cancel</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                     )
-                                  )}
-                               </View>
-                             );
+                                   {isConnected ? (
+                                      <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
+                                          <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
+                                      </TouchableOpacity>
+                                   ) : (
+                                      <TouchableOpacity
+                                         style={styles.linkNowBtn}
+                                         onPress={() => {
+                                            setLoginModal({
+                                               id: provider.id,
+                                               name: provider.name,
+                                               icon: provider.icon,
+                                               loginUrl: provider.loginUrl || provider.url,
+                                            });
+                                         }}
+                                      >
+                                         <Text style={styles.linkNowText}>LINK NOW</Text>
+                                      </TouchableOpacity>
+                                   )}
+                                </View>
+                              );
                           })}
                        </View>
                     </View>

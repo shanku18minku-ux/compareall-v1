@@ -13,16 +13,27 @@ export interface ProviderMetadata {
 
 export interface ProviderPacket {
     metadata: ProviderMetadata;
+
     /**
-     * Script injected into the WebView to handle the login flow (e.g., fast OTP polling).
-     * Must listen for NATIVE_ACTION events and post SUCCESS/ERROR back to the host.
+     * URL pattern to detect successful login WITHOUT any platform API.
+     * After login, platforms redirect to their home page — this regex catches that.
+     * e.g. Swiggy redirects to swiggy.com (no /login in URL) = logged in.
      */
-    getLoginInjection: () => string;
+    successUrlPattern: RegExp;
+
+    /**
+     * A small JS snippet injected on every page to detect login state via DOM.
+     * Optional — URL pattern is the primary detection, this is the backup.
+     * Must post: { type: 'SUCCESS' } when user is confirmed logged in.
+     */
+    getLoginDetectionScript: () => string;
+
     /**
      * Script injected into the WebView to extract search results.
      * Must parse the DOM and post the results back to the host.
      */
     getExtractorInjection: (searchUrl: string) => string;
+
     /**
      * Generates the platform-specific search URL based on the user's query.
      */
