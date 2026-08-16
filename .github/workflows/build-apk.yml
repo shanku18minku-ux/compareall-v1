@@ -79,8 +79,8 @@ jobs:
             --no-parallel \
             --no-configuration-cache \
             --info \
-            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8" \
-            -Dkotlin.daemon.jvm.options="-Xmx4g,-XX:MaxMetaspaceSize=1g" \
+            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dkotlin.daemon.jvm.options="-Xmx1536m,-XX:MaxMetaspaceSize=512m" \
             2>&1 | tee /tmp/gradle-build.log ; exit ${PIPESTATUS[0]}
 
       - name: Upload Build Log (always, even on failure)
