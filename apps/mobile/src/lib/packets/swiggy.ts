@@ -46,25 +46,28 @@ export const SwiggyPacket: ProviderPacket = {
             setTimeout(function() { clearInterval(openInterval); }, 6000);
 
             var checkInterval = setInterval(function() {
-                var isLoginInputVisible = document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"]');
+                var isLoginInputVisible = document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"], input[inputmode="numeric"]');
                 if (isLoginInputVisible) return; // User is still on phone/OTP screen
 
-                var logoutIndicators = [
-                    document.querySelector('[class*="userAccount"]'),
-                    document.querySelector('[data-testid="profile"]'),
-                    document.querySelector('[href*="/my-account"]'),
-                    Array.from(document.querySelectorAll('a, span, div'))
-                        .find(function(el) {
-                            var txt = el.textContent.trim().toLowerCase();
-                            return txt === 'logout' || txt === 'sign out' || txt === 'my account';
-                        })
-                ].filter(Boolean);
+                var hasUserCookie = document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('_session_id') !== -1 || document.cookie.indexOf('tid') !== -1;
+                var hasUserStorage = Boolean(localStorage.getItem('user') || localStorage.getItem('user_id') || sessionStorage.getItem('user'));
+                var hasUserEl = Boolean(
+                    document.querySelector('[class*="userAccount"]') ||
+                    document.querySelector('[data-testid="profile"]') ||
+                    document.querySelector('[href*="/my-account"]') ||
+                    document.querySelector('[class*="icon-user"]') ||
+                    document.querySelector('[class*="profile"]') ||
+                    Array.from(document.querySelectorAll('a, span, div')).find(function(el) {
+                        var txt = el.textContent.trim().toLowerCase();
+                        return txt === 'logout' || txt === 'sign out' || txt === 'my account';
+                    })
+                );
 
-                if (logoutIndicators.length > 0) {
+                if (hasUserCookie || hasUserStorage || hasUserEl) {
                     clearInterval(checkInterval);
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                 }
-            }, 1500);
+            }, 800);
         })();
         true;
     `,
