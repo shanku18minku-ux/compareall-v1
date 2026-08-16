@@ -49,7 +49,12 @@ export default function App() {
   // Universal Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartModalVisible, setIsCartModalVisible] = useState(false);
-  const [expandedOffers, setExpandedOffers] = useState<{ [key: string]: boolean }>({});
+  const [expandedPlatformGroups, setExpandedPlatformGroups] = useState<{ [key: string]: boolean }>({});
+  const [detailAnalysisModal, setDetailAnalysisModal] = useState<{
+    dishTitle: string;
+    offer: any;
+    group: any;
+  } | null>(null);
 
   // Location State
   const [location, setLocation] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
@@ -530,84 +535,63 @@ export default function App() {
             )}
 
             <ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
-              {results.map((group, index) => (
-                <View key={index} style={styles.resultCard}>
-                  <Text style={styles.resultTitle}>{group.title}</Text>
-                  <View style={styles.resultBestPriceBox}>
-                    <Text style={styles.resultBestPrice}>
-                      🏆 Best Deal on {group.bestProvider || 'Swiggy'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
-                    </Text>
-                  </View>
-                  
-                  {group.offers.map((offer: any, i: number) => {
-                    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || 'food-a';
-                    const itemId = `${providerId}__${group.title}`;
-                    const cartItem = cartItems.find(item => item.id === itemId);
-                    const qty = cartItem ? cartItem.quantity : 0;
-                    const isWinner = i === 0 && group.offers.length > 1;
+              {results.map((group, index) => {
+                const isExpanded = Boolean(expandedPlatformGroups[group.matchKey || index]);
+                const primaryOffer = group.offers[0];
+                const secondaryOffers = group.offers.slice(1);
+                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || 'food-a';
+                const itemId = `${providerId}__${group.title}`;
+                const cartItem = cartItems.find(item => item.id === itemId);
+                const qty = cartItem ? cartItem.quantity : 0;
 
-                    return (
-                      <View key={i} style={[styles.offerItem, isWinner && styles.offerItemWinner]}>
+                return (
+                  <View key={index} style={styles.resultCard}>
+                    {/* Dish & Restaurant Title */}
+                    <Text style={styles.resultTitle}>{group.title}</Text>
+                    
+                    {/* Best Deal Winner Banner */}
+                    <View style={styles.resultBestPriceBox}>
+                      <Text style={styles.resultBestPrice}>
+                        🏆 Best Deal on {group.bestProvider || 'Swiggy'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
+                      </Text>
+                    </View>
+
+                    {/* Primary Winner Platform Row */}
+                    {primaryOffer && (
+                      <View style={[styles.offerItem, styles.offerItemWinner]}>
                         <View style={styles.offerMainInfo}>
-                          <View style={styles.offerHeaderRow}>
-                            <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                            {isWinner && (
-                              <View style={styles.winnerBadge}>
-                                <Text style={styles.winnerBadgeText}>🌟 LOWEST PRICE</Text>
-                              </View>
-                            )}
-                            {offer.autoCouponSavings > 0 && (
+                          <TouchableOpacity 
+                            style={styles.offerHeaderRow} 
+                            onPress={() => setDetailAnalysisModal({ dishTitle: group.title, offer: primaryOffer, group })}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.offerProvider}>{primaryOffer.providerName}</Text>
+                            <Text style={styles.detailInfoIcon}>ℹ️ Details</Text>
+                            <View style={styles.winnerBadge}>
+                              <Text style={styles.winnerBadgeText}>🌟 LOWEST PRICE</Text>
+                            </View>
+                            {primaryOffer.autoCouponSavings > 0 && (
                               <View style={styles.autoAppliedPill}>
                                 <Text style={styles.autoAppliedPillText}>🏷️ Coupon Applied</Text>
                               </View>
                             )}
-                          </View>
+                          </TouchableOpacity>
 
                           <View style={styles.priceRowBig}>
-                            <Text style={styles.effectivePriceBig}>₹{offer.price.finalPayablePrice}</Text>
-                            {offer.autoCouponSavings > 0 ? (
-                              <Text style={styles.strikeMenuPrice}>₹{offer.menuPrice || offer.price.menuPrice || offer.price.basePrice}</Text>
+                            <Text style={styles.effectivePriceBig}>₹{primaryOffer.price.finalPayablePrice}</Text>
+                            {primaryOffer.autoCouponSavings > 0 ? (
+                              <Text style={styles.strikeMenuPrice}>₹{primaryOffer.menuPrice || primaryOffer.price.menuPrice || primaryOffer.price.basePrice}</Text>
                             ) : (
-                              offer.price.discount > 0 && (
-                                <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
+                              primaryOffer.price.discount > 0 && (
+                                <Text style={styles.basePrice}> (Base: ₹{primaryOffer.price.basePrice})</Text>
                               )
                             )}
                           </View>
 
-                          {offer.autoCouponSavings > 0 && (
+                          {primaryOffer.autoCouponSavings > 0 && (
                             <Text style={styles.couponSavingsHighlight}>
-                              Save ₹{offer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{offer.couponCode}</Text>
+                              Save ₹{primaryOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{primaryOffer.couponCode}</Text>
                             </Text>
-                          )}
-
-                          {Boolean(offer.offerText) && !offer.autoCouponSavings && (
-                            <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
-                          )}
-
-                          {offer.additionalOffers && offer.additionalOffers.length > 0 && (
-                            <TouchableOpacity 
-                              style={styles.expandOffersBtn}
-                              onPress={() => {
-                                const k = `${group.title}__${offer.providerName}__${i}`;
-                                Vibration.vibrate(15);
-                                setExpandedOffers(prev => ({ ...prev, [k]: !prev[k] }));
-                              }}
-                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                            >
-                              <Text style={styles.expandOffersBtnText}>
-                                {expandedOffers[`${group.title}__${offer.providerName}__${i}`] ? 'Hide Details ▴' : `View ${offer.additionalOffers.length} Offers & Perks ▾`}
-                              </Text>
-                            </TouchableOpacity>
-                          )}
-
-                          {expandedOffers[`${group.title}__${offer.providerName}__${i}`] && offer.additionalOffers && offer.additionalOffers.length > 0 && (
-                            <View style={styles.additionalOffersBox}>
-                              {offer.additionalOffers.map((ao: any, aIdx: number) => (
-                                <View key={aIdx} style={styles.additionalOfferBadge}>
-                                  <Text style={styles.additionalOfferBadgeText}>{ao.icon} {ao.title}</Text>
-                                </View>
-                              ))}
-                            </View>
                           )}
                         </View>
 
@@ -616,7 +600,7 @@ export default function App() {
                           {qty === 0 ? (
                             <TouchableOpacity
                               style={styles.addToCartBtn}
-                              onPress={() => handleAddToCart(offer, group.title)}
+                              onPress={() => handleAddToCart(primaryOffer, group.title)}
                             >
                               <Text style={styles.addToCartBtnText}>+ ADD</Text>
                             </TouchableOpacity>
@@ -639,10 +623,99 @@ export default function App() {
                           )}
                         </View>
                       </View>
-                    );
-                  })}
-                </View>
-              ))}
+                    )}
+
+                    {/* Dropdown Toggle for other platforms (Zomato, etc.) */}
+                    {secondaryOffers.length > 0 && (
+                      <TouchableOpacity
+                        style={styles.platformDropdownToggle}
+                        onPress={() => {
+                          const k = group.matchKey || index;
+                          Vibration.vibrate(15);
+                          setExpandedPlatformGroups(prev => ({ ...prev, [k]: !prev[k] }));
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.platformDropdownToggleText}>
+                          {isExpanded 
+                            ? '▴ Hide other platforms' 
+                            : `▾ Compare on ${secondaryOffers.map((o: any) => o.providerName).join(', ')} (${secondaryOffers.length} more)`
+                          }
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Collapsible Secondary Platforms List */}
+                    {isExpanded && secondaryOffers.map((secOffer: any, secIdx: number) => {
+                      const secProviderId = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase())?.id || 'food-b';
+                      const secItemId = `${secProviderId}__${group.title}`;
+                      const secCartItem = cartItems.find(item => item.id === secItemId);
+                      const secQty = secCartItem ? secCartItem.quantity : 0;
+
+                      return (
+                        <View key={secIdx} style={styles.secondaryOfferItem}>
+                          <View style={styles.offerMainInfo}>
+                            <TouchableOpacity 
+                              style={styles.offerHeaderRow} 
+                              onPress={() => setDetailAnalysisModal({ dishTitle: group.title, offer: secOffer, group })}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.offerProvider}>{secOffer.providerName}</Text>
+                              <Text style={styles.detailInfoIcon}>ℹ️ Details</Text>
+                              {secOffer.autoCouponSavings > 0 && (
+                                <View style={styles.autoAppliedPill}>
+                                  <Text style={styles.autoAppliedPillText}>🏷️ Coupon Applied</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+
+                            <View style={styles.priceRowBig}>
+                              <Text style={styles.effectivePriceBig}>₹{secOffer.price.finalPayablePrice}</Text>
+                              {secOffer.autoCouponSavings > 0 ? (
+                                <Text style={styles.strikeMenuPrice}>₹{secOffer.menuPrice || secOffer.price.menuPrice || secOffer.price.basePrice}</Text>
+                              ) : null}
+                            </View>
+
+                            {secOffer.autoCouponSavings > 0 && (
+                              <Text style={styles.couponSavingsHighlight}>
+                                Save ₹{secOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{secOffer.couponCode}</Text>
+                              </Text>
+                            )}
+                          </View>
+
+                          {/* Add to Cart Stepper */}
+                          <View style={styles.cartActionContainer}>
+                            {secQty === 0 ? (
+                              <TouchableOpacity
+                                style={styles.addToCartBtn}
+                                onPress={() => handleAddToCart(secOffer, group.title)}
+                              >
+                                <Text style={styles.addToCartBtnText}>+ ADD</Text>
+                              </TouchableOpacity>
+                            ) : (
+                              <View style={styles.stepperContainer}>
+                                <TouchableOpacity
+                                  style={styles.stepperBtn}
+                                  onPress={() => handleUpdateCartQty(secItemId, secQty - 1)}
+                                >
+                                  <Text style={styles.stepperBtnText}>−</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.stepperQtyText}>{secQty}</Text>
+                                <TouchableOpacity
+                                  style={styles.stepperBtn}
+                                  onPress={() => handleUpdateCartQty(secItemId, secQty + 1)}
+                                >
+                                  <Text style={styles.stepperBtnText}>+</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
 
               {results.length === 0 && !isSearching && Boolean(searchQuery) && (
                 <View style={{ alignItems: 'center', padding: 30 }}>
@@ -834,6 +907,101 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* Detailed Platform Breakdown Modal */}
+      {detailAnalysisModal && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setDetailAnalysisModal(null)}
+        >
+          <View style={styles.detailModalBackdrop}>
+            <View style={styles.detailModalSheet}>
+              {/* Modal Header */}
+              <View style={styles.detailModalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detailModalProvider}>
+                    {detailAnalysisModal.offer.providerName} Full Price Breakdown
+                  </Text>
+                  <Text style={styles.detailModalDish} numberOfLines={2}>
+                    {detailAnalysisModal.dishTitle}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setDetailAnalysisModal(null)} style={styles.detailCloseBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={styles.detailCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Price Breakdown Table */}
+              <View style={styles.breakdownCard}>
+                <Text style={styles.breakdownHeading}>💵 Transparent Price Calculation</Text>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Base Menu Price</Text>
+                  <Text style={styles.breakdownVal}>₹{detailAnalysisModal.offer.price?.basePrice || detailAnalysisModal.offer.menuPrice}</Text>
+                </View>
+                {detailAnalysisModal.offer.autoCouponSavings > 0 && (
+                  <View style={styles.breakdownRow}>
+                    <Text style={[styles.breakdownLabel, { color: '#16a34a', fontWeight: '600' }]}>
+                      🏷️ Coupon Discount ({detailAnalysisModal.offer.couponCode})
+                    </Text>
+                    <Text style={[styles.breakdownVal, { color: '#16a34a', fontWeight: 'bold' }]}>
+                      -₹{detailAnalysisModal.offer.autoCouponSavings}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.breakdownDivider} />
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownFinalLabel}>Final Net Payable</Text>
+                  <Text style={styles.breakdownFinalVal}>₹{detailAnalysisModal.offer.price?.finalPayablePrice}</Text>
+                </View>
+              </View>
+
+              {/* Available Extra Offers & Perks */}
+              {detailAnalysisModal.offer.additionalOffers && detailAnalysisModal.offer.additionalOffers.length > 0 && (
+                <View style={styles.extraPerksBox}>
+                  <Text style={styles.extraPerksHeading}>🎁 Available Platform Perks & Bank Offers</Text>
+                  <ScrollView style={{ maxHeight: 150 }} showsVerticalScrollIndicator={false}>
+                    {detailAnalysisModal.offer.additionalOffers.map((ao: any, idx: number) => (
+                      <View key={idx} style={styles.perkRow}>
+                        <Text style={styles.perkIcon}>{ao.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.perkTitle}>{ao.title}</Text>
+                          <Text style={styles.perkDesc}>{ao.description}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Action Buttons */}
+              <View style={styles.detailModalActions}>
+                <TouchableOpacity
+                  style={styles.detailAddToCartBtn}
+                  onPress={() => {
+                    handleAddToCart(detailAnalysisModal.offer, detailAnalysisModal.dishTitle);
+                    setDetailAnalysisModal(null);
+                  }}
+                >
+                  <Text style={styles.detailAddToCartText}>+ Add to Basket</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.detailOrderDirectBtn}
+                  onPress={() => {
+                    const of = detailAnalysisModal.offer;
+                    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === of.providerName.toLowerCase())?.id || 'food-a';
+                    handleCartCheckout(providerId, of.restaurantName, of.couponCode, of.restaurantUrl);
+                    setDetailAnalysisModal(null);
+                  }}
+                >
+                  <Text style={styles.detailOrderDirectText}>Order on {detailAnalysisModal.offer.providerName} →</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
 
     </SafeAreaView>
   );
@@ -1060,27 +1228,197 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
+  detailInfoIcon: {
+    fontSize: 11,
+    color: '#0284c7',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontWeight: '600',
+  },
+  platformDropdownToggle: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  platformDropdownToggleText: {
+    fontSize: 12,
+    color: '#0284c7',
+    fontWeight: 'bold',
+  },
+  secondaryOfferItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderColor: '#f1f5f9',
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  detailModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  detailModalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  detailModalProvider: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  detailModalDish: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  detailCloseBtn: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailCloseText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: 'bold',
+  },
+  breakdownCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 14,
+  },
+  breakdownHeading: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#334155',
+    marginBottom: 10,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  breakdownVal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: '#cbd5e1',
+    marginVertical: 8,
+  },
+  breakdownFinalLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  breakdownFinalVal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#16a34a',
+  },
+  extraPerksBox: {
+    backgroundColor: '#fefce8',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+    marginBottom: 16,
+  },
+  extraPerksHeading: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#854d0e',
+    marginBottom: 8,
+  },
+  perkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 4,
+    gap: 8,
+  },
+  perkIcon: {
+    fontSize: 16,
+  },
+  perkTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#713f12',
+  },
+  perkDesc: {
+    fontSize: 11,
+    color: '#a16207',
+  },
+  detailModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  detailAddToCartBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#16a34a',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  detailAddToCartText: {
+    color: '#16a34a',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  detailOrderDirectBtn: {
+    flex: 1.2,
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  detailOrderDirectText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   benefit: {
     color: '#d97706',
     fontSize: 12,
     marginTop: 3,
     fontWeight: '600',
-  },
-  expandOffersBtn: {
-    marginTop: 4,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  expandOffersBtnText: {
-    fontSize: 11,
-    color: '#0284c7',
-    fontWeight: '600',
-  },
-  additionalOffersBox: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-    gap: 4,
   },
   additionalOfferBadge: {
     backgroundColor: '#f8fafc',
