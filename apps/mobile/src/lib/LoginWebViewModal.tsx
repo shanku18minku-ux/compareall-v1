@@ -76,14 +76,18 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         onClose();
     };
 
-    const userLat = location?.latitude || 28.6139;
-    const userLng = location?.longitude || 77.2090;
+    const locName = location?.name || 'Medininagar, Jharkhand';
+    const userLat = location?.latitude || 24.0416;
+    const userLng = location?.longitude || 84.0706;
 
-    // Inject geolocation before page scripts load so Swiggy/platforms get location instantly
+    // Inject geolocation, LocalStorage, SessionStorage & Cookies before page scripts load
     const beforeContentScript = `
         (function() {
             var lat = ${userLat};
             var lng = ${userLng};
+            var locName = ${JSON.stringify(locName)};
+
+            // 1. High-Precision Geolocation Override
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition = function(success, error, options) {
                     if (success) {
@@ -91,7 +95,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                             coords: {
                                 latitude: lat,
                                 longitude: lng,
-                                accuracy: 10,
+                                accuracy: 5,
                                 altitude: null,
                                 altitudeAccuracy: null,
                                 heading: null,
@@ -108,6 +112,40 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                     return 1;
                 };
             }
+
+            // 2. Set LocalStorage & SessionStorage for Swiggy, Zomato, Blinkit, Ola, Rapido, etc.
+            try {
+                var cityPart = locName.split(',')[0].trim();
+                var locObj = { lat: lat, lng: lng, address: locName, name: locName, city: cityPart };
+                var locStr = JSON.stringify(locObj);
+                
+                // Swiggy specific storage keys
+                localStorage.setItem('userLocation', locStr);
+                localStorage.setItem('location', locStr);
+                localStorage.setItem('swiggy_address', locName);
+                localStorage.setItem('swiggy_city', cityPart);
+                localStorage.setItem('swiggy_lat', String(lat));
+                localStorage.setItem('swiggy_lng', String(lng));
+                localStorage.setItem('swiggy_userLocation', locStr);
+                sessionStorage.setItem('userLocation', locStr);
+                sessionStorage.setItem('location', locStr);
+
+                // Zomato, Blinkit & general platform storage keys
+                localStorage.setItem('current_location', locStr);
+                localStorage.setItem('user_coords', JSON.stringify({ latitude: lat, longitude: lng }));
+                localStorage.setItem('delivery_location', locStr);
+            } catch (e) {}
+
+            // 3. Set standard location cookies on document
+            try {
+                var expires = "; max-age=86400; path=/";
+                document.cookie = "lat=" + lat + expires;
+                document.cookie = "lng=" + lng + expires;
+                document.cookie = "address=" + encodeURIComponent(locName) + expires;
+                document.cookie = "userLocation=" + encodeURIComponent(locStr) + expires;
+                document.cookie = "location=" + encodeURIComponent(locStr) + expires;
+                document.cookie = "swiggy_city=" + encodeURIComponent(cityPart) + expires;
+            } catch (e) {}
         })();
         true;
     `;
