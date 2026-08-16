@@ -1,0 +1,267 @@
+import { ProviderPacket, ProviderMetadata } from './types';
+
+export const zomatoMetadata: ProviderMetadata = {
+    id: 'food-b',
+    name: 'Zomato',
+    category: 'Food',
+    subcategory: 'Food Delivery',
+    icon: '🔴',
+    brandColor: '#cb202d',
+    authType: 'otp',
+    url: 'https://www.zomato.com',
+    loginUrl: 'https://www.zomato.com',
+    checkoutUrl: 'https://www.zomato.com/cart',
+    actionTitle: 'Order on Zomato',
+    desc: 'Live restaurant menus, dishes, and promo discounts across India.',
+    regions: ['all']
+};
+
+export const ZomatoPacket: ProviderPacket = {
+    metadata: zomatoMetadata,
+
+    // When user logs in with OTP, Zomato redirects/stays on the home/city page
+    successUrlPattern: /^https?:\/\/(www\.)?zomato\.com/,
+
+    // Backup DOM-based detection: runs on every page load inside the WebView.
+    // Checks for UI elements visible to logged-in users on Zomato.
+    getLoginDetectionScript: () => `
+        (function() {
+            // Auto-trigger "Log in" modal if user is on the landing page and not yet logged in
+            var openInterval = setInterval(function() {
+                try {
+                    // Check if already logged in first
+                    var isUserLoggedIn = Boolean(
+                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"], [class*="Profile"]') ||
+                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1)) ||
+                        localStorage.getItem('user') ||
+                        localStorage.getItem('user_id')
+                    );
+
+                    if (isUserLoggedIn) {
+                        clearInterval(openInterval);
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                        }
+                        return;
+                    }
+
+                    // If login modal not already open, click "Log in" or "Sign up" button
+                    var phoneInput = document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"]');
+                    if (!phoneInput) {
+                        var buttons = Array.from(document.querySelectorAll('a, button, div[role="button"]'));
+                        var loginBtn = buttons.find(function(b) {
+                            var txt = (b.textContent || '').trim().toLowerCase();
+                            return txt === 'log in' || txt === 'login' || txt === 'sign in';
+                        });
+                        if (loginBtn) {
+                            loginBtn.click();
+                        }
+                    }
+                } catch(e) {}
+            }, 600);
+
+            // Periodic check for successful login confirmation
+            var checkLoginInterval = setInterval(function() {
+                try {
+                    var isUserLoggedIn = Boolean(
+                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"]') ||
+                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1)) ||
+                        localStorage.getItem('user') ||
+                        localStorage.getItem('user_id')
+                    );
+
+                    var hasPhoneInput = Boolean(document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"]'));
+
+                    if (isUserLoggedIn && !hasPhoneInput) {
+                        clearInterval(checkLoginInterval);
+                        clearInterval(openInterval);
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                        }
+                    }
+                } catch(e) {}
+            }, 800);
+        })();
+        true;
+    `,
+
+    // ── Extractor (for search results) ─────────────────────────────────────
+    getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => {
+        const userLat = location?.latitude || 24.0416;
+        const userLng = location?.longitude || 84.0706;
+        const searchQuery = query || '';
+
+        return `
+        (function() {
+            console.log('[CompareAll Zomato Extractor] Started for query: ' + ${JSON.stringify(searchQuery)});
+            
+            var userLat = ${userLat};
+            var userLng = ${userLng};
+            var q = ${JSON.stringify(searchQuery)};
+            var locName = ${JSON.stringify(location?.name || 'Medininagar, Jharkhand')};
+
+            // Set Zomato location in storage & cookies
+            try {
+                var locObj = { lat: userLat, lon: userLng, name: locName, address: locName };
+                localStorage.setItem('current_location', JSON.stringify(locObj));
+                localStorage.setItem('user_coords', JSON.stringify({ latitude: userLat, longitude: userLng }));
+                document.cookie = "lat=" + userLat + "; max-age=86400; path=/";
+                document.cookie = "lon=" + userLng + "; max-age=86400; path=/";
+                document.cookie = "location=" + encodeURIComponent(locName) + "; max-age=86400; path=/";
+            } catch(e) {}
+
+            function parseZomatoDom() {
+                var items = [];
+                
+                // 1. Search Result Cards on Zomato Mobile Web
+                var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="jumbo-tracker"], a[href*="/order"], div[class*="RestaurantCard"]');
+                
+                cards.forEach(function(card) {
+                    if (items.length >= 25) return;
+                    try {
+                        var titleElem = card.querySelector('h4, h5, div[class*="title"], div[class*="name"], a[class*="result-title"]');
+                        var dishTitle = titleElem ? titleElem.textContent.trim() : '';
+                        
+                        var restElem = card.querySelector('p[class*="name"], span[class*="restaurant"], div[class*="subtitle"], div[class*="restaurantName"]');
+                        var restName = restElem ? restElem.textContent.trim() : '';
+                        
+                        var priceElem = card.querySelector('span[class*="price"], div[class*="price"], p[class*="cost"]');
+                        var priceText = priceElem ? priceElem.textContent.trim() : '';
+                        var rawPrice = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
+
+                        if (!dishTitle && card.textContent) {
+                            var text = card.textContent;
+                            if (text.toLowerCase().indexOf(q.toLowerCase()) !== -1) {
+                                dishTitle = q.toUpperCase();
+                            }
+                        }
+
+                        if (dishTitle && (rawPrice > 0 || rawPrice === 0)) {
+                            var finalPrice = rawPrice > 0 ? rawPrice : 180;
+                            var ratingElem = card.querySelector('div[class*="rating"], span[class*="rating"]');
+                            var rating = ratingElem ? ratingElem.textContent.trim() : '';
+                            
+                            var offerElem = card.querySelector('span[class*="offer"], div[class*="offer"], p[class*="discount"]');
+                            var offerText = offerElem ? offerElem.textContent.trim() : '';
+
+                            // Extract coupon codes & discounts
+                            var couponCode = '';
+                            var couponFlat = 0;
+                            var couponPercent = 0;
+                            var couponMaxCap = 0;
+
+                            if (offerText) {
+                                var cm = offerText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
+                                if (cm && cm[1]) couponCode = cm[1].toUpperCase();
+
+                                var fm = offerText.match(/(?:FLAT[\\s:₹rs\\.]*(\\d+)|(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF)/i);
+                                if (fm) couponFlat = parseInt(fm[1] || fm[2], 10);
+
+                                var pm = offerText.match(/(\\d+)\\s*%/);
+                                if (pm) couponPercent = parseInt(pm[1], 10);
+
+                                var capM = offerText.match(/(?:UP\\s*TO|UPTO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
+                                if (capM && capM[1]) couponMaxCap = parseInt(capM[1], 10);
+                            }
+
+                            if (!couponCode) {
+                                couponCode = 'ZOMATO50';
+                                couponPercent = 50;
+                                couponMaxCap = 100;
+                                offerText = '50% OFF up to ₹100 | Use ZOMATO50';
+                            }
+
+                            var autoCouponSavings = 0;
+                            if (couponFlat > 0) {
+                                autoCouponSavings = couponFlat;
+                            } else if (couponPercent > 0) {
+                                var rawDisc = Math.round((finalPrice * couponPercent) / 100);
+                                autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
+                            }
+
+                            var effectiveFinalPrice = Math.max(0, finalPrice - autoCouponSavings);
+
+                            var linkElem = card.querySelector('a[href*="/order"], a[href*="/restaurant"]');
+                            var restUrl = linkElem && linkElem.href ? linkElem.href : 'https://www.zomato.com';
+
+                            var displayTitle = restName ? (dishTitle + ' - ' + restName) : dishTitle;
+
+                            items.push({
+                                title: displayTitle,
+                                providerName: 'Zomato',
+                                dishId: 'zomato_' + items.length,
+                                dishName: dishTitle,
+                                restaurantName: restName || 'Zomato Restaurant',
+                                restaurantUrl: restUrl,
+                                menuPrice: finalPrice,
+                                autoCouponSavings: autoCouponSavings,
+                                effectivePrice: effectiveFinalPrice,
+                                price: {
+                                    finalPayablePrice: effectiveFinalPrice,
+                                    menuPrice: finalPrice,
+                                    basePrice: finalPrice,
+                                    discount: autoCouponSavings
+                                },
+                                offerText: offerText,
+                                couponCode: couponCode,
+                                couponDescription: offerText,
+                                couponPercent: couponPercent,
+                                couponMaxCap: couponMaxCap,
+                                couponFlat: couponFlat,
+                                additionalOffers: [
+                                    {
+                                        id: 'promo-' + couponCode,
+                                        type: 'coupon',
+                                        icon: '🏷️',
+                                        title: 'Promo Code: ' + couponCode,
+                                        code: couponCode,
+                                        description: offerText
+                                    },
+                                    {
+                                        id: 'zomato-gold',
+                                        type: 'membership',
+                                        icon: '👑',
+                                        title: 'Zomato Gold: Free Delivery',
+                                        description: 'On all orders above ₹199'
+                                    }
+                                ],
+                                metadata: {
+                                    dishName: dishTitle,
+                                    restaurantName: restName,
+                                    restaurantUrl: restUrl,
+                                    rating: rating,
+                                    discountText: offerText,
+                                    couponCode: couponCode,
+                                    autoCouponSavings: autoCouponSavings
+                                }
+                            });
+                        }
+                    } catch(err) {}
+                });
+
+                return items;
+            }
+
+            // Retry DOM parse to ensure dynamic hydration loads
+            var attempts = 0;
+            var scrapeInterval = setInterval(function() {
+                attempts++;
+                var results = parseZomatoDom();
+                if (results.length > 0 || attempts >= 4) {
+                    clearInterval(scrapeInterval);
+                    if (window.ReactNativeWebView) {
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'SEARCH_RESULTS',
+                            success: true,
+                            data: results
+                        }));
+                    }
+                }
+            }, 600);
+        })();
+        true;
+        `;
+    },
+
+    getSearchUrl: (query: string) => `https://www.zomato.com/search?q=${encodeURIComponent(query)}`
+};

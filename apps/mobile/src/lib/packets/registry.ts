@@ -1,5 +1,6 @@
 import { ProviderPacket, ProviderMetadata } from './types';
 import { SwiggyPacket } from './swiggy';
+import { ZomatoPacket } from './zomato';
 
 // Generic login detection helper
 const defaultLoginDetection = () => `
@@ -17,21 +18,7 @@ const defaultExtractor = () => `true;`;
 export const ALL_INTEGRATED_PROVIDERS: ProviderMetadata[] = [
     // 🍔 Food Delivery
     SwiggyPacket.metadata,
-    {
-        id: 'food-b',
-        name: 'Zomato',
-        category: 'Food',
-        subcategory: 'Food Delivery',
-        icon: '🔴',
-        brandColor: '#cb202d',
-        authType: 'otp',
-        url: 'https://www.zomato.com',
-        loginUrl: 'https://www.zomato.com',
-        checkoutUrl: 'https://www.zomato.com/cart',
-        actionTitle: 'Order on Zomato',
-        desc: 'Restaurant delivery and discounts across India.',
-        regions: ['all']
-    },
+    ZomatoPacket.metadata,
     {
         id: 'food-c',
         name: 'EatClub',
@@ -362,6 +349,7 @@ export const ALL_INTEGRATED_PROVIDERS: ProviderMetadata[] = [
 // Define the central registry of all available provider packets
 const packets: Record<string, ProviderPacket> = {
     [SwiggyPacket.metadata.id]: SwiggyPacket,
+    [ZomatoPacket.metadata.id]: ZomatoPacket,
 };
 
 // Auto-register mock/generic packets for metadata without full packet yet
