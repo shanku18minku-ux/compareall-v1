@@ -9,10 +9,11 @@ export type ExtractionStatus = 'idle' | 'connecting' | 'extracting' | 'completed
 interface WebViewExtractorProps {
   url: string;
   providerId: string;
+  location?: { latitude: number; longitude: number; name: string } | null;
   onDataExtracted: (data: any) => void;
   onError: (err: string) => void;
   isActive: boolean;
-  injectionScript?: string; // New prop for dynamic packets
+  injectionScript?: string;
 }
 
 /**
@@ -20,15 +21,56 @@ interface WebViewExtractorProps {
  * This acts as our "Browser Extension" on mobile, securely parsing DOM data directly 
  * on the user's device.
  */
-export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, providerId, onDataExtracted, onError, isActive, injectionScript }) => {
+export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ 
+  url, 
+  providerId, 
+  location, 
+  onDataExtracted, 
+  onError, 
+  isActive, 
+  injectionScript 
+}) => {
   const webViewRef = useRef<WebView>(null);
   
-  // Script provided dynamically by the packet driver
+  const userLat = location?.latitude || 28.6139;
+  const userLng = location?.longitude || 77.2090;
+
+  const beforeContentScript = `
+    (function() {
+        var lat = ${userLat};
+        var lng = ${userLng};
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition = function(success, error, options) {
+                if (success) {
+                    success({
+                        coords: {
+                            latitude: lat,
+                            longitude: lng,
+                            accuracy: 10,
+                            altitude: null,
+                            altitudeAccuracy: null,
+                            heading: null,
+                            speed: null
+                        },
+                        timestamp: Date.now()
+                    });
+                }
+            };
+            navigator.geolocation.watchPosition = function(success, error, options) {
+                if (navigator.geolocation.getCurrentPosition) {
+                    navigator.geolocation.getCurrentPosition(success, error, options);
+                }
+                return 1;
+            };
+        }
+    })();
+    true;
+  `;
+
   let injectedJavascript = injectionScript || `
     window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: 'No extractor script provided' }));
     true;
   `;
-
 
   if (!isActive) return null;
 
@@ -38,12 +80,18 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, provide
         ref={webViewRef}
         source={{ uri: url }}
         javaScriptEnabled={true}
-        userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        domStorageEnabled={true}
+        thirdPartyCookiesEnabled={true}
+        sharedCookiesEnabled={true}
+        geolocationEnabled={true}
+        mixedContentMode="always"
+        userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        injectedJavaScriptBeforeContentLoaded={beforeContentScript}
         injectedJavaScript={injectedJavascript}
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
-            if (data.success) {
+            if (data.type === 'SEARCH_RESULTS' || data.success) {
               onDataExtracted(data);
             } else {
               onError(data.error || 'Unknown extraction error');
@@ -62,13 +110,14 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, provide
 };
 
 const styles = StyleSheet.create({
-  // Keep the WebView in the render tree but invisible
+  // Keep WebView rendering active on Android (not suspended) while completely hidden from user view
   hiddenContainer: {
     height: 1,
     width: 1,
-    opacity: 0,
+    opacity: 0.01,
     position: 'absolute',
-    top: -1000,
-    left: -1000,
+    bottom: 0,
+    right: 0,
+    overflow: 'hidden',
   }
 });

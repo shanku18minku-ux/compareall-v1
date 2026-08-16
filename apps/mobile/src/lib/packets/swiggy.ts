@@ -49,31 +49,103 @@ export const SwiggyPacket: ProviderPacket = {
     // ── Extractor (for search results) ─────────────────────────────────────
     getExtractorInjection: (searchUrl: string) => `
         (function() {
-            try {
-                if (window.location.href.indexOf(${JSON.stringify(searchUrl)}) === -1) {
-                    window.location.href = ${JSON.stringify(searchUrl)};
-                    return;
+            var attempts = 0;
+            var maxAttempts = 15;
+            
+            var extractInterval = setInterval(function() {
+                attempts++;
+                try {
+                    var extractedItems = [];
+                    
+                    // Selector set 1: Direct dish cards
+                    var dishCards = document.querySelectorAll('[data-testid="normal-dish-item"], [data-testid="search-dish-name"], [class*="styles_container"], [class*="styles_itemContainer"]');
+                    
+                    if (dishCards && dishCards.length > 0) {
+                        dishCards.forEach(function(card) {
+                            if (extractedItems.length >= 15) return;
+                            
+                            var titleEl = card.querySelector('h3, [class*="styles_itemNameText"], [class*="itemName"], [class*="dishName"], [data-testid="dish-name"]');
+                            var priceEl = card.querySelector('[class*="rupee"], [class*="itemPrice"], [class*="styles_itemPrice"], [class*="price"]');
+                            var restEl = card.querySelector('[class*="restaurantName"], [class*="styles_restaurantName"], [data-testid="rest-name"], a[href*="/restaurants/"]');
+                            
+                            if (titleEl) {
+                                var titleText = titleEl.textContent.trim();
+                                var restText = restEl ? restEl.textContent.trim() : '';
+                                var fullTitle = restText ? (titleText + ' (' + restText + ')') : titleText;
+                                
+                                var price = 0;
+                                if (priceEl) {
+                                    var priceNum = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ''));
+                                    if (!isNaN(priceNum) && priceNum > 0) price = priceNum;
+                                }
+                                
+                                if (price > 0 && !extractedItems.some(function(it) { return it.title === fullTitle; })) {
+                                    extractedItems.push({
+                                        title: fullTitle,
+                                        providerName: 'Swiggy',
+                                        price: {
+                                            finalPayablePrice: price,
+                                            basePrice: Math.round(price * 1.15),
+                                            discount: Math.round(price * 0.15)
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Selector set 2: Fallback scanning all headings and price elements
+                    if (extractedItems.length === 0) {
+                        var allHeadings = document.querySelectorAll('h3, h4, div[class*="ItemName"]');
+                        allHeadings.forEach(function(h) {
+                            if (extractedItems.length >= 15) return;
+                            var text = h.textContent.trim();
+                            if (text.length > 2 && !text.includes('Swiggy') && !text.includes('Filter')) {
+                                var parent = h.closest('div[class*="item"], div[class*="card"], div[class*="container"]') || h.parentElement;
+                                if (parent) {
+                                    var priceMatch = parent.textContent.match(/₹\s*([0-9]+)/);
+                                    if (priceMatch) {
+                                        var price = parseFloat(priceMatch[1]);
+                                        if (price > 0 && !extractedItems.some(function(it) { return it.title === text; })) {
+                                            extractedItems.push({
+                                                title: text,
+                                                providerName: 'Swiggy',
+                                                price: {
+                                                    finalPayablePrice: price,
+                                                    basePrice: Math.round(price * 1.15),
+                                                    discount: Math.round(price * 0.15)
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    if (extractedItems.length > 0 || attempts >= maxAttempts) {
+                        clearInterval(extractInterval);
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'SEARCH_RESULTS',
+                            success: true,
+                            data: extractedItems
+                        }));
+                    }
+                } catch (e) {
+                    if (attempts >= maxAttempts) {
+                        clearInterval(extractInterval);
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'SEARCH_RESULTS',
+                            success: false,
+                            error: e.message,
+                            data: []
+                        }));
+                    }
                 }
-                setTimeout(function() {
-                    var data = { providerId: 'food-a', status: 'success', items: [] };
-                    var cards = document.querySelectorAll('[data-testid="normal-dish-item"]');
-                    cards.forEach(function(card, i) {
-                        if (i >= 10) return;
-                        var nameEl = card.querySelector('h3');
-                        var priceEl = card.querySelector('.rupee');
-                        if (nameEl && priceEl) {
-                            var price = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ''));
-                            data.items.push({ id: 'swiggy-' + i, title: nameEl.textContent, price: price, originalPrice: price, category: 'food' });
-                        }
-                    });
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ success: true, data: data }));
-                }, 3000);
-            } catch(err) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: err.message }));
-            }
+            }, 1000);
         })();
         true;
     `,
 
-    getSearchUrl: (query: string) => `https://www.swiggy.com/search?resmenu=${encodeURIComponent(query)}`
+    getSearchUrl: (query: string) => `https://www.swiggy.com/search?query=${encodeURIComponent(query)}`
 };

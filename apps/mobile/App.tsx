@@ -112,17 +112,28 @@ export default function App() {
   };
 
   const handleDataExtracted = (data: any) => {
-    if (data.type === 'SEARCH_RESULTS' && data.data && data.data.length > 0) {
+    const items = data.data || data.items || (Array.isArray(data) ? data : []);
+    if (items && items.length > 0) {
        setResults(prev => {
-          const newOffers = data.data;
           const updated = [...prev];
-          newOffers.forEach((offer: any) => {
-             const existingGroup = updated.find(g => g.title.toLowerCase() === offer.title.toLowerCase());
+          items.forEach((offer: any) => {
+             const title = offer.title || offer.name || 'Dish Item';
+             const finalPrice = typeof offer.price === 'object' ? offer.price.finalPayablePrice : (Number(offer.price) || 0);
+             const basePrice = typeof offer.price === 'object' ? offer.price.basePrice : (Number(offer.originalPrice || offer.price) || finalPrice);
+             const discount = typeof offer.price === 'object' ? offer.price.discount : (basePrice - finalPrice);
+             const providerName = offer.providerName || 'Swiggy';
+             
+             const existingGroup = updated.find(g => g.title.toLowerCase() === title.toLowerCase());
              if (existingGroup) {
-                 existingGroup.offers.push({ providerName: offer.providerName, price: offer.price, accountBenefits: [] });
-                 existingGroup.lowestPrice = Math.min(existingGroup.lowestPrice, offer.price.finalPayablePrice);
+                 existingGroup.offers.push({ providerName, price: { finalPayablePrice: finalPrice, basePrice, discount }, accountBenefits: [] });
+                 existingGroup.lowestPrice = Math.min(existingGroup.lowestPrice, finalPrice);
              } else {
-                 updated.push({ title: offer.title, lowestPrice: offer.price.finalPayablePrice, savings: 0, offers: [{ providerName: offer.providerName, price: offer.price, accountBenefits: [] }] });
+                 updated.push({ 
+                   title, 
+                   lowestPrice: finalPrice, 
+                   savings: Math.max(0, discount), 
+                   offers: [{ providerName, price: { finalPayablePrice: finalPrice, basePrice, discount }, accountBenefits: [] }] 
+                 });
              }
           });
           updated.forEach(g => {
@@ -131,6 +142,7 @@ export default function App() {
           });
           return updated;
        });
+       setIsSearching(false);
     }
   };
 
@@ -199,6 +211,7 @@ export default function App() {
                         key={id} 
                         url={searchUrl}
                         providerId={id}
+                        location={location}
                         isActive={true}
                         onDataExtracted={handleDataExtracted}
                         onError={(err) => console.log('Err:', err)}
