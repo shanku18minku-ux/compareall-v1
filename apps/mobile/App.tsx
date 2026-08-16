@@ -118,27 +118,38 @@ export default function App() {
           const updated = [...prev];
           items.forEach((offer: any) => {
              const title = offer.title || offer.name || 'Dish Item';
-             const finalPrice = typeof offer.price === 'object' ? offer.price.finalPayablePrice : (Number(offer.price) || 0);
-             const basePrice = typeof offer.price === 'object' ? offer.price.basePrice : (Number(offer.originalPrice || offer.price) || finalPrice);
-             const discount = typeof offer.price === 'object' ? offer.price.discount : (basePrice - finalPrice);
+             const finalPrice = typeof offer.price === 'object' ? Number(offer.price.finalPayablePrice) : (Number(offer.price) || 0);
+             const basePrice = typeof offer.price === 'object' ? Number(offer.price.basePrice) : (Number(offer.originalPrice || offer.price) || finalPrice);
+             const discount = typeof offer.price === 'object' ? Number(offer.price.discount) : Math.max(0, basePrice - finalPrice);
              const providerName = offer.providerName || 'Swiggy';
+             const offerText = offer.offerText || offer.metadata?.discountText || '';
              
              const existingGroup = updated.find(g => g.title.toLowerCase() === title.toLowerCase());
              if (existingGroup) {
-                 existingGroup.offers.push({ providerName, price: { finalPayablePrice: finalPrice, basePrice, discount }, accountBenefits: [] });
-                 existingGroup.lowestPrice = Math.min(existingGroup.lowestPrice, finalPrice);
+                 existingGroup.offers.push({ 
+                   providerName, 
+                   price: { finalPayablePrice: finalPrice, basePrice, discount }, 
+                   offerText,
+                   accountBenefits: [] 
+                 });
              } else {
                  updated.push({ 
                    title, 
                    lowestPrice: finalPrice, 
-                   savings: Math.max(0, discount), 
-                   offers: [{ providerName, price: { finalPayablePrice: finalPrice, basePrice, discount }, accountBenefits: [] }] 
+                   savings: 0, 
+                   offers: [{ 
+                     providerName, 
+                     price: { finalPayablePrice: finalPrice, basePrice, discount }, 
+                     offerText,
+                     accountBenefits: [] 
+                   }] 
                  });
              }
           });
           updated.forEach(g => {
               const prices = g.offers.map((o: any) => o.price.finalPayablePrice);
-              g.savings = Math.max(...prices) - Math.min(...prices);
+              g.lowestPrice = Math.min(...prices);
+              g.savings = prices.length > 1 ? (Math.max(...prices) - Math.min(...prices)) : 0;
           });
           return updated;
        });
@@ -226,13 +237,25 @@ export default function App() {
               {results.map((group, index) => (
                 <View key={index} style={styles.resultCard}>
                   <Text style={styles.resultTitle}>{group.title}</Text>
-                  <Text style={styles.resultBestPrice}>Best Price: ₹{group.lowestPrice} (Save ₹{group.savings})</Text>
+                  <Text style={styles.resultBestPrice}>
+                    Best Price: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
+                  </Text>
                   
                   {group.offers.map((offer: any, i: number) => (
                     <View key={i} style={styles.offerItem}>
                       <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                      <Text style={styles.offerPrice}>₹{offer.price.finalPayablePrice} <Text style={styles.basePrice}>(Base: ₹{offer.price.basePrice})</Text></Text>
-                      {offer.price.discount > 0 && <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>}
+                      <Text style={styles.offerPrice}>
+                        ₹{offer.price.finalPayablePrice}
+                        {offer.price.discount > 0 && (
+                          <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
+                        )}
+                      </Text>
+                      {offer.price.discount > 0 && (
+                        <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>
+                      )}
+                      {Boolean(offer.offerText) && (
+                        <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
+                      )}
                     </View>
                   ))}
                 </View>
