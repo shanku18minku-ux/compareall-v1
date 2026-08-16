@@ -57,8 +57,8 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
     const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
         if (!packet || successFiredRef.current) return;
         const url = navState.url || '';
-        // Primary check: URL matches success pattern
-        if (packet.successUrlPattern && packet.successUrlPattern.test(url) && !url.includes('login') && !url.includes('otp')) {
+        // Only fire if user explicitly reaches their account/profile dashboard
+        if (url.includes('/my-account') || url.includes('/account/overview')) {
             handleSuccess();
         }
     }, [packet, handleSuccess]);

@@ -19,19 +19,20 @@ export const swiggyMetadata: ProviderMetadata = {
 export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
 
-    // When the user logs in on /auth, Swiggy automatically redirects to the home page or /restaurants
-    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com\/(?!auth)/,
+    // Only trigger success when user is actually authenticated
+    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com\/(my-account|account)/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements only visible to logged-in users.
     getLoginDetectionScript: () => `
         (function() {
             var checkInterval = setInterval(function() {
+                var isLoginInputVisible = document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"]');
+                if (isLoginInputVisible) return; // User is still on phone/OTP screen
+
                 var logoutIndicators = [
-                    // Swiggy shows "My Account" or a profile icon when logged in
                     document.querySelector('[class*="userAccount"]'),
                     document.querySelector('[data-testid="profile"]'),
-                    document.querySelector('[href*="/account"]'),
                     document.querySelector('[href*="/my-account"]'),
                     Array.from(document.querySelectorAll('a, span, div'))
                         .find(function(el) {
@@ -44,7 +45,7 @@ export const SwiggyPacket: ProviderPacket = {
                     clearInterval(checkInterval);
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                 }
-            }, 1000); // Check every second
+            }, 1500);
         })();
         true;
     `,

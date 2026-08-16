@@ -255,7 +255,11 @@ export default function App() {
       .catch(e => console.log('Instant fetch error:', e));
 
     // Fallback safety timeout
-    setTimeout(() => setIsSearching(false), 8000);
+    setTimeout(() => {
+      setIsSearching(prev => {
+        return false;
+      });
+    }, 18000);
   };
 
   const handleDataExtracted = (data: any) => {
