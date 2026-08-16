@@ -577,11 +577,6 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontWeight: '600',
   },
-  couponSavingsText: {
-    fontSize: 13,
-    color: '#16a34a',
-    fontWeight: '600',
-  },
   couponSavingsAmount: {
     fontSize: 13,
     color: '#16a34a',

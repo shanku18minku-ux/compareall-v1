@@ -575,6 +575,8 @@ export default function App() {
                         </View>
                       </View>
                     );
+                  })}
+                </View>
               ))}
 
               {results.length === 0 && !isSearching && Boolean(searchQuery) && (
