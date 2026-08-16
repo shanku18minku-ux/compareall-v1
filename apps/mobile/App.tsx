@@ -65,7 +65,11 @@ export default function App() {
     // Extract dish name and restaurant name
     const parts = groupTitle.split(' - ');
     const dishName = parts[0] || groupTitle;
-    const restaurantName = parts[1] || offer.metadata?.restaurantName || offer.providerName;
+    const restaurantName = parts[1] || offer.restaurantName || offer.metadata?.restaurantName || offer.providerName;
+    const restaurantUrl = offer.restaurantUrl || offer.metadata?.restaurantUrl;
+
+    const menuPrice = offer.menuPrice || offer.price?.menuPrice || offer.price?.finalPayablePrice || 0;
+    const effectivePrice = offer.effectivePrice || offer.price?.finalPayablePrice || menuPrice;
 
     setCartItems(prev => {
       const existing = prev.find(i => i.id === itemId);
@@ -80,12 +84,13 @@ export default function App() {
           dishName: dishName,
           dishId: offer.dishId || offer.metadata?.dishId,
           restaurantName: restaurantName,
-          restaurantUrl: offer.restaurantUrl || offer.metadata?.restaurantUrl,
+          restaurantUrl: restaurantUrl,
           providerId: providerId,
           providerName: offer.providerName,
-          price: offer.price.finalPayablePrice,
-          basePrice: offer.price.basePrice,
-          discount: offer.price.discount,
+          price: menuPrice,
+          effectivePrice: effectivePrice,
+          basePrice: offer.price?.basePrice || menuPrice,
+          discount: offer.price?.discount || 0,
           offerText: offer.offerText,
           couponCode: offer.couponCode || offer.metadata?.couponCode,
           couponDescription: offer.couponDescription || offer.metadata?.couponDescription,
@@ -249,9 +254,8 @@ export default function App() {
           const updated = [...prev];
           items.forEach((offer: any) => {
              const title = offer.title || offer.name || 'Dish Item';
-             const finalPrice = typeof offer.price === 'object' ? Number(offer.price.finalPayablePrice) : (Number(offer.price) || 0);
-             const basePrice = typeof offer.price === 'object' ? Number(offer.price.basePrice) : (Number(offer.originalPrice || offer.price) || finalPrice);
-             const discount = typeof offer.price === 'object' ? Number(offer.price.discount) : Math.max(0, basePrice - finalPrice);
+             const menuPrice = offer.menuPrice || (typeof offer.price === 'object' ? Number(offer.price.menuPrice || offer.price.finalPayablePrice) : (Number(offer.price) || 0));
+             const basePrice = typeof offer.price === 'object' ? Number(offer.price.basePrice) : (Number(offer.originalPrice || offer.price) || menuPrice);
              const providerName = offer.providerName || 'Swiggy';
              const offerText = offer.offerText || offer.metadata?.discountText || '';
              
@@ -262,9 +266,35 @@ export default function App() {
              const couponMaxCap = offer.couponMaxCap || 0;
              const couponFlat = offer.couponFlat || 0;
 
+             // Auto-calculate exact coupon savings
+             let autoCouponSavings = offer.autoCouponSavings || 0;
+             if (!autoCouponSavings) {
+               if (couponFlat > 0) {
+                 autoCouponSavings = couponFlat;
+               } else if (couponPercent > 0) {
+                 const raw = Math.round((menuPrice * couponPercent) / 100);
+                 autoCouponSavings = couponMaxCap > 0 ? Math.min(raw, couponMaxCap) : raw;
+               }
+             }
+
+             const effectiveFinalPrice = Math.max(0, menuPrice - autoCouponSavings);
+             const totalSavings = Math.max(0, (basePrice - menuPrice) + autoCouponSavings);
+
              const offerPayload = {
                providerName,
-               price: { finalPayablePrice: finalPrice, basePrice, discount },
+               dishId: offer.dishId || offer.metadata?.dishId,
+               dishName: offer.dishName || offer.metadata?.dishName || title,
+               restaurantName: offer.restaurantName || offer.metadata?.restaurantName,
+               restaurantUrl: offer.restaurantUrl || offer.metadata?.restaurantUrl,
+               menuPrice: menuPrice,
+               autoCouponSavings: autoCouponSavings,
+               effectivePrice: effectiveFinalPrice,
+               price: {
+                 finalPayablePrice: effectiveFinalPrice,
+                 menuPrice: menuPrice,
+                 basePrice: basePrice,
+                 discount: totalSavings,
+               },
                offerText,
                couponCode,
                couponDescription,
@@ -281,16 +311,17 @@ export default function App() {
              } else {
                  updated.push({ 
                    title, 
-                   lowestPrice: finalPrice, 
-                   savings: 0, 
+                   lowestPrice: effectiveFinalPrice, 
+                   savings: autoCouponSavings, 
                    offers: [offerPayload] 
                  });
              }
           });
           updated.forEach(g => {
-              const prices = g.offers.map((o: any) => o.price.finalPayablePrice);
-              g.lowestPrice = Math.min(...prices);
-              g.savings = prices.length > 1 ? (Math.max(...prices) - Math.min(...prices)) : 0;
+              const effectivePrices = g.offers.map((o: any) => o.price.finalPayablePrice);
+              const maxMenuPrices = g.offers.map((o: any) => o.price.basePrice || o.price.menuPrice);
+              g.lowestPrice = Math.min(...effectivePrices);
+              g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
           });
           return updated;
        });
@@ -413,19 +444,36 @@ export default function App() {
                     return (
                       <View key={i} style={styles.offerItem}>
                         <View style={styles.offerMainInfo}>
-                          <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                          <Text style={styles.offerPrice}>
-                            ₹{offer.price.finalPayablePrice}
-                            {offer.price.discount > 0 && (
-                              <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
+                          <View style={styles.offerHeaderRow}>
+                            <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                            {offer.autoCouponSavings > 0 && (
+                              <View style={styles.autoAppliedPill}>
+                                <Text style={styles.autoAppliedPillText}>🏷️ Best Coupon Applied</Text>
+                              </View>
                             )}
-                          </Text>
-                          {offer.price.discount > 0 && (
-                            <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>
+                          </View>
+
+                          <View style={styles.priceRowBig}>
+                            <Text style={styles.effectivePriceBig}>₹{offer.price.finalPayablePrice}</Text>
+                            {offer.autoCouponSavings > 0 ? (
+                              <Text style={styles.strikeMenuPrice}>₹{offer.menuPrice || offer.price.menuPrice || offer.price.basePrice}</Text>
+                            ) : (
+                              offer.price.discount > 0 && (
+                                <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
+                              )
+                            )}
+                          </View>
+
+                          {offer.autoCouponSavings > 0 && (
+                            <Text style={styles.couponSavingsHighlight}>
+                              Save ₹{offer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{offer.couponCode}</Text>
+                            </Text>
                           )}
-                          {Boolean(offer.offerText) && (
+
+                          {Boolean(offer.offerText) && !offer.autoCouponSavings && (
                             <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
                           )}
+
                           {offer.additionalOffers && offer.additionalOffers.length > 0 && (
                             <View style={styles.additionalOffersBox}>
                               {offer.additionalOffers.map((ao: any, aIdx: number) => (
@@ -782,6 +830,48 @@ const styles = StyleSheet.create({
   offerMainInfo: {
     flex: 1,
     paddingRight: 10,
+  },
+  offerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 8,
+  },
+  autoAppliedPill: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  autoAppliedPillText: {
+    color: '#15803d',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  priceRowBig: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginVertical: 2,
+    gap: 8,
+  },
+  effectivePriceBig: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#16a34a',
+  },
+  strikeMenuPrice: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+  },
+  couponSavingsHighlight: {
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: 4,
   },
   offerProvider: {
     fontWeight: '700',

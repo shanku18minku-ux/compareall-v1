@@ -72,20 +72,32 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       }
     });
 
-    // Calculate Best Coupon Savings for each Restaurant Group
+    // Calculate Best Coupon Savings for each Platform/Restaurant Group
     Object.values(groupMap).forEach(group => {
-      const firstItem = group.items[0];
-      let couponDiscount = 0;
-      if (firstItem) {
-        if (firstItem.couponPercent && firstItem.couponPercent > 0) {
-          const raw = Math.round((group.subtotal * firstItem.couponPercent) / 100);
-          couponDiscount = firstItem.couponMaxCap ? Math.min(raw, firstItem.couponMaxCap) : raw;
-        } else if (firstItem.couponFlat && firstItem.couponFlat > 0) {
-          couponDiscount = firstItem.couponFlat;
+      let maxCouponDiscount = 0;
+      let bestCode = group.couponCode || '';
+      let bestDesc = group.couponDescription || '';
+
+      group.items.forEach(it => {
+        let itDiscount = 0;
+        if (it.couponPercent && it.couponPercent > 0) {
+          const raw = Math.round((group.subtotal * it.couponPercent) / 100);
+          itDiscount = it.couponMaxCap ? Math.min(raw, it.couponMaxCap) : raw;
+        } else if (it.couponFlat && it.couponFlat > 0) {
+          itDiscount = it.couponFlat;
         }
-      }
-      group.couponSavings = couponDiscount;
-      group.finalTotal = Math.max(1, group.subtotal - couponDiscount);
+
+        if (itDiscount > maxCouponDiscount) {
+          maxCouponDiscount = itDiscount;
+          if (it.couponCode) bestCode = it.couponCode;
+          if (it.couponDescription) bestDesc = it.couponDescription;
+        }
+      });
+
+      group.couponSavings = maxCouponDiscount;
+      group.couponCode = bestCode;
+      group.couponDescription = bestDesc;
+      group.finalTotal = Math.max(0, group.subtotal - maxCouponDiscount);
     });
 
     return Object.values(groupMap);

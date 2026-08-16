@@ -161,16 +161,32 @@ export const SwiggyPacket: ProviderPacket = {
                             var restId = restInfo?.id || '';
                             var restaurantUrl = (restSlug && restId) ? ('https://www.swiggy.com/restaurants/' + restSlug + '-' + restId) : 'https://www.swiggy.com';
 
+                            var autoCouponSavings = 0;
+                            if (couponFlat > 0) {
+                                autoCouponSavings = couponFlat;
+                            } else if (couponPercent > 0) {
+                                var rawDisc = Math.round((finalPrice * couponPercent) / 100);
+                                autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
+                            }
+
+                            var effectiveFinalPrice = Math.max(0, finalPrice - autoCouponSavings);
+                            var totalSavings = (basePrice - finalPrice) + autoCouponSavings;
+
                             items.push({
                                 title: title,
                                 providerName: 'Swiggy',
                                 dishId: info.id || '',
                                 dishName: info.name || '',
+                                restaurantName: restName,
                                 restaurantUrl: restaurantUrl,
+                                menuPrice: finalPrice,
+                                autoCouponSavings: autoCouponSavings,
+                                effectivePrice: effectiveFinalPrice,
                                 price: {
-                                    finalPayablePrice: finalPrice,
+                                    finalPayablePrice: effectiveFinalPrice,
+                                    menuPrice: finalPrice,
                                     basePrice: basePrice,
-                                    discount: itemDiscount
+                                    discount: totalSavings
                                 },
                                 offerText: promoBadge,
                                 couponCode: couponCode,
@@ -189,6 +205,7 @@ export const SwiggyPacket: ProviderPacket = {
                                     discountText: promoBadge,
                                     couponCode: couponCode,
                                     couponDescription: couponDesc,
+                                    autoCouponSavings: autoCouponSavings,
                                     additionalOffers: platformOffers
                                 }
                             });
