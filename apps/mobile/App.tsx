@@ -4,17 +4,22 @@ import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
 import { UniversalCartModal } from './src/lib/UniversalCartModal';
+import { DynamicSearchBar } from './src/lib/search/DynamicSearchBar';
 import { CartItem } from './src/lib/CartTypes';
 import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
 
 // Load platform metadata dynamically from registered packets
 const PROVIDERS = getAllProvidersMetadata();
 
-const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
+const CATEGORIES = ['Food', 'Commute', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections' | 'Cart'>('Connections');
   const [activeCategory, setActiveCategory] = useState('Food');
+
+  // Dynamic Search State
+  const [searchCategory, setSearchCategory] = useState('Food');
+  const [searchValues, setSearchValues] = useState<{ [key: string]: string }>({});
 
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
@@ -181,8 +186,12 @@ export default function App() {
       Vibration.vibrate(50);
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = (queryOverride?: string) => {
+    const q = (queryOverride !== undefined ? queryOverride : searchQuery).trim();
+    if (!q) return;
+    if (queryOverride !== undefined) {
+      setSearchQuery(q);
+    }
     setIsSearching(true);
     setResults([]);
     setTimeout(() => setIsSearching(false), 15000);
@@ -247,6 +256,10 @@ export default function App() {
           loginUrl={loginModal.loginUrl}
           location={location}
           onSuccess={() => {
+            const provider = PROVIDERS.find(p => p.id === loginModal.id);
+            if (provider) {
+              setSearchCategory(provider.category);
+            }
             setConnectedProviders(prev => [...prev, loginModal.id]);
             setLoginModal(null);
           }}
@@ -270,18 +283,17 @@ export default function App() {
           <View style={styles.tabContent}>
             <Text style={styles.title}>Universal Search</Text>
             
-            <View style={styles.searchBox}>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Search food, groceries, flights..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearch}
-              />
-              <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
-                <Text style={styles.searchBtnText}>Search</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Dynamic Contextual Search Bar */}
+            <DynamicSearchBar
+              category={searchCategory}
+              onSelectCategory={setSearchCategory}
+              categoriesList={['Food', 'Commute', 'Groceries', 'Travel', 'Medicine', 'Shopping', 'Services']}
+              location={location}
+              searchValues={searchValues}
+              onChangeValue={(key, val) => setSearchValues(prev => ({ ...prev, [key]: val }))}
+              onSubmit={(effectiveQuery) => handleSearch(effectiveQuery)}
+              isSearching={isSearching}
+            />
             
             {isSearching && (
               <View style={styles.loadingBox}>
