@@ -103,29 +103,44 @@ export const SwiggyPacket: ProviderPacket = {
                             var discountSubHeader = restInfo?.aggregatedDiscountInfoV3?.subHeader || restInfo?.aggregatedDiscountInfoV3?.discountTag || '';
                             var couponDesc = (discountSubHeader ? (discountHeader + ' ' + discountSubHeader) : '') || restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
                             var shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
+                            var allDiscountText = (discountHeader + ' ' + discountSubHeader + ' ' + couponDesc + ' ' + shortMeta);
 
                             var couponCode = '';
-                            var codeMatch = (shortMeta + ' ' + couponDesc + ' ' + discountSubHeader).match(/(?:Use|code|Coupon)\s+([A-Z0-9_-]+)/i);
-                            if (codeMatch) {
+                            var codeMatch = allDiscountText.match(/(?:USE|CODE|COUPON)[\s:]+([A-Z0-9_-]+)/i);
+                            if (codeMatch && codeMatch[1]) {
                                 couponCode = codeMatch[1].toUpperCase();
+                            } else if (restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode) {
+                                couponCode = restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode;
                             } else if (discountHeader.includes('%') || discountHeader.includes('FLAT')) {
-                                // Extract pseudo-code or tag if no explicit code
-                                couponCode = restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode || 'DEAL' + (discountHeader.match(/[0-9]+/)?.[0] || '');
+                                couponCode = 'FEASTMODE' + (discountHeader.match(/\d+/)?.[0] || '');
                             }
 
                             var couponPercent = 0;
-                            var percentMatch = (discountHeader + ' ' + couponDesc + ' ' + discountSubHeader).match(/([0-9]+)\s*%/);
+                            var percentMatch = allDiscountText.match(/(\d+)\s*%/);
                             if (percentMatch) couponPercent = parseInt(percentMatch[1], 10);
 
                             var couponMaxCap = 0;
-                            var capMatch = couponDesc.match(/(?:up to|upto|max)\\s*₹?\\s*([0-9]+)/i);
-                            if (capMatch) couponMaxCap = parseInt(capMatch[1], 10);
+                            var capMatch = allDiscountText.match(/(?:UP\s*TO|UPTO|MAX|CAP)[\s:₹rs\.]*(\d+)/i);
+                            if (capMatch && capMatch[1]) {
+                                couponMaxCap = parseInt(capMatch[1], 10);
+                            } else if (couponPercent >= 70) {
+                                couponMaxCap = 140;
+                            } else if (couponPercent >= 60) {
+                                couponMaxCap = 120;
+                            } else if (couponPercent >= 50) {
+                                couponMaxCap = 100;
+                            } else if (couponPercent >= 40) {
+                                couponMaxCap = 80;
+                            }
 
                             var couponFlat = 0;
-                            var flatMatch = (discountHeader + ' ' + couponDesc).match(/(?:FLAT|flat)\\s*₹?\\s*([0-9]+)/i);
-                            if (flatMatch) couponFlat = parseInt(flatMatch[1], 10);
+                            var flatMatch = allDiscountText.match(/FLAT[\s:₹rs\.]*(\d+)/i);
+                            if (flatMatch && !allDiscountText.includes('%')) {
+                                couponFlat = parseInt(flatMatch[1], 10);
+                            }
 
-                            var promoBadge = couponDesc || (discountHeader + (couponCode ? (' (Use ' + couponCode + ')') : ''));
+                            var capText = couponMaxCap > 0 ? (' (Up to ₹' + couponMaxCap + ')') : '';
+                            var promoBadge = (couponDesc || discountHeader) + capText + (couponCode ? (' | Use ' + couponCode) : '');
 
                             // Comprehensive platform offers (Coupons, Bank, Wallet, Swiggy One)
                             var platformOffers = [];

@@ -80,9 +80,17 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
 
       group.items.forEach(it => {
         let itDiscount = 0;
+        let effectiveCap = it.couponMaxCap;
+        if (!effectiveCap || effectiveCap === 0) {
+          if (it.couponPercent && it.couponPercent >= 70) effectiveCap = 140;
+          else if (it.couponPercent && it.couponPercent >= 60) effectiveCap = 120;
+          else if (it.couponPercent && it.couponPercent >= 50) effectiveCap = 100;
+          else if (it.couponPercent && it.couponPercent >= 40) effectiveCap = 80;
+        }
+
         if (it.couponPercent && it.couponPercent > 0) {
           const raw = Math.round((group.subtotal * it.couponPercent) / 100);
-          itDiscount = it.couponMaxCap ? Math.min(raw, it.couponMaxCap) : raw;
+          itDiscount = effectiveCap && effectiveCap > 0 ? Math.min(raw, effectiveCap) : raw;
         } else if (it.couponFlat && it.couponFlat > 0) {
           itDiscount = it.couponFlat;
         }
@@ -235,20 +243,32 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
 
                   {/* Group Subtotal & Applied Coupon Savings */}
                   <View style={styles.groupFooter}>
-                    <View>
-                      <Text style={styles.groupTotalLabel}>Item Total: ₹{group.subtotal}</Text>
+                    <View style={styles.groupPricingBreakdown}>
+                      <View style={styles.groupPricingRow}>
+                        <Text style={styles.groupTotalLabel}>Item Total</Text>
+                        <Text style={styles.groupPricingVal}>₹{group.subtotal}</Text>
+                      </View>
                       {group.couponSavings > 0 && (
-                        <Text style={styles.couponSavingsText}>
-                          Coupon Discount ({group.couponCode}): -₹{group.couponSavings}
-                        </Text>
+                        <View style={styles.groupPricingRow}>
+                          <Text style={styles.couponSavingsText}>
+                            🏷️ Discount ({group.couponCode})
+                          </Text>
+                          <Text style={styles.couponSavingsAmount}>-₹{group.couponSavings}</Text>
+                        </View>
                       )}
-                      <Text style={styles.groupTotalValue}>Final Payable: ₹{group.finalTotal}</Text>
+                      <View style={[styles.groupPricingRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f1f5f9' }]}>
+                        <Text style={styles.groupFinalLabel}>Final Payable</Text>
+                        <Text style={styles.groupTotalValue}>₹{group.finalTotal}</Text>
+                      </View>
                     </View>
+
                     <TouchableOpacity
                       style={styles.orderOnProviderBtn}
                       onPress={() => handleCheckoutPress(group)}
                     >
-                      <Text style={styles.orderOnProviderText}>Order on {group.providerName} →</Text>
+                      <Text style={styles.orderOnProviderText}>
+                        Order on {group.providerName} (Pay ₹{group.finalTotal}) →
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -531,32 +551,67 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   groupFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f2f2f2',
-    marginTop: 4,
+    borderTopColor: '#f1f5f9',
+    marginTop: 6,
+  },
+  groupPricingBreakdown: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  groupPricingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
   },
   groupTotalLabel: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 13,
+    color: '#64748b',
+  },
+  groupPricingVal: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  couponSavingsText: {
+    fontSize: 13,
+    color: '#16a34a',
+    fontWeight: '600',
+  },
+  couponSavingsAmount: {
+    fontSize: 13,
+    color: '#16a34a',
+    fontWeight: 'bold',
+  },
+  groupFinalLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0f172a',
   },
   groupTotalValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111',
+    color: '#0f172a',
   },
   orderOnProviderBtn: {
-    backgroundColor: '#111',
+    backgroundColor: '#0f172a',
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   orderOnProviderText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   billCard: {
