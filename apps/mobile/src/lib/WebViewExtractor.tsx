@@ -32,8 +32,8 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 }) => {
   const webViewRef = useRef<WebView>(null);
   
-  const userLat = location?.latitude || 28.6139;
-  const userLng = location?.longitude || 77.2090;
+  const userLat = location?.latitude || 24.0416;
+  const userLng = location?.longitude || 84.0706;
 
   const beforeContentScript = `
     (function() {

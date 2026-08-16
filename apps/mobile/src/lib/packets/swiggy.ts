@@ -92,22 +92,24 @@ export const SwiggyPacket: ProviderPacket = {
                 
                 if (json && json.data && json.data.cards) {
                     json.data.cards.forEach(function(c) {
-                        if (c.groupedCard && c.groupedCard.cardGroupMap) {
+                        if (c && c.groupedCard && c.groupedCard.cardGroupMap) {
                             if (c.groupedCard.cardGroupMap.DISH) {
                                 cardsList = c.groupedCard.cardGroupMap.DISH.cards || [];
                             } else if (cardsList.length === 0 && c.groupedCard.cardGroupMap.RESTAURANT) {
                                 var restList = c.groupedCard.cardGroupMap.RESTAURANT.cards || [];
                                 restList.forEach(function(rc) {
-                                    var rInfo = rc.card?.card?.info;
+                                    var rInfo = (rc && rc.card && rc.card.card) ? rc.card.card.info : null;
                                     if (rInfo && rInfo.name) {
                                         var rCost = parseFloat((rInfo.costForTwoMessage || '').replace(/[^0-9]/g, '')) || 200;
+                                        var rSlug = (rInfo.slugs && rInfo.slugs.restaurant) ? rInfo.slugs.restaurant : '';
+                                        var rHeader = (rInfo.aggregatedDiscountInfoV3 && rInfo.aggregatedDiscountInfoV3.header) ? rInfo.aggregatedDiscountInfoV3.header : '';
                                         items.push({
                                             title: rInfo.name + ' - ' + (rInfo.locality || rInfo.areaName || ''),
                                             providerName: 'Swiggy',
                                             dishId: rInfo.id || '',
                                             dishName: rInfo.name || '',
                                             restaurantName: rInfo.name,
-                                            restaurantUrl: 'https://www.swiggy.com/restaurants/' + (rInfo.slugs?.restaurant || '') + '-' + (rInfo.id || ''),
+                                            restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
                                             menuPrice: Math.round(rCost / 2),
                                             autoCouponSavings: 0,
                                             effectivePrice: Math.round(rCost / 2),
@@ -117,7 +119,7 @@ export const SwiggyPacket: ProviderPacket = {
                                                 basePrice: Math.round(rCost / 2),
                                                 discount: 0
                                             },
-                                            offerText: rInfo.aggregatedDiscountInfoV3?.header || '',
+                                            offerText: rHeader,
                                             couponCode: '',
                                             additionalOffers: []
                                         });
@@ -130,18 +132,18 @@ export const SwiggyPacket: ProviderPacket = {
                 
                 cardsList.forEach(function(c) {
                     if (items.length >= 30) return;
-                    var info = c.card?.card?.info;
-                    var restInfo = c.card?.card?.restaurant?.info;
+                    var info = (c && c.card && c.card.card) ? c.card.card.info : null;
+                    var restInfo = (c && c.card && c.card.card && c.card.card.restaurant) ? c.card.card.restaurant.info : null;
                     if (info && info.name) {
                         // 100% Real verified price from Swiggy menu
                         var rawPrice = info.price || info.defaultPrice || 0;
                         var price = rawPrice / 100;
                         
                         if (price > 0) {
-                            var restName = restInfo?.name || '';
-                            var area = restInfo?.locality || restInfo?.areaName || '';
-                            var rating = restInfo?.avgRating ? (' ⭐' + restInfo.avgRating) : '';
-                            var deliveryTime = restInfo?.sla?.slaString ? (' • ' + restInfo.sla.slaString) : '';
+                            var restName = (restInfo && restInfo.name) ? restInfo.name : '';
+                            var area = (restInfo && (restInfo.locality || restInfo.areaName)) ? (restInfo.locality || restInfo.areaName) : '';
+                            var rating = (restInfo && restInfo.avgRating) ? (' ⭐' + restInfo.avgRating) : '';
+                            var deliveryTime = (restInfo && restInfo.sla && restInfo.sla.slaString) ? (' • ' + restInfo.sla.slaString) : '';
                             var subtitle = (restName + (area ? (', ' + area) : '') + rating + deliveryTime).trim();
                             var title = subtitle ? (info.name + ' - ' + subtitle) : info.name;
                             
@@ -152,10 +154,10 @@ export const SwiggyPacket: ProviderPacket = {
                             var itemDiscount = Math.max(0, basePrice - finalPrice);
                             
                             // Active restaurant promo / coupon (for display badge & auto-application)
-                            var discountHeader = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
-                            var discountSubHeader = restInfo?.aggregatedDiscountInfoV3?.subHeader || restInfo?.aggregatedDiscountInfoV3?.discountTag || '';
-                            var descMeta = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
-                            var shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
+                            var discountHeader = (restInfo && restInfo.aggregatedDiscountInfoV3 && restInfo.aggregatedDiscountInfoV3.header) || (restInfo && restInfo.aggregatedDiscountInfoV2 && restInfo.aggregatedDiscountInfoV2.header) || (restInfo && restInfo.aggregatedDiscountInfo && restInfo.aggregatedDiscountInfo.header) || '';
+                            var discountSubHeader = (restInfo && restInfo.aggregatedDiscountInfoV3 && (restInfo.aggregatedDiscountInfoV3.subHeader || restInfo.aggregatedDiscountInfoV3.discountTag)) || '';
+                            var descMeta = (restInfo && restInfo.aggregatedDiscountInfoV2 && restInfo.aggregatedDiscountInfoV2.descriptionList && restInfo.aggregatedDiscountInfoV2.descriptionList[0] && restInfo.aggregatedDiscountInfoV2.descriptionList[0].meta) || '';
+                            var shortMeta = (restInfo && restInfo.aggregatedDiscountInfoV3 && restInfo.aggregatedDiscountInfoV3.header) || '';
                             var allDiscountText = (discountHeader + ' ' + discountSubHeader + ' ' + descMeta + ' ' + shortMeta);
                             var offerTags = info.offerTags || [];
                             offerTags.forEach(function(ot) {
@@ -175,11 +177,12 @@ export const SwiggyPacket: ProviderPacket = {
                                 }
                             }
 
-                            if (!couponCode && restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode) {
+                            if (!couponCode && restInfo && restInfo.aggregatedDiscountInfoV3 && restInfo.aggregatedDiscountInfoV3.couponDetails && restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode) {
                                 couponCode = restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode;
                             }
-                            if (!couponCode && (discountHeader.includes('%') || discountHeader.includes('FLAT') || discountHeader.includes('OFF'))) {
-                                couponCode = 'FEASTMODE' + (discountHeader.match(/\\d+/)?.[0] || '');
+                            if (!couponCode && (discountHeader.indexOf('%') !== -1 || discountHeader.indexOf('FLAT') !== -1 || discountHeader.indexOf('OFF') !== -1)) {
+                                var numMatch = discountHeader.match(/\\d+/);
+                                couponCode = 'FEASTMODE' + (numMatch ? numMatch[0] : '');
                             }
 
                             var couponPercent = 0;
@@ -201,9 +204,9 @@ export const SwiggyPacket: ProviderPacket = {
                             }
 
                             var couponFlat = 0;
-                            var flatMatch = allDiscountText.match(/(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF/i);
-                            if (flatMatch && flatMatch[1] && !allDiscountText.includes('%')) {
-                                couponFlat = parseInt(flatMatch[1], 10);
+                            var flatMatch = allDiscountText.match(/(?:FLAT[\\s:₹rs\\.]*(\\d+)|(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF)/i);
+                            if (flatMatch && allDiscountText.indexOf('%') === -1) {
+                                couponFlat = parseInt(flatMatch[1] || flatMatch[2], 10);
                             }
 
                             var capText = couponMaxCap > 0 ? (' (Up to ₹' + couponMaxCap + ')') : '';
@@ -218,7 +221,7 @@ export const SwiggyPacket: ProviderPacket = {
                                     icon: '🏷️',
                                     title: 'Promo Code: ' + couponCode,
                                     code: couponCode,
-                                    description: couponDesc || (discountHeader + ' with code ' + couponCode)
+                                    description: (descMeta || discountHeader) + ' with code ' + couponCode
                                 });
                             }
                             platformOffers.push({
@@ -243,13 +246,13 @@ export const SwiggyPacket: ProviderPacket = {
                                 description: 'Unlimited Free Delivery on orders above ₹149'
                             });
 
-                            var restSlug = restInfo?.slugs?.restaurant || '';
-                            var restId = restInfo?.id || '';
+                            var restSlug = (restInfo && restInfo.slugs && restInfo.slugs.restaurant) ? restInfo.slugs.restaurant : '';
+                            var restId = (restInfo && restInfo.id) ? restInfo.id : '';
                             var restaurantUrl = (restSlug && restId) ? ('https://www.swiggy.com/restaurants/' + restSlug + '-' + restId) : 'https://www.swiggy.com';
 
                             var autoCouponSavings = 0;
                             if (couponFlat > 0) {
-                                autoCouponSavings = couponFlat;
+                                autoCouponSavings = couponFlat < finalPrice ? couponFlat : Math.round(finalPrice * 0.5);
                             } else if (couponPercent > 0) {
                                 var rawDisc = Math.round((finalPrice * couponPercent) / 100);
                                 autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
@@ -276,7 +279,7 @@ export const SwiggyPacket: ProviderPacket = {
                                 },
                                 offerText: promoBadge,
                                 couponCode: couponCode,
-                                couponDescription: couponDesc || discountHeader,
+                                couponDescription: descMeta || discountHeader,
                                 couponPercent: couponPercent,
                                 couponMaxCap: couponMaxCap,
                                 couponFlat: couponFlat,
@@ -286,11 +289,11 @@ export const SwiggyPacket: ProviderPacket = {
                                     dishName: info.name || '',
                                     restaurantName: restName,
                                     restaurantUrl: restaurantUrl,
-                                    rating: restInfo?.avgRating,
-                                    sla: restInfo?.sla?.slaString,
+                                    rating: (restInfo && restInfo.avgRating) ? restInfo.avgRating : undefined,
+                                    sla: (restInfo && restInfo.sla && restInfo.sla.slaString) ? restInfo.sla.slaString : undefined,
                                     discountText: promoBadge,
                                     couponCode: couponCode,
-                                    couponDescription: couponDesc,
+                                    couponDescription: descMeta,
                                     autoCouponSavings: autoCouponSavings,
                                     additionalOffers: platformOffers
                                 }
