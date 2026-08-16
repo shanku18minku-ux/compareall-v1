@@ -88,6 +88,11 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         injectedJavaScriptBeforeContentLoaded={beforeContentScript}
         injectedJavaScript={injectedJavascript}
+        onLoadEnd={() => {
+          if (injectedJavascript && webViewRef.current) {
+            webViewRef.current.injectJavaScript(injectedJavascript);
+          }
+        }}
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
