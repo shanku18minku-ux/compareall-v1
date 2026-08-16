@@ -63,9 +63,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         <WebView
             ref={webViewRef}
             source={{ uri: url }}
-            // CRITICAL FIX: 'display:none' and width/height=0 causes Android to SUSPEND the WebView.
-            // This absolute offscreen position keeps it ALIVE so Swiggy loads silently in background.
-            style={{ position: 'absolute', top: -10000, left: -10000, width: 1, height: 1, opacity: 0 }}
+            // Bulletproof Anti-Suspend: Fill the screen behind other views, opacity 0.01
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.01, zIndex: -1 }}
+            pointerEvents="none"
             javaScriptEnabled={true}
             domStorageEnabled={true}
             thirdPartyCookiesEnabled={true}
