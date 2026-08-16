@@ -1,24 +1,16 @@
-import { PlatformPacket } from './types';
-import { swiggyPacket } from './swiggy';
+import { ProviderPacket } from './types';
+import { SwiggyPacket } from './swiggy';
 
-class PlatformRegistryClass {
-  private packets: Map<string, PlatformPacket> = new Map();
+// Define the central registry of all available provider packets
+const packets: Record<string, ProviderPacket> = {
+    [SwiggyPacket.metadata.id]: SwiggyPacket,
+    // Future platforms like Zomato, IRCTC will be added here
+};
 
-  constructor() {
-    this.register(swiggyPacket);
-  }
+export const getPacket = (providerId: string): ProviderPacket | undefined => {
+    return packets[providerId];
+};
 
-  register(packet: PlatformPacket) {
-    this.packets.set(packet.metadata.id, packet);
-  }
-
-  get(id: string): PlatformPacket | undefined {
-    return this.packets.get(id);
-  }
-
-  getAll(): PlatformPacket[] {
-    return Array.from(this.packets.values());
-  }
-}
-
-export const PlatformRegistry = new PlatformRegistryClass();
+export const getAllProvidersMetadata = () => {
+    return Object.values(packets).map(packet => packet.metadata);
+};

@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { PlatformRegistry } from './packets/registry';
+
+// Extractor imports removed. Injections will be provided via props.
+
 export type ExtractionStatus = 'idle' | 'connecting' | 'extracting' | 'completed' | 'error';
 
 interface WebViewExtractorProps {
@@ -20,10 +22,9 @@ interface WebViewExtractorProps {
  */
 export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({ url, providerId, onDataExtracted, onError, isActive, injectionScript }) => {
   const webViewRef = useRef<WebView>(null);
-  const packet = PlatformRegistry.get(providerId);
   
   // Script provided dynamically by the packet driver
-  let injectedJavascript = packet ? packet.getExtractorScript(url) : `
+  let injectedJavascript = injectionScript || `
     window.ReactNativeWebView.postMessage(JSON.stringify({ success: false, error: 'No extractor script provided' }));
     true;
   `;

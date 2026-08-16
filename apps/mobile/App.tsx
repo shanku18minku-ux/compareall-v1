@@ -5,10 +5,11 @@ import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginDriver, LoginDriverRef } from './src/lib/LoginDriver';
 import * as Clipboard from 'expo-clipboard';
-import { PlatformRegistry } from './src/lib/packets/registry';
 
-// Load platforms dynamically from modular packets
-const PROVIDERS = PlatformRegistry.getAll().map(p => p.metadata);
+import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
+
+// Load platform metadata dynamically from registered packets
+const PROVIDERS = getAllProvidersMetadata();
 
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
@@ -27,22 +28,6 @@ export default function App() {
   
   // Ref for imperative zero-latency injection
   const driverRefs = useRef<Record<string, LoginDriverRef | null>>({});
-  
-  // Initialize connected state from secure storage via packets
-  useEffect(() => {
-    async function loadConnections() {
-      const packets = PlatformRegistry.getAll();
-      const connected: string[] = [];
-      for (const packet of packets) {
-        const status = await packet.getConnectionStatus();
-        if (status === 'CONNECTED') {
-          connected.push(packet.metadata.id);
-        }
-      }
-      setConnectedProviders(connected);
-    }
-    loadConnections();
-  }, []);
   
   // Google Auth State (Modal)
   const [googleAuthProvider, setGoogleAuthProvider] = useState<string | null>(null);
@@ -116,19 +101,13 @@ export default function App() {
      if (!location || !location.name) return PROVIDERS;
      const locName = location.name.toLowerCase();
      return PROVIDERS.filter(p => {
-         // If no regions defined, show everywhere (default to 'all')
-         if (!p.regions || p.regions.length === 0) return true;
          if (p.regions.includes('all')) return true;
          return p.regions.some(region => locName.includes(region));
      });
   };
 
   // Disconnect logic
-  const handleDisconnect = async (id: string) => {
-      const packet = PlatformRegistry.get(id);
-      if (packet) {
-         await packet.disconnect();
-      }
+  const handleDisconnect = (id: string) => {
       setConnectedProviders(prev => prev.filter(p => p !== id));
       setLoginSteps(prev => ({...prev, [id]: 'idle'}));
       setPhoneInputs(prev => ({...prev, [id]: ''}));
@@ -246,6 +225,43 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
+      {PROVIDERS.map(p => {
+          if (p.authType === 'google') return null;
+          if (connectedProviders.includes(p.id)) return null;
+          
+          const isActive = activeLoginProvider === p.id;
+          return (
+             <LoginDriver 
+                key={p.id}
+                ref={(el) => { driverRefs.current[p.id] = el; }}
+                providerId={p.id}
+                url={p.loginUrl || p.url}
+                phone={phoneInputs[p.id] || ''}
+                otp={otpInputs[p.id] || ''}
+                triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
+                triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
+                onOtpRequested={() => {
+                   if (isActive) {
+                       Vibration.vibrate(50);
+                       setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
+                   }
+                }}
+                onSuccess={() => {
+                   setConnectedProviders(prev => [...prev, p.id]);
+                   setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                   if (isActive) {
+                       Vibration.vibrate(50);
+                       setActiveLoginProvider(null);
+                   }
+                }}
+                onError={(msg) => {
+                   console.log('Login error:', msg);
+                   if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
+                }}
+             />
+          );
+      })}
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>CompareAll</Text>
@@ -283,9 +299,9 @@ export default function App() {
                    const provider = getFilteredProviders().find(p => p.id === id);
                    if (!provider) return null;
                    
-                   let searchUrl = provider.url;
-                   
-                   // Dynamic URL generation will be handled by modular packets in the future
+                   const packet = getPacket(id);
+                   const searchUrl = packet ? packet.getSearchUrl(searchQuery) : provider.url;
+                   const injectionScript = packet ? packet.getExtractorInjection(searchUrl) : undefined;
                    
                    return (
                      <WebViewExtractor 
@@ -295,6 +311,7 @@ export default function App() {
                         isActive={true}
                         onDataExtracted={handleDataExtracted}
                         onError={(err) => console.log('Err:', err)}
+                        injectionScript={injectionScript}
                      />
                    );
                 })}
@@ -512,7 +529,7 @@ export default function App() {
                   <Text style={styles.modalCloseText}>Cancel</Text>
                </TouchableOpacity>
             </View>
-             {googleAuthProvider && (
+            {googleAuthProvider && (
                <WebView 
                   source={{ uri: PROVIDERS.find(p => p.id === googleAuthProvider)?.url || 'https://google.com' }}
                   style={{flex: 1}}
@@ -575,47 +592,6 @@ export default function App() {
           </View>
         </View>
       </Modal>
-
-      {/* Hidden Preloaded WebViews for 0-Latency OTP */}
-      <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
-        {PROVIDERS.map(p => {
-            if (p.authType === 'google') return null;
-            if (connectedProviders.includes(p.id)) return null;
-            
-            const isActive = activeLoginProvider === p.id;
-            
-            return (
-               <LoginDriver 
-                  key={`${p.id}-${refreshKeys[p.id] || 0}`}
-                  ref={(el) => { driverRefs.current[p.id] = el; }}
-                  providerId={p.id}
-                  url={p.loginUrl || p.url}
-                  phone={phoneInputs[p.id] || ''}
-                  otp={otpInputs[p.id] || ''}
-                  triggerPhone={isActive && loginSteps[p.id] === 'sending_phone'}
-                  triggerOtp={isActive && loginSteps[p.id] === 'sending_otp'}
-                  onOtpRequested={() => {
-                     if (isActive) {
-                         Vibration.vibrate(50);
-                         setLoginSteps(prev => ({...prev, [p.id]: 'awaiting_otp'}));
-                     }
-                  }}
-                  onSuccess={() => {
-                     setConnectedProviders(prev => [...prev, p.id]);
-                     setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                     if (isActive) {
-                         Vibration.vibrate(50);
-                         setActiveLoginProvider(null);
-                     }
-                  }}
-                  onError={(msg) => {
-                     console.log('Login error:', msg);
-                     if (isActive) setLoginSteps(prev => ({...prev, [p.id]: 'idle'}));
-                  }}
-               />
-            );
-        })}
-      </View>
 
     </SafeAreaView>
   );
