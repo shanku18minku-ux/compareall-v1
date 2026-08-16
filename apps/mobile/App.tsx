@@ -305,12 +305,38 @@ export default function App() {
                accountBenefits: []
              };
              
-             const existingGroup = updated.find(g => g.title.toLowerCase() === title.toLowerCase());
+             const dishName = offer.dishName || offer.metadata?.dishName || title;
+             const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
+             const displayTitle = restName ? `${dishName} - ${restName}` : dishName;
+
+             // Smart match key to combine identical dishes from Swiggy & Zomato into 1 comparison card
+             const cleanDish = dishName.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+             const cleanRest = restName.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+             const matchKey = cleanRest ? `${cleanDish}__${cleanRest}` : cleanDish;
+
+             const existingGroup = updated.find(g => {
+               if (g.matchKey === matchKey) return true;
+               if (cleanRest && g.matchKey) {
+                 const firstRestWord = cleanRest.split(' ')[0];
+                 if (firstRestWord.length > 2 && g.matchKey.includes(firstRestWord) && (g.matchKey.includes(cleanDish) || cleanDish.includes(g.matchKey.split('__')[0]))) {
+                   return true;
+                 }
+               }
+               return false;
+             });
+
              if (existingGroup) {
-                 existingGroup.offers.push(offerPayload);
+                 // Check if offer for this provider already exists, update or append
+                 const existingProviderIdx = existingGroup.offers.findIndex((o: any) => o.providerName.toLowerCase() === providerName.toLowerCase());
+                 if (existingProviderIdx >= 0) {
+                   existingGroup.offers[existingProviderIdx] = offerPayload;
+                 } else {
+                   existingGroup.offers.push(offerPayload);
+                 }
              } else {
                  updated.push({ 
-                   title, 
+                   title: displayTitle,
+                   matchKey: matchKey,
                    lowestPrice: effectiveFinalPrice, 
                    savings: autoCouponSavings, 
                    offers: [offerPayload] 
