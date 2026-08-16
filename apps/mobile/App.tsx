@@ -314,17 +314,38 @@ export default function App() {
              const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
              const displayTitle = restName ? `${dishName} - ${restName}` : dishName;
 
-             // Smart match key to combine identical dishes from Swiggy & Zomato into 1 comparison card
-             const cleanDish = dishName.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-             const cleanRest = restName.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+             // Robust normalization to combine identical dishes from Swiggy & Zomato into 1 card
+             const normalizeDish = (n: string) => {
+               return (n || '').toLowerCase()
+                 .replace(/\b\d+\s*(?:pic|pcs|pc|pieces|slice|slices)\b/g, '')
+                 .replace(/\b(?:half|full|quarter|small|medium|large|serves\s*\d+(?:-\d+)?)\b/g, '')
+                 .replace(/[^a-z0-9]/g, ' ')
+                 .replace(/\s+/g, ' ')
+                 .trim();
+             };
+
+             const normalizeRest = (n: string) => {
+               return (n || '').toLowerCase()
+                 .replace(/\bh\s*m\b/g, 'hm')
+                 .replace(/\b(?:and|&|restaurant|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen)\b/g, '')
+                 .replace(/[^a-z0-9]/g, '')
+                 .trim();
+             };
+
+             const cleanDish = normalizeDish(dishName);
+             const cleanRest = normalizeRest(restName);
              const matchKey = cleanRest ? `${cleanDish}__${cleanRest}` : cleanDish;
 
              const existingGroup = updated.find(g => {
                if (g.matchKey === matchKey) return true;
                if (cleanRest && g.matchKey) {
-                 const firstRestWord = cleanRest.split(' ')[0];
-                 if (firstRestWord.length > 2 && g.matchKey.includes(firstRestWord) && (g.matchKey.includes(cleanDish) || cleanDish.includes(g.matchKey.split('__')[0]))) {
-                   return true;
+                 const parts = g.matchKey.split('__');
+                 const gDish = parts[0] || '';
+                 const gRest = parts[1] || '';
+                 if (gRest && (gRest.includes(cleanRest) || cleanRest.includes(gRest))) {
+                   if (gDish && (gDish.includes(cleanDish) || cleanDish.includes(gDish))) {
+                     return true;
+                   }
                  }
                }
                return false;
