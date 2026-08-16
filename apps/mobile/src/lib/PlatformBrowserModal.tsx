@@ -17,6 +17,7 @@ interface PlatformBrowserModalProps {
   providerName: string;
   providerIcon: string;
   targetUrl: string;
+  restaurantUrl?: string;
   cartItems?: CartItem[];
   couponCode?: string;
   location?: { latitude: number; longitude: number; name: string } | null;
@@ -28,6 +29,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   providerName,
   providerIcon,
   targetUrl,
+  restaurantUrl,
   cartItems,
   couponCode,
   location,
@@ -41,6 +43,19 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
 
   const userLat = location?.latitude || 28.6139;
   const userLng = location?.longitude || 77.2090;
+
+  const goToCheckout = () => {
+    const checkoutUrl = 'https://www.swiggy.com/checkout';
+    setCurrentUrl(checkoutUrl);
+    webViewRef.current?.injectJavaScript(`window.location.href = '${checkoutUrl}'; true;`);
+  };
+
+  const goToRestaurant = () => {
+    if (restaurantUrl) {
+      setCurrentUrl(restaurantUrl);
+      webViewRef.current?.injectJavaScript(`window.location.href = '${restaurantUrl}'; true;`);
+    }
+  };
 
   // Inject user's detected GPS coordinates into the checkout webview
   const beforeContentScript = `
@@ -75,61 +90,6 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
     true;
   `;
 
-  // Auto-Cart-Bridge script: Adds selected dish to Swiggy menu & immediately takes user to final Checkout & Payment
-  const autoCheckoutScript = `
-    (function() {
-      var dishes = ${JSON.stringify((cartItems || []).map(i => ({ dishName: i.dishName, dishId: i.dishId, quantity: i.quantity })))};
-      var couponCode = ${JSON.stringify(couponCode || '')};
-      var hasNavigated = false;
-
-      function checkAndBridgeToCheckout() {
-        if (hasNavigated) return;
-
-        // If already on checkout page
-        if (window.location.pathname.indexOf('/checkout') !== -1) {
-          hasNavigated = true;
-          return;
-        }
-
-        // If on restaurant page, auto-click ADD on target dish
-        if (window.location.pathname.indexOf('/restaurants/') !== -1) {
-          var allDishContainers = document.querySelectorAll('[data-testid*="normal-dish-item"], [class*="styles_item"], [class*="item_container"], div[class*="styles_container"]');
-          
-          dishes.forEach(function(d) {
-            var nameToFind = (d.dishName || '').toLowerCase().trim();
-            for (var i = 0; i < allDishContainers.length; i++) {
-              var c = allDishContainers[i];
-              if (c.textContent && c.textContent.toLowerCase().indexOf(nameToFind) !== -1) {
-                var btn = c.querySelector('button, [data-testid="add-button"], div[role="button"]');
-                if (btn && (btn.textContent.indexOf('ADD') !== -1 || btn.textContent.indexOf('+') !== -1)) {
-                  btn.click();
-                  break;
-                }
-              }
-            }
-          });
-
-          // After adding, navigate directly to Swiggy's final checkout page
-          setTimeout(function() {
-            if (!hasNavigated) {
-              hasNavigated = true;
-              var cartBtn = document.querySelector('[data-testid="cart-button"], [class*="viewCart"], [class*="checkout"]');
-              if (cartBtn) {
-                cartBtn.click();
-              } else {
-                window.location.href = 'https://www.swiggy.com/checkout';
-              }
-            }
-          }, 800);
-        }
-      }
-
-      var poll = setInterval(checkAndBridgeToCheckout, 400);
-      setTimeout(function() { clearInterval(poll); }, 6000);
-    })();
-    true;
-  `;
-
   return (
     <Modal
       visible={visible}
@@ -158,9 +118,34 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
             </View>
           </View>
 
-          <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Done ✕</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
+              <Text style={styles.doneBtnText}>Done ✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Quick Mode Switcher: Direct Checkout vs Restaurant Menu */}
+        <View style={styles.tabSwitcher}>
+          <TouchableOpacity
+            style={[styles.tabBtn, currentUrl.includes('/checkout') && styles.tabBtnActive]}
+            onPress={goToCheckout}
+          >
+            <Text style={[styles.tabBtnText, currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
+              🛒 Checkout & Pay
+            </Text>
           </TouchableOpacity>
+
+          {Boolean(restaurantUrl) && (
+            <TouchableOpacity
+              style={[styles.tabBtn, !currentUrl.includes('/checkout') && styles.tabBtnActive]}
+              onPress={goToRestaurant}
+            >
+              <Text style={[styles.tabBtnText, !currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
+                🍽️ Restaurant Menu
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Top Floating Coupon Bar if coupon exists */}
@@ -202,7 +187,6 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           source={{ uri: targetUrl }}
           userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
           injectedJavaScriptBeforeContentLoaded={beforeContentScript}
-          injectedJavaScript={autoCheckoutScript}
           onNavigationStateChange={(navState: WebViewNavigation) => {
             setCurrentUrl(navState.url);
             setCanGoBack(navState.canGoBack);
@@ -215,6 +199,13 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           sharedCookiesEnabled={true}
           style={styles.webview}
         />
+
+        {/* Floating Quick Action if not on checkout */}
+        {!currentUrl.includes('/checkout') && (
+          <TouchableOpacity style={styles.floatingCheckoutBtn} onPress={goToCheckout}>
+            <Text style={styles.floatingCheckoutBtnText}>🛒 OPEN SWIGGY CHECKOUT & PAY →</Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -333,6 +324,53 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    padding: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  tabBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  tabBtnTextActive: {
+    color: '#0f172a',
+    fontWeight: 'bold',
+  },
+  floatingCheckoutBtn: {
+    backgroundColor: '#ff5200',
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#ff5200',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  floatingCheckoutBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   webview: {
     flex: 1,

@@ -29,7 +29,7 @@ export default function App() {
   const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
 
   // Platform checkout browser modal — opens platform website directly for order placement
-  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string; couponCode?: string; cartItems?: CartItem[] } | null>(null);
+  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string; restaurantUrl?: string; couponCode?: string; cartItems?: CartItem[] } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,14 +113,14 @@ export default function App() {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
-      let targetUrl = restaurantUrl || provider.url || 'https://www.swiggy.com';
-      if (!restaurantUrl && restaurantName && restaurantName !== 'General' && restaurantName !== 'Restaurant Order') {
-        targetUrl = `https://www.swiggy.com/search?query=${encodeURIComponent(restaurantName)}`;
-      }
+      // Primary direct destination: Swiggy Checkout page
+      const directCheckoutUrl = 'https://www.swiggy.com/checkout';
+
       setCheckoutModal({
         providerName: provider.name,
         providerIcon: provider.icon,
-        targetUrl: targetUrl,
+        targetUrl: directCheckoutUrl,
+        restaurantUrl: restaurantUrl,
         couponCode: couponCode,
         cartItems: items || [],
       });
@@ -301,6 +301,7 @@ export default function App() {
           providerName={checkoutModal.providerName}
           providerIcon={checkoutModal.providerIcon}
           targetUrl={checkoutModal.targetUrl}
+          restaurantUrl={checkoutModal.restaurantUrl}
           cartItems={checkoutModal.cartItems}
           couponCode={checkoutModal.couponCode}
           location={location}
