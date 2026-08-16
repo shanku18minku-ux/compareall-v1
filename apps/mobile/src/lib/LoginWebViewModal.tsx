@@ -74,7 +74,16 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         onClose();
     };
 
-    const injectionScript = packet ? packet.getLoginDetectionScript() : 'true;';
+    // Prepend a viewport meta tag injection to ensure perfect mobile scaling
+    const mobileViewportScript = `
+        (function() {
+            var meta = document.createElement('meta');
+            meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0');
+            meta.setAttribute('name', 'viewport');
+            document.head.appendChild(meta);
+        })();
+    `;
+    const injectionScript = packet ? (mobileViewportScript + packet.getLoginDetectionScript()) : (mobileViewportScript + 'true;');
 
     return (
         <Modal
@@ -113,6 +122,8 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     thirdPartyCookiesEnabled={true}
+                    scalesPageToFit={false}
+                    bounces={false}
                     injectedJavaScript={injectionScript}
                     userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36"
                     onLoadStart={() => setLoading(true)}
