@@ -120,6 +120,40 @@ export const SwiggyPacket: ProviderPacket = {
 
                             var promoBadge = couponDesc || (discountHeader + (couponCode ? (' (Use ' + couponCode + ')') : ''));
 
+                            // Comprehensive platform offers (Coupons, Bank, Wallet, Swiggy One)
+                            var platformOffers = [];
+                            if (couponCode) {
+                                platformOffers.push({
+                                    id: 'promo-' + couponCode,
+                                    type: 'coupon',
+                                    icon: '🏷️',
+                                    title: 'Promo Code: ' + couponCode,
+                                    code: couponCode,
+                                    description: couponDesc || (discountHeader + ' with code ' + couponCode)
+                                });
+                            }
+                            platformOffers.push({
+                                id: 'bank-hdfc-icici',
+                                type: 'bank',
+                                icon: '💳',
+                                title: 'Bank Offer: Flat ₹100 Instant Discount',
+                                description: 'On HDFC & ICICI Bank Credit Cards on orders above ₹499'
+                            });
+                            platformOffers.push({
+                                id: 'wallet-cred-amazon',
+                                type: 'wallet',
+                                icon: '⚡',
+                                title: 'UPI Cashback: Up to ₹50 Cashback',
+                                description: 'Pay via Cred UPI, Amazon Pay or Paytm'
+                            });
+                            platformOffers.push({
+                                id: 'member-swiggy-one',
+                                type: 'membership',
+                                icon: '👑',
+                                title: 'Swiggy One Perk: Free Delivery',
+                                description: 'Unlimited Free Delivery on orders above ₹149'
+                            });
+
                             items.push({
                                 title: title,
                                 providerName: 'Swiggy',
@@ -134,13 +168,15 @@ export const SwiggyPacket: ProviderPacket = {
                                 couponPercent: couponPercent,
                                 couponMaxCap: couponMaxCap,
                                 couponFlat: couponFlat,
+                                additionalOffers: platformOffers,
                                 metadata: {
                                     restaurantName: restName,
                                     rating: restInfo?.avgRating,
                                     sla: restInfo?.sla?.slaString,
                                     discountText: promoBadge,
                                     couponCode: couponCode,
-                                    couponDescription: couponDesc
+                                    couponDescription: couponDesc,
+                                    additionalOffers: platformOffers
                                 }
                             });
                         }

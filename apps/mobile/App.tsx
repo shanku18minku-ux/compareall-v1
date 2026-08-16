@@ -80,6 +80,7 @@ export default function App() {
           couponPercent: offer.couponPercent,
           couponMaxCap: offer.couponMaxCap,
           couponFlat: offer.couponFlat,
+          additionalOffers: offer.additionalOffers || offer.metadata?.additionalOffers || [],
           quantity: 1,
         }
       ];
@@ -223,25 +224,35 @@ export default function App() {
              const providerName = offer.providerName || 'Swiggy';
              const offerText = offer.offerText || offer.metadata?.discountText || '';
              
+             const additionalOffers = offer.additionalOffers || offer.metadata?.additionalOffers || [];
+             const couponCode = offer.couponCode || offer.metadata?.couponCode || '';
+             const couponDescription = offer.couponDescription || offer.metadata?.couponDescription || '';
+             const couponPercent = offer.couponPercent || 0;
+             const couponMaxCap = offer.couponMaxCap || 0;
+             const couponFlat = offer.couponFlat || 0;
+
+             const offerPayload = {
+               providerName,
+               price: { finalPayablePrice: finalPrice, basePrice, discount },
+               offerText,
+               couponCode,
+               couponDescription,
+               couponPercent,
+               couponMaxCap,
+               couponFlat,
+               additionalOffers,
+               accountBenefits: []
+             };
+             
              const existingGroup = updated.find(g => g.title.toLowerCase() === title.toLowerCase());
              if (existingGroup) {
-                 existingGroup.offers.push({ 
-                   providerName, 
-                   price: { finalPayablePrice: finalPrice, basePrice, discount }, 
-                   offerText,
-                   accountBenefits: [] 
-                 });
+                 existingGroup.offers.push(offerPayload);
              } else {
                  updated.push({ 
                    title, 
                    lowestPrice: finalPrice, 
                    savings: 0, 
-                   offers: [{ 
-                     providerName, 
-                     price: { finalPayablePrice: finalPrice, basePrice, discount }, 
-                     offerText,
-                     accountBenefits: [] 
-                   }] 
+                   offers: [offerPayload] 
                  });
              }
           });
@@ -377,6 +388,15 @@ export default function App() {
                           )}
                           {Boolean(offer.offerText) && (
                             <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
+                          )}
+                          {offer.additionalOffers && offer.additionalOffers.length > 0 && (
+                            <View style={styles.additionalOffersBox}>
+                              {offer.additionalOffers.map((ao: any, aIdx: number) => (
+                                <View key={aIdx} style={styles.additionalOfferBadge}>
+                                  <Text style={styles.additionalOfferBadgeText}>{ao.icon} {ao.title}</Text>
+                                </View>
+                              ))}
+                            </View>
                           )}
                         </View>
 
@@ -736,6 +756,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
     fontWeight: '600',
+  },
+  additionalOffersBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+    gap: 4,
+  },
+  additionalOfferBadge: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  additionalOfferBadgeText: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '500',
   },
   cartActionContainer: {
     alignItems: 'flex-end',

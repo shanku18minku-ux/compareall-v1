@@ -48,6 +48,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
           couponCode: item.couponCode,
           couponDescription: item.couponDescription,
           couponSavings: 0,
+          additionalOffers: item.additionalOffers || [],
           finalTotal: 0,
           promoText: item.offerText,
         };
@@ -61,6 +62,9 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       if (item.couponCode && !groupMap[groupKey].couponCode) {
         groupMap[groupKey].couponCode = item.couponCode;
         groupMap[groupKey].couponDescription = item.couponDescription;
+      }
+      if (item.additionalOffers && item.additionalOffers.length > 0 && (!groupMap[groupKey].additionalOffers || groupMap[groupKey].additionalOffers.length === 0)) {
+        groupMap[groupKey].additionalOffers = item.additionalOffers;
       }
     });
 
@@ -196,6 +200,22 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                       </View>
                     ))}
                   </View>
+
+                  {/* Extra Bank & Payment Offers */}
+                  {group.additionalOffers && group.additionalOffers.length > 0 && (
+                    <View style={styles.groupOffersContainer}>
+                      <Text style={styles.groupOffersHeading}>🎁 Platform & Bank Offers Available</Text>
+                      {group.additionalOffers.map((offer, oIdx) => (
+                        <View key={oIdx} style={styles.groupOfferRow}>
+                          <Text style={styles.groupOfferIcon}>{offer.icon}</Text>
+                          <View style={styles.groupOfferContent}>
+                            <Text style={styles.groupOfferTitle}>{offer.title}</Text>
+                            <Text style={styles.groupOfferDesc}>{offer.description}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   {/* Group Subtotal & Applied Coupon Savings */}
                   <View style={styles.groupFooter}>
@@ -456,6 +476,43 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#16a34a',
     paddingHorizontal: 8,
+  },
+  groupOffersContainer: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  groupOffersHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  groupOfferRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 4,
+  },
+  groupOfferIcon: {
+    fontSize: 14,
+    marginRight: 6,
+    marginTop: 1,
+  },
+  groupOfferContent: {
+    flex: 1,
+  },
+  groupOfferTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  groupOfferDesc: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 1,
   },
   groupFooter: {
     flexDirection: 'row',

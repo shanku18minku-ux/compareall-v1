@@ -1,3 +1,13 @@
+export interface PlatformOffer {
+  id: string;
+  type: 'coupon' | 'bank' | 'wallet' | 'membership';
+  icon: string;
+  title: string;
+  code?: string;
+  description: string;
+  discountAmount?: number;
+}
+
 export interface CartItem {
   id: string; // unique item id
   title: string; // full formatted title
@@ -14,6 +24,7 @@ export interface CartItem {
   couponMaxCap?: number;
   couponPercent?: number;
   couponFlat?: number;
+  additionalOffers?: PlatformOffer[];
   quantity: number;
 }
 
@@ -27,6 +38,7 @@ export interface CartGroup {
   couponCode?: string;
   couponDescription?: string;
   couponSavings: number;
+  additionalOffers?: PlatformOffer[];
   finalTotal: number;
   promoText?: string;
 }
