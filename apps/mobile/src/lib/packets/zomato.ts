@@ -8,7 +8,7 @@ export const zomatoMetadata: ProviderMetadata = {
     icon: '🔴',
     brandColor: '#cb202d',
     authType: 'otp',
-    url: 'https://www.zomato.com/restaurants?category=1&context=delivery',
+    url: 'https://www.zomato.com',
     loginUrl: 'https://www.zomato.com/login',
     checkoutUrl: 'https://www.zomato.com/cart',
     actionTitle: 'Order on Zomato',
@@ -19,8 +19,8 @@ export const zomatoMetadata: ProviderMetadata = {
 export const ZomatoPacket: ProviderPacket = {
     metadata: zomatoMetadata,
 
-    // Only triggers after user completes OTP and redirects away from /login
-    successUrlPattern: /^https?:\/\/(www\.)?zomato\.com/,
+    // Only triggers after user completes OTP and redirects to account/profile
+    successUrlPattern: /^https?:\/\/(www\.)?zomato\.com\/(my-account|user\/|profile|order-history)/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements visible to logged-in users on Zomato.
@@ -28,31 +28,30 @@ export const ZomatoPacket: ProviderPacket = {
         (function() {
             var currentUrl = window.location.href || '';
             
-            // Never fire success while still on login or auth screens
+            // Never fire success while still on login, phone or OTP screens
             if (currentUrl.indexOf('/login') !== -1 || currentUrl.indexOf('/auth') !== -1 || currentUrl.indexOf('/otp') !== -1) {
                 return;
             }
 
-            // Check if user has actually authenticated
             var checkLoginInterval = setInterval(function() {
                 try {
-                    var isUserLoggedIn = Boolean(
-                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"]') ||
-                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1)) ||
-                        localStorage.getItem('user') ||
-                        localStorage.getItem('user_id')
+                    var hasPhoneOrOtpInput = Boolean(
+                        document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"], input[placeholder*="OTP"], input[type="number"]')
                     );
 
-                    var hasPhoneInput = Boolean(document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"]'));
+                    var isUserLoggedIn = Boolean(
+                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"]') ||
+                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1))
+                    );
 
-                    if (isUserLoggedIn && !hasPhoneInput) {
+                    if (isUserLoggedIn && !hasPhoneOrOtpInput) {
                         clearInterval(checkLoginInterval);
                         if (window.ReactNativeWebView) {
                             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                         }
                     }
                 } catch(e) {}
-            }, 800);
+            }, 1000);
         })();
         true;
     `,

@@ -792,33 +792,16 @@ export default function App() {
                               </View>
 
                               {isConnected ? (
-                                <View style={{ width: '100%', gap: 6, marginTop: 8 }}>
-                                  <TouchableOpacity
-                                    style={[styles.checkItOutBtn, { backgroundColor: provider.brandColor || '#0284c7' }]}
-                                    onPress={() => {
-                                      let deliveryUrl = provider.url;
-                                      if (provider.id === 'food-b') {
-                                        deliveryUrl = 'https://www.zomato.com/restaurants?category=1&context=delivery';
-                                      } else if (provider.id === 'food-a') {
-                                        deliveryUrl = 'https://www.swiggy.com/restaurants';
-                                      }
-                                      setCheckoutModal({
-                                        providerName: provider.name,
-                                        providerIcon: provider.icon,
-                                        providerCategory: provider.category,
-                                        brandColor: provider.brandColor,
-                                        targetUrl: deliveryUrl,
-                                        checkoutUrl: provider.checkoutUrl || `${provider.url}/cart`,
-                                        restaurantUrl: deliveryUrl,
-                                        cartItems: [],
-                                      });
-                                    }}
+                                <View style={{ width: '100%', alignItems: 'center', marginTop: 8 }}>
+                                  <View style={styles.connectedBadgeBox}>
+                                    <Text style={styles.connectedBadgeText}>✓ Connected</Text>
+                                  </View>
+                                  <TouchableOpacity 
+                                    style={styles.disconnectLinkBtn} 
+                                    onPress={() => handleDisconnect(provider.id)}
+                                    activeOpacity={0.7}
                                   >
-                                    <Text style={styles.checkItOutBtnText}>🚀 Check It Out →</Text>
-                                  </TouchableOpacity>
-
-                                  <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
-                                    <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
+                                    <Text style={styles.disconnectLinkText}>Disconnect</Text>
                                   </TouchableOpacity>
                                 </View>
                               ) : (
@@ -1610,37 +1593,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
-  checkItOutBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  checkItOutBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 11,
-  },
-  disconnectBtnSmall: {
-    backgroundColor: '#f8f8f8',
+  connectedBadgeBox: {
+    backgroundColor: '#dcfce7',
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#86efac',
     width: '100%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
   },
-  disconnectBtnTextSmall: {
-    color: '#64748b',
-    fontWeight: '600',
-    fontSize: 10,
+  connectedBadgeText: {
+    color: '#15803d',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  disconnectLinkBtn: {
+    marginTop: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  disconnectLinkText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    textDecorationLine: 'underline',
   },
   authContainer: {
     width: '100%',

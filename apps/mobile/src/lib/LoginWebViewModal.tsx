@@ -57,13 +57,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
     const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
         if (!packet || successFiredRef.current) return;
         const url = navState.url || '';
-        // When user enters OTP and redirects away from /auth or /login to home/restaurants
-        if (url && (
-            (packet.successUrlPattern && packet.successUrlPattern.test(url) && !url.includes('login') && !url.includes('auth') && !url.includes('otp')) ||
-            url.includes('/my-account') || 
-            url.includes('/account') || 
-            url.includes('/restaurants')
-        )) {
+        if (url && packet.successUrlPattern && packet.successUrlPattern.test(url)) {
             handleSuccess();
         }
     }, [packet, handleSuccess]);
