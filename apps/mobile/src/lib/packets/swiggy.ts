@@ -154,6 +154,12 @@ export const SwiggyPacket: ProviderPacket = {
                             var descMeta = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
                             var shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
                             var allDiscountText = (discountHeader + ' ' + discountSubHeader + ' ' + descMeta + ' ' + shortMeta);
+                            var offerTags = info.offerTags || [];
+                            offerTags.forEach(function(ot) {
+                                if (ot && (ot.title || ot.subTitle)) {
+                                    allDiscountText += (' ' + (ot.title || '') + ' ' + (ot.subTitle || ''));
+                                }
+                            });
 
                             var couponCode = '';
                             var codeMatch = allDiscountText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
