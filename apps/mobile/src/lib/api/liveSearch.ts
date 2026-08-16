@@ -157,14 +157,15 @@ export async function fetchLiveSwiggyDishes(
                     }
 
                     let couponFlat = 0;
-                    const flatMatch = allDiscountText.match(/(?:FLAT|₹|RS\.?)[\s]*(\d+)\s*OFF/i);
-                    if (flatMatch && flatMatch[1] && !allDiscountText.includes('%')) {
-                        couponFlat = parseInt(flatMatch[1], 10);
+                    const flatMatch = allDiscountText.match(/(?:FLAT[\s:₹rs\.]*(\d+)|(?:FLAT|₹|RS\.?)[\s]*(\d+)\s*OFF)/i);
+                    if (flatMatch && !allDiscountText.includes('%')) {
+                        couponFlat = parseInt(flatMatch[1] || flatMatch[2], 10);
                     }
 
                     let autoCouponSavings = 0;
                     if (couponFlat > 0) {
-                        autoCouponSavings = couponFlat;
+                        // If flat coupon exceeds menu price, cap it reasonably
+                        autoCouponSavings = couponFlat < finalPrice ? couponFlat : Math.round(finalPrice * 0.5);
                     } else if (couponPercent > 0) {
                         const rawDisc = Math.round((finalPrice * couponPercent) / 100);
                         autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
