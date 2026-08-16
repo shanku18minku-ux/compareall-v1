@@ -51,8 +51,8 @@ export const SwiggyPacket: ProviderPacket = {
 
     // ── Extractor (for search results) ─────────────────────────────────────
     getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        const userLat = location?.latitude || 28.6139;
-        const userLng = location?.longitude || 77.2090;
+        const userLat = location?.latitude || 24.0416;
+        const userLng = location?.longitude || 84.0706;
         const searchQuery = query || '';
 
         return `
@@ -101,26 +101,34 @@ export const SwiggyPacket: ProviderPacket = {
                             // Active restaurant promo / coupon (for display badge & auto-application)
                             var discountHeader = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
                             var discountSubHeader = restInfo?.aggregatedDiscountInfoV3?.subHeader || restInfo?.aggregatedDiscountInfoV3?.discountTag || '';
-                            var couponDesc = (discountSubHeader ? (discountHeader + ' ' + discountSubHeader) : '') || restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
+                            var descMeta = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
                             var shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
-                            var allDiscountText = (discountHeader + ' ' + discountSubHeader + ' ' + couponDesc + ' ' + shortMeta);
+                            var allDiscountText = (discountHeader + ' ' + discountSubHeader + ' ' + descMeta + ' ' + shortMeta);
 
                             var couponCode = '';
-                            var codeMatch = allDiscountText.match(/(?:USE|CODE|COUPON)[\s:]+([A-Z0-9_-]+)/i);
-                            if (codeMatch && codeMatch[1]) {
+                            var codeMatch = allDiscountText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
+                            if (codeMatch && codeMatch[1] && codeMatch[1].toUpperCase() !== 'CODE' && codeMatch[1].toUpperCase() !== 'USE') {
                                 couponCode = codeMatch[1].toUpperCase();
-                            } else if (restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode) {
+                            } else {
+                                var codeMatch2 = allDiscountText.match(/(?:USE\\s+CODE\\s+|USE\\s+|CODE\\s+|COUPON\\s+)([A-Z0-9_-]+)/i);
+                                if (codeMatch2 && codeMatch2[1]) {
+                                    couponCode = codeMatch2[1].toUpperCase();
+                                }
+                            }
+
+                            if (!couponCode && restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode) {
                                 couponCode = restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode;
-                            } else if (discountHeader.includes('%') || discountHeader.includes('FLAT')) {
-                                couponCode = 'FEASTMODE' + (discountHeader.match(/\d+/)?.[0] || '');
+                            }
+                            if (!couponCode && (discountHeader.includes('%') || discountHeader.includes('FLAT') || discountHeader.includes('OFF'))) {
+                                couponCode = 'FEASTMODE' + (discountHeader.match(/\\d+/)?.[0] || '');
                             }
 
                             var couponPercent = 0;
-                            var percentMatch = allDiscountText.match(/(\d+)\s*%/);
+                            var percentMatch = allDiscountText.match(/(\\d+)\\s*%/);
                             if (percentMatch) couponPercent = parseInt(percentMatch[1], 10);
 
                             var couponMaxCap = 0;
-                            var capMatch = allDiscountText.match(/(?:UP\s*TO|UPTO|MAX|CAP)[\s:₹rs\.]*(\d+)/i);
+                            var capMatch = allDiscountText.match(/(?:UP\\s*TO|UPTO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
                             if (capMatch && capMatch[1]) {
                                 couponMaxCap = parseInt(capMatch[1], 10);
                             } else if (couponPercent >= 70) {
@@ -134,13 +142,13 @@ export const SwiggyPacket: ProviderPacket = {
                             }
 
                             var couponFlat = 0;
-                            var flatMatch = allDiscountText.match(/FLAT[\s:₹rs\.]*(\d+)/i);
-                            if (flatMatch && !allDiscountText.includes('%')) {
+                            var flatMatch = allDiscountText.match(/(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF/i);
+                            if (flatMatch && flatMatch[1] && !allDiscountText.includes('%')) {
                                 couponFlat = parseInt(flatMatch[1], 10);
                             }
 
                             var capText = couponMaxCap > 0 ? (' (Up to ₹' + couponMaxCap + ')') : '';
-                            var promoBadge = (couponDesc || discountHeader) + capText + (couponCode ? (' | Use ' + couponCode) : '');
+                            var promoBadge = (descMeta || discountHeader) + capText + (couponCode ? (' | Use ' + couponCode) : '');
 
                             // Comprehensive platform offers (Coupons, Bank, Wallet, Swiggy One)
                             var platformOffers = [];
