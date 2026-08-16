@@ -357,8 +357,39 @@ export default function App() {
               g.bestProvider = g.offers[0]?.providerName;
               g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
           });
-          // Rank all search results by absolute lowest rupee payable price
-          updated.sort((a, b) => a.lowestPrice - b.lowestPrice);
+          // Smart Relevance-First + Lowest Rupee Price Dual Ranking
+          const currentQuery = (searchQuery || searchValues.query || '').toLowerCase().trim();
+          const queryTokens = currentQuery.split(/\s+/).filter((t: string) => t.length > 1);
+
+          const getRelevanceScore = (title: string) => {
+            const lowerTitle = title.toLowerCase();
+            if (queryTokens.length === 0) return 0;
+            if (lowerTitle.includes(currentQuery)) return 100;
+            const allWordsMatch = queryTokens.every((token: string) => lowerTitle.includes(token));
+            if (allWordsMatch) return 80;
+            const matchCount = queryTokens.filter((token: string) => lowerTitle.includes(token)).length;
+            if (matchCount > 0) return (matchCount / queryTokens.length) * 50;
+            return 0;
+          };
+
+          updated.sort((a, b) => {
+            const scoreA = getRelevanceScore(a.title);
+            const scoreB = getRelevanceScore(b.title);
+            
+            const isHighMatchA = scoreA >= 80;
+            const isHighMatchB = scoreB >= 80;
+            
+            // Prioritize dishes matching the user's search query words first
+            if (isHighMatchA && !isHighMatchB) return -1;
+            if (!isHighMatchA && isHighMatchB) return 1;
+            
+            if (scoreA !== scoreB && Math.abs(scoreA - scoreB) >= 30) {
+              return scoreB - scoreA;
+            }
+            
+            // Within the same match category, sort strictly by lowest rupee price!
+            return a.lowestPrice - b.lowestPrice;
+          });
           return updated;
        });
        setIsSearching(false);
