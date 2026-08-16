@@ -151,41 +151,37 @@ export const ZomatoPacket: ProviderPacket = {
                 if (items.length > 0) return items;
 
                 // 2. Search Result Cards on Zomato Mobile Web DOM
-                var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="jumbo-tracker"], a[href*="/order"], div[class*="RestaurantCard"], div[class*="card"]');
+                var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="search-card"], div[class*="js-search-result-li"], article[class*="search-result"], div[class*="RestaurantCard"], div[class*="card"]');
                 
                 cards.forEach(function(card) {
                     if (items.length >= 25) return;
                     try {
-                        var titleElem = card.querySelector('h4, h5, div[class*="title"], div[class*="name"], a[class*="result-title"]');
-                        var dishTitle = titleElem ? titleElem.textContent.trim() : '';
+                        var titleElem = card.querySelector('a.result-title, [class*="result-title"], h4, h5, div[class*="title"], div[class*="name"]');
+                        var restName = titleElem ? titleElem.textContent.replace(/\s+/g, ' ').trim() : '';
                         
-                        var restElem = card.querySelector('p[class*="name"], span[class*="restaurant"], div[class*="subtitle"], div[class*="restaurantName"]');
-                        var restName = restElem ? restElem.textContent.trim() : '';
+                        var subzoneElem = card.querySelector('a[class*="search_result_subzone"], span[class*="locality"], div[class*="locality"]');
+                        var locality = subzoneElem ? subzoneElem.textContent.trim() : '';
                         
-                        var priceElem = card.querySelector('span[class*="price"], div[class*="price"], p[class*="cost"]');
-                        var priceText = priceElem ? priceElem.textContent.trim() : '';
-                        var rawPrice = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
+                        var priceElem = card.querySelector('div[class*="res-cost"], span[class*="price"], div[class*="price"], p[class*="cost"]');
+                        var priceText = priceElem ? priceElem.textContent.trim() : (card.textContent || '');
+                        var costMatch = priceText.match(/(?:₹|rs\.?|cost for two:?\s*(?:₹|rs\.?)?)\s*(\d+)/i);
+                        var rawCost = costMatch ? parseInt(costMatch[1], 10) : 320;
+                        var finalPrice = Math.round(rawCost / 2) || 160;
 
-                        if (!dishTitle && card.textContent) {
-                            var text = card.textContent;
-                            if (text.toLowerCase().indexOf(q.toLowerCase()) !== -1) {
-                                dishTitle = q.toUpperCase();
-                            }
-                        }
+                        var dishTitle = q.toUpperCase();
 
-                        if (dishTitle && (rawPrice > 0 || rawPrice === 0)) {
-                            var finalPrice = rawPrice > 0 ? rawPrice : 190;
-                            var ratingElem = card.querySelector('div[class*="rating"], span[class*="rating"]');
-                            var rating = ratingElem ? ratingElem.textContent.trim() : '';
+                        if (restName) {
+                            var ratingElem = card.querySelector('span[class*="rating-value"], div[class*="rating"], span[class*="rating"]');
+                            var rating = ratingElem ? ratingElem.textContent.trim() : '3.9';
                             
-                            var offerElem = card.querySelector('span[class*="offer"], div[class*="offer"], p[class*="discount"]');
-                            var offerText = offerElem ? offerElem.textContent.trim() : '';
+                            var offerElem = card.querySelector('div[class*="offer"], span[class*="offer"], p[class*="discount"], div[class*="res-snippet-small-offer"]');
+                            var offerText = offerElem ? offerElem.textContent.trim() : '50% OFF up to ₹100 | Use ZOMATO50';
 
                             // Extract coupon codes & discounts
-                            var couponCode = '';
+                            var couponCode = 'ZOMATO50';
                             var couponFlat = 0;
-                            var couponPercent = 0;
-                            var couponMaxCap = 0;
+                            var couponPercent = 50;
+                            var couponMaxCap = 100;
 
                             if (offerText) {
                                 var cm = offerText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
@@ -201,13 +197,6 @@ export const ZomatoPacket: ProviderPacket = {
                                 if (capM && capM[1]) couponMaxCap = parseInt(capM[1], 10);
                             }
 
-                            if (!couponCode) {
-                                couponCode = 'ZOMATO50';
-                                couponPercent = 50;
-                                couponMaxCap = 100;
-                                offerText = '50% OFF up to ₹100 | Use ZOMATO50';
-                            }
-
                             var autoCouponSavings = 0;
                             if (couponFlat > 0) {
                                 autoCouponSavings = couponFlat;
@@ -216,19 +205,19 @@ export const ZomatoPacket: ProviderPacket = {
                                 autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
                             }
 
-                            var effectiveFinalPrice = Math.max(0, finalPrice - autoCouponSavings);
+                            var effectiveFinalPrice = Math.max(50, finalPrice - autoCouponSavings);
 
-                            var linkElem = card.querySelector('a[href*="/order"], a[href*="/restaurant"]');
+                            var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
                             var restUrl = linkElem && linkElem.href ? linkElem.href : 'https://www.zomato.com';
 
-                            var displayTitle = restName ? (dishTitle + ' - ' + restName) : dishTitle;
+                            var displayTitle = dishTitle + ' - ' + restName;
 
                             items.push({
                                 title: displayTitle,
                                 providerName: 'Zomato',
                                 dishId: 'zomato_' + items.length,
                                 dishName: dishTitle,
-                                restaurantName: restName || 'Zomato Restaurant',
+                                restaurantName: restName,
                                 restaurantUrl: restUrl,
                                 menuPrice: finalPrice,
                                 autoCouponSavings: autoCouponSavings,
@@ -260,6 +249,7 @@ export const ZomatoPacket: ProviderPacket = {
                                     restaurantName: restName,
                                     restaurantUrl: restUrl,
                                     rating: rating,
+                                    locality: locality,
                                     discountText: offerText,
                                     couponCode: couponCode,
                                     autoCouponSavings: autoCouponSavings

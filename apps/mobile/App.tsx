@@ -535,7 +535,8 @@ export default function App() {
 
             <ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
               {results.map((group, index) => {
-                const isExpanded = Boolean(expandedPlatformGroups[group.matchKey || index]);
+                const k = group.matchKey || index;
+                const isExpanded = expandedPlatformGroups[k] !== undefined ? expandedPlatformGroups[k] : true;
                 const primaryOffer = group.offers[0];
                 const secondaryOffers = group.offers.slice(1);
                 const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || 'food-a';
