@@ -246,6 +246,7 @@ export const SwiggyPacket: ProviderPacket = {
             var dapiPath = '/dapi/restaurants/search/v3?lat=' + userLat + '&lng=' + userLng + '&str=' + encodeURIComponent(q) + '&trackingId=undefined&submitAction=ENTER';
             
             fetch(dapiPath, {
+                credentials: 'include',
                 headers: {
                     'Accept': 'application/json, text/plain, */*'
                 }
