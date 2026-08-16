@@ -113,8 +113,11 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     thirdPartyCookiesEnabled={true}
-                    scalesPageToFit={false}
+                    sharedCookiesEnabled={true}
+                    geolocationEnabled={true}
+                    mixedContentMode="always"
                     bounces={false}
+                    userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                     injectedJavaScript={injectionScript}
                     onLoadStart={() => setLoading(true)}
                     onLoadEnd={() => setLoading(false)}
