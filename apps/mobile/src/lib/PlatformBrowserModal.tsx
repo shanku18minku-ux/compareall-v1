@@ -1,0 +1,211 @@
+import React, { useRef, useState } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ActivityIndicator,
+} from 'react-native';
+import { WebView, WebViewNavigation } from 'react-native-webview';
+
+interface PlatformBrowserModalProps {
+  visible: boolean;
+  providerName: string;
+  providerIcon: string;
+  targetUrl: string;
+  location?: { latitude: number; longitude: number; name: string } | null;
+  onClose: () => void;
+}
+
+export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
+  visible,
+  providerName,
+  providerIcon,
+  targetUrl,
+  location,
+  onClose,
+}) => {
+  const webViewRef = useRef<WebView>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentUrl, setCurrentUrl] = useState(targetUrl);
+  const [canGoBack, setCanGoBack] = useState(false);
+
+  const userLat = location?.latitude || 28.6139;
+  const userLng = location?.longitude || 77.2090;
+
+  // Inject user's detected GPS coordinates into the checkout webview
+  const beforeContentScript = `
+    (function() {
+      var lat = ${userLat};
+      var lng = ${userLng};
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition = function(success, error, options) {
+          if (success) {
+            success({
+              coords: {
+                latitude: lat,
+                longitude: lng,
+                accuracy: 10,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null
+              },
+              timestamp: Date.now()
+            });
+          }
+        };
+        navigator.geolocation.watchPosition = function(success, error, options) {
+          if (navigator.geolocation.getCurrentPosition) {
+            navigator.geolocation.getCurrentPosition(success, error, options);
+          }
+          return 1;
+        };
+      }
+    })();
+    true;
+  `;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* Browser Top Navigation Bar */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {canGoBack && (
+              <TouchableOpacity
+                style={styles.navBtn}
+                onPress={() => webViewRef.current?.goBack()}
+              >
+                <Text style={styles.navBtnText}>‹ Back</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerIcon}>{providerIcon}</Text>
+            <View>
+              <Text style={styles.headerTitle}>Order on {providerName}</Text>
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                {currentUrl.replace(/^https?:\/\/(www\.)?/, '')}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
+            <Text style={styles.doneBtnText}>Done ✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Loading Bar */}
+        {loading && (
+          <View style={styles.loadingBar}>
+            <ActivityIndicator size="small" color="#007AFF" />
+            <Text style={styles.loadingText}>Loading {providerName}...</Text>
+          </View>
+        )}
+
+        {/* Real Platform Webview */}
+        <WebView
+          ref={webViewRef}
+          source={{ uri: targetUrl }}
+          userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+          injectedJavaScriptBeforeContentLoaded={beforeContentScript}
+          onNavigationStateChange={(navState: WebViewNavigation) => {
+            setCurrentUrl(navState.url);
+            setCanGoBack(navState.canGoBack);
+          }}
+          onLoadStart={() => setLoading(true)}
+          onLoadEnd={() => setLoading(false)}
+          domStorageEnabled={true}
+          javaScriptEnabled={true}
+          thirdPartyCookiesEnabled={true}
+          sharedCookiesEnabled={true}
+          style={styles.webview}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  navBtn: {
+    marginRight: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+  },
+  navBtnText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  headerIcon: {
+    fontSize: 22,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111',
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    maxWidth: 180,
+  },
+  doneBtn: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  doneBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  loadingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  loadingText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  webview: {
+    flex: 1,
+  },
+});

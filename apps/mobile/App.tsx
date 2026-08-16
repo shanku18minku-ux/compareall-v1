@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAr
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
+import { PlatformBrowserModal } from './src/lib/PlatformBrowserModal';
 import { UniversalCartModal } from './src/lib/UniversalCartModal';
 import { DynamicSearchBar } from './src/lib/search/DynamicSearchBar';
 import { CartItem } from './src/lib/CartTypes';
@@ -24,8 +25,11 @@ export default function App() {
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
 
-  // Login modal state — which provider's website is shown right now
+  // Login modal state — which provider's website is shown right now for linking
   const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
+
+  // Platform checkout browser modal — opens platform website directly for order placement
+  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,11 +105,14 @@ export default function App() {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
-      setLoginModal({
-        id: provider.id,
-        name: provider.name,
-        icon: provider.icon,
-        loginUrl: provider.url || 'https://www.swiggy.com',
+      let targetUrl = provider.url || 'https://www.swiggy.com';
+      if (restaurantName && restaurantName !== 'General' && restaurantName !== 'Restaurant Order') {
+        targetUrl = `https://www.swiggy.com/search?query=${encodeURIComponent(restaurantName)}`;
+      }
+      setCheckoutModal({
+        providerName: provider.name,
+        providerIcon: provider.icon,
+        targetUrl: targetUrl,
       });
     }
   };
@@ -246,7 +253,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* Login WebView Modal — opens real platform website */}
+      {/* Login WebView Modal — opens real platform website for linking */}
       {loginModal && (
         <LoginWebViewModal
           visible={true}
@@ -264,6 +271,18 @@ export default function App() {
             setLoginModal(null);
           }}
           onClose={() => setLoginModal(null)}
+        />
+      )}
+
+      {/* Platform Checkout Browser Modal — opens platform website directly for order placement */}
+      {checkoutModal && (
+        <PlatformBrowserModal
+          visible={true}
+          providerName={checkoutModal.providerName}
+          providerIcon={checkoutModal.providerIcon}
+          targetUrl={checkoutModal.targetUrl}
+          location={location}
+          onClose={() => setCheckoutModal(null)}
         />
       )}
 
