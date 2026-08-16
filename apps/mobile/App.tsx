@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
-import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
@@ -304,48 +303,6 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      {/* Google Auth Modal */}
-      <Modal
-         visible={googleAuthProvider !== null}
-         animationType="slide"
-         onRequestClose={() => setGoogleAuthProvider(null)}
-      >
-         <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-            <View style={styles.modalHeader}>
-               <Text style={styles.modalTitle}>Sign In</Text>
-               <TouchableOpacity onPress={() => setGoogleAuthProvider(null)} style={styles.modalCloseBtn}>
-                  <Text style={styles.modalCloseText}>Cancel</Text>
-               </TouchableOpacity>
-            </View>
-            {googleAuthProvider && (
-               <WebView 
-                  source={{ uri: PROVIDERS.find(p => p.id === googleAuthProvider)?.url || 'https://google.com' }}
-                  style={{flex: 1}}
-                  thirdPartyCookiesEnabled={true}
-                  userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-                  injectedJavaScript={`
-                      // Basic logic: if we land on the provider's logged-in page, send SUCCESS message
-                      window.addEventListener('load', () => {
-                          // Very basic check, in production you'd use a better indicator
-                          if (document.cookie.includes('session') || document.body.innerText.toLowerCase().includes('logout')) {
-                              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'GOOGLE_SUCCESS' }));
-                          }
-                      });
-                      true;
-                  `}
-                  onMessage={(event) => {
-                      try {
-                          const data = JSON.parse(event.nativeEvent.data);
-                          if (data.type === 'GOOGLE_SUCCESS') {
-                              setConnectedProviders(prev => [...prev, googleAuthProvider]);
-                              setGoogleAuthProvider(null);
-                          }
-                      } catch (e) {}
-                  }}
-               />
-            )}
-         </SafeAreaView>
-      </Modal>
 
       {/* Location Modal */}
       <Modal visible={isLocationModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsLocationModalVisible(false)}>
