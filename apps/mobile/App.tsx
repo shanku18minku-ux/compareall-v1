@@ -29,7 +29,17 @@ export default function App() {
   const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
 
   // Platform checkout browser modal — opens platform website directly for order placement
-  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string; restaurantUrl?: string; couponCode?: string; cartItems?: CartItem[] } | null>(null);
+  const [checkoutModal, setCheckoutModal] = useState<{
+    providerName: string;
+    providerIcon: string;
+    providerCategory?: string;
+    brandColor?: string;
+    targetUrl: string;
+    checkoutUrl?: string;
+    restaurantUrl?: string;
+    couponCode?: string;
+    cartItems?: CartItem[];
+  } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,13 +123,16 @@ export default function App() {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
-      // Primary direct destination: Swiggy Checkout page
-      const directCheckoutUrl = 'https://www.swiggy.com/checkout';
+      // Dynamic checkout URL from provider metadata, or default to provider url
+      const directCheckoutUrl = provider.checkoutUrl || provider.url;
 
       setCheckoutModal({
         providerName: provider.name,
         providerIcon: provider.icon,
+        providerCategory: provider.category,
+        brandColor: provider.brandColor,
         targetUrl: directCheckoutUrl,
+        checkoutUrl: directCheckoutUrl,
         restaurantUrl: restaurantUrl,
         couponCode: couponCode,
         cartItems: items || [],
@@ -300,7 +313,10 @@ export default function App() {
           visible={true}
           providerName={checkoutModal.providerName}
           providerIcon={checkoutModal.providerIcon}
+          providerCategory={checkoutModal.providerCategory}
+          brandColor={checkoutModal.brandColor}
           targetUrl={checkoutModal.targetUrl}
+          checkoutUrl={checkoutModal.checkoutUrl}
           restaurantUrl={checkoutModal.restaurantUrl}
           cartItems={checkoutModal.cartItems}
           couponCode={checkoutModal.couponCode}

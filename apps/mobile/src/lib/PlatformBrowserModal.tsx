@@ -16,7 +16,10 @@ interface PlatformBrowserModalProps {
   visible: boolean;
   providerName: string;
   providerIcon: string;
+  providerCategory?: string;
+  brandColor?: string;
   targetUrl: string;
+  checkoutUrl?: string;
   restaurantUrl?: string;
   cartItems?: CartItem[];
   couponCode?: string;
@@ -28,7 +31,10 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   visible,
   providerName,
   providerIcon,
+  providerCategory = 'Food',
+  brandColor = '#ff5200',
   targetUrl,
+  checkoutUrl = 'https://www.swiggy.com/checkout',
   restaurantUrl,
   cartItems,
   couponCode,
@@ -45,17 +51,28 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   const userLng = location?.longitude || 77.2090;
 
   const goToCheckout = () => {
-    const checkoutUrl = 'https://www.swiggy.com/checkout';
-    setCurrentUrl(checkoutUrl);
-    webViewRef.current?.injectJavaScript(`window.location.href = '${checkoutUrl}'; true;`);
+    const finalCheckout = checkoutUrl || targetUrl;
+    setCurrentUrl(finalCheckout);
+    webViewRef.current?.injectJavaScript(`window.location.href = '${finalCheckout}'; true;`);
   };
 
-  const goToRestaurant = () => {
+  const goToSecondary = () => {
     if (restaurantUrl) {
       setCurrentUrl(restaurantUrl);
       webViewRef.current?.injectJavaScript(`window.location.href = '${restaurantUrl}'; true;`);
     }
   };
+
+  // Determine dynamic tab titles based on category
+  const isCommute = providerCategory === 'Commute';
+  const isGroceries = providerCategory === 'Groceries';
+  const isFood = providerCategory === 'Food';
+
+  const checkoutTabTitle = isCommute ? '🚗 Book Ride' : (isGroceries ? '🛍️ Cart & Checkout' : '🛒 Checkout & Pay');
+  const secondaryTabTitle = isCommute ? '📍 Route Details' : (isGroceries ? '📦 Store Catalog' : '🍽️ Restaurant Menu');
+  const bottomActionText = isCommute 
+    ? `🚗 CONFIRM RIDE ON ${providerName.toUpperCase()}`
+    : `🛒 OPEN ${providerName.toUpperCase()} CHECKOUT & PAY →`;
 
   // Inject user's detected GPS coordinates into the checkout webview
   const beforeContentScript = `
@@ -125,24 +142,24 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           </View>
         </View>
 
-        {/* Quick Mode Switcher: Direct Checkout vs Restaurant Menu */}
+        {/* Dynamic Category Mode Switcher */}
         <View style={styles.tabSwitcher}>
           <TouchableOpacity
             style={[styles.tabBtn, currentUrl.includes('/checkout') && styles.tabBtnActive]}
             onPress={goToCheckout}
           >
             <Text style={[styles.tabBtnText, currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
-              🛒 Checkout & Pay
+              {checkoutTabTitle}
             </Text>
           </TouchableOpacity>
 
           {Boolean(restaurantUrl) && (
             <TouchableOpacity
               style={[styles.tabBtn, !currentUrl.includes('/checkout') && styles.tabBtnActive]}
-              onPress={goToRestaurant}
+              onPress={goToSecondary}
             >
               <Text style={[styles.tabBtnText, !currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
-                🍽️ Restaurant Menu
+                {secondaryTabTitle}
               </Text>
             </TouchableOpacity>
           )}
@@ -202,8 +219,11 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
 
         {/* Floating Quick Action if not on checkout */}
         {!currentUrl.includes('/checkout') && (
-          <TouchableOpacity style={styles.floatingCheckoutBtn} onPress={goToCheckout}>
-            <Text style={styles.floatingCheckoutBtnText}>🛒 OPEN SWIGGY CHECKOUT & PAY →</Text>
+          <TouchableOpacity
+            style={[styles.floatingCheckoutBtn, { backgroundColor: brandColor }]}
+            onPress={goToCheckout}
+          >
+            <Text style={styles.floatingCheckoutBtnText}>{bottomActionText}</Text>
           </TouchableOpacity>
         )}
       </SafeAreaView>

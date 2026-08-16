@@ -6,9 +6,12 @@ export const swiggyMetadata: ProviderMetadata = {
     subcategory: 'Food Delivery',
     name: 'Swiggy',
     icon: '🍔',
+    brandColor: '#ff5200',
     authType: 'otp',
     url: 'https://www.swiggy.com',
     loginUrl: 'https://www.swiggy.com/auth',
+    checkoutUrl: 'https://www.swiggy.com/checkout',
+    actionTitle: 'Order on Swiggy',
     desc: 'Account-specific menu and cart pricing is available.',
     regions: ['all']
 };

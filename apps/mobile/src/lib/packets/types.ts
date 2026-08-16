@@ -4,9 +4,12 @@ export interface ProviderMetadata {
     category: string;
     subcategory: string;
     icon: string;
+    brandColor?: string;
     authType: 'otp' | 'google' | 'both';
     url: string;
     loginUrl: string;
+    checkoutUrl?: string;
+    actionTitle?: string;
     desc: string;
     regions: string[];
 }
