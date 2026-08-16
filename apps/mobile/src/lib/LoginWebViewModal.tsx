@@ -18,6 +18,7 @@ interface LoginWebViewModalProps {
     providerName: string;
     providerIcon: string;
     loginUrl: string;
+    location?: { latitude: number; longitude: number; name: string } | null;
     onSuccess: () => void;
     onClose: () => void;
 }
@@ -36,6 +37,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
     providerName,
     providerIcon,
     loginUrl,
+    location,
     onSuccess,
     onClose,
 }) => {
@@ -73,6 +75,42 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         setLoading(true);
         onClose();
     };
+
+    const userLat = location?.latitude || 28.6139;
+    const userLng = location?.longitude || 77.2090;
+
+    // Inject geolocation before page scripts load so Swiggy/platforms get location instantly
+    const beforeContentScript = `
+        (function() {
+            var lat = ${userLat};
+            var lng = ${userLng};
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition = function(success, error, options) {
+                    if (success) {
+                        success({
+                            coords: {
+                                latitude: lat,
+                                longitude: lng,
+                                accuracy: 10,
+                                altitude: null,
+                                altitudeAccuracy: null,
+                                heading: null,
+                                speed: null
+                            },
+                            timestamp: Date.now()
+                        });
+                    }
+                };
+                navigator.geolocation.watchPosition = function(success, error, options) {
+                    if (navigator.geolocation.getCurrentPosition) {
+                        navigator.geolocation.getCurrentPosition(success, error, options);
+                    }
+                    return 1;
+                };
+            }
+        })();
+        true;
+    `;
 
     const injectionScript = packet ? packet.getLoginDetectionScript() : 'true;';
 
@@ -118,6 +156,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                     mixedContentMode="always"
                     bounces={false}
                     userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                    injectedJavaScriptBeforeContentLoaded={beforeContentScript}
                     injectedJavaScript={injectionScript}
                     onLoadStart={() => setLoading(true)}
                     onLoadEnd={() => setLoading(false)}

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
@@ -36,15 +36,14 @@ export default function App() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        alert('Permission to access location was denied');
         setIsFetchingLocation(false);
         return;
       }
 
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const geocode = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
       
-      let name = 'Unknown Location';
+      let name = 'Current Location';
       if (geocode && geocode.length > 0) {
         const place = geocode[0];
         name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
@@ -53,10 +52,15 @@ export default function App() {
       setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
       setIsLocationModalVisible(false);
     } catch (error) {
-      alert('Error fetching location: ' + String(error));
+      console.log('Error fetching location:', error);
     }
     setIsFetchingLocation(false);
   };
+
+  // Auto-fetch location on app launch
+  useEffect(() => {
+    fetchCurrentLocation();
+  }, []);
 
   const handleManualLocationSubmit = async () => {
     if (!manualLocationInput.trim()) return;
@@ -141,6 +145,7 @@ export default function App() {
           providerName={loginModal.name}
           providerIcon={loginModal.icon}
           loginUrl={loginModal.loginUrl}
+          location={location}
           onSuccess={() => {
             setConnectedProviders(prev => [...prev, loginModal.id]);
             setLoginModal(null);
