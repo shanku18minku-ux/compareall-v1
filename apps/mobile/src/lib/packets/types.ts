@@ -19,7 +19,7 @@ export interface ProviderPacket {
      * After login, platforms redirect to their home page — this regex catches that.
      * e.g. Swiggy redirects to swiggy.com (no /login in URL) = logged in.
      */
-    successUrlPattern: RegExp;
+    successUrlPattern?: RegExp;
 
     /**
      * A small JS snippet injected on every page to detect login state via DOM.

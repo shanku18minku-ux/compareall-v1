@@ -16,16 +16,11 @@ export const swiggyMetadata: ProviderMetadata = {
 export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
 
-    // ── Login Success Detection (No API needed) ─────────────────────────────
-    // After Swiggy login, it redirects away from login flow to the home page.
-    // The URL no longer contains 'login' or 'otp'. That's our success signal.
-    successUrlPattern: /swiggy\.com\/?(\?.*)?$/,
-
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements only visible to logged-in users.
     getLoginDetectionScript: () => `
         (function() {
-            function checkLoggedIn() {
+            var checkInterval = setInterval(function() {
                 var logoutIndicators = [
                     // Swiggy shows "My Account" or a profile icon when logged in
                     document.querySelector('[class*="userAccount"]'),
@@ -39,11 +34,10 @@ export const SwiggyPacket: ProviderPacket = {
                 ].filter(Boolean);
 
                 if (logoutIndicators.length > 0) {
+                    clearInterval(checkInterval);
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                 }
-            }
-            // Check after React has had time to render
-            setTimeout(checkLoggedIn, 1500);
+            }, 1000); // Check every second
         })();
         true;
     `,

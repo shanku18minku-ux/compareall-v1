@@ -56,7 +56,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         if (!packet || successFiredRef.current) return;
         const url = navState.url || '';
         // Primary check: URL matches success pattern
-        if (packet.successUrlPattern.test(url) && !url.includes('login') && !url.includes('otp')) {
+        if (packet.successUrlPattern && packet.successUrlPattern.test(url) && !url.includes('login') && !url.includes('otp')) {
             handleSuccess();
         }
     }, [packet, handleSuccess]);
