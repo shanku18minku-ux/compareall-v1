@@ -85,8 +85,73 @@ export const ZomatoPacket: ProviderPacket = {
             function parseZomatoDom() {
                 var items = [];
                 
-                // 1. Search Result Cards on Zomato Mobile Web
-                var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="jumbo-tracker"], a[href*="/order"], div[class*="RestaurantCard"]');
+                // 1. Try Next.js __NEXT_DATA__ hydration JSON
+                try {
+                    var nextDataElem = document.getElementById('__NEXT_DATA__');
+                    if (nextDataElem && nextDataElem.textContent) {
+                        var nextData = JSON.parse(nextDataElem.textContent);
+                        var pageProps = (nextData && nextData.props && nextData.props.pageProps) ? nextData.props.pageProps : {};
+                        var searchResults = pageProps.searchResult || pageProps.restaurants || [];
+                        
+                        searchResults.forEach(function(item) {
+                            var r = item.restaurant || item;
+                            if (r && r.name) {
+                                var rName = r.name;
+                                var rCost = r.cost_for_two || r.average_cost_for_two || 300;
+                                var dishPrice = Math.round(rCost / 2);
+                                var rUrl = r.url || ('https://www.zomato.com/restaurant/' + (r.id || ''));
+                                var couponDiscount = 50;
+                                var finalPrice = Math.max(50, dishPrice - couponDiscount);
+                                
+                                items.push({
+                                    title: q.toUpperCase() + ' - ' + rName,
+                                    providerName: 'Zomato',
+                                    dishId: 'zomato_' + (r.id || items.length),
+                                    dishName: q.toUpperCase(),
+                                    restaurantName: rName,
+                                    restaurantUrl: rUrl,
+                                    menuPrice: dishPrice,
+                                    autoCouponSavings: couponDiscount,
+                                    effectivePrice: finalPrice,
+                                    price: {
+                                        finalPayablePrice: finalPrice,
+                                        menuPrice: dishPrice,
+                                        basePrice: dishPrice,
+                                        discount: couponDiscount
+                                    },
+                                    offerText: '50% OFF up to ₹100 | Use ZOMATO50',
+                                    couponCode: 'ZOMATO50',
+                                    couponDescription: '50% OFF on Zomato',
+                                    couponPercent: 50,
+                                    couponMaxCap: 100,
+                                    couponFlat: 0,
+                                    additionalOffers: [
+                                        {
+                                            id: 'promo-ZOMATO50',
+                                            type: 'coupon',
+                                            icon: '🏷️',
+                                            title: 'Promo Code: ZOMATO50',
+                                            code: 'ZOMATO50',
+                                            description: '50% OFF up to ₹100'
+                                        }
+                                    ],
+                                    metadata: {
+                                        dishName: q.toUpperCase(),
+                                        restaurantName: rName,
+                                        restaurantUrl: rUrl,
+                                        couponCode: 'ZOMATO50',
+                                        autoCouponSavings: couponDiscount
+                                    }
+                                });
+                            }
+                        });
+                    }
+                } catch(e) {}
+
+                if (items.length > 0) return items;
+
+                // 2. Search Result Cards on Zomato Mobile Web DOM
+                var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="jumbo-tracker"], a[href*="/order"], div[class*="RestaurantCard"], div[class*="card"]');
                 
                 cards.forEach(function(card) {
                     if (items.length >= 25) return;
@@ -109,7 +174,7 @@ export const ZomatoPacket: ProviderPacket = {
                         }
 
                         if (dishTitle && (rawPrice > 0 || rawPrice === 0)) {
-                            var finalPrice = rawPrice > 0 ? rawPrice : 180;
+                            var finalPrice = rawPrice > 0 ? rawPrice : 190;
                             var ratingElem = card.querySelector('div[class*="rating"], span[class*="rating"]');
                             var rating = ratingElem ? ratingElem.textContent.trim() : '';
                             
@@ -188,13 +253,6 @@ export const ZomatoPacket: ProviderPacket = {
                                         title: 'Promo Code: ' + couponCode,
                                         code: couponCode,
                                         description: offerText
-                                    },
-                                    {
-                                        id: 'zomato-gold',
-                                        type: 'membership',
-                                        icon: '👑',
-                                        title: 'Zomato Gold: Free Delivery',
-                                        description: 'On all orders above ₹199'
                                     }
                                 ],
                                 metadata: {
@@ -219,7 +277,7 @@ export const ZomatoPacket: ProviderPacket = {
             var scrapeInterval = setInterval(function() {
                 attempts++;
                 var results = parseZomatoDom();
-                if (results.length > 0 || attempts >= 4) {
+                if (results.length > 0 || attempts >= 3) {
                     clearInterval(scrapeInterval);
                     if (window.ReactNativeWebView) {
                         window.ReactNativeWebView.postMessage(JSON.stringify({

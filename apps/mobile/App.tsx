@@ -476,9 +476,7 @@ export default function App() {
                 <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8 }}>Extracting live pricing & coupons...</Text>
                 {(() => {
                    const categoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
-                   const activeProviders = connectedProviders.length > 0
-                     ? connectedProviders.map(id => getFilteredProviders().find(p => p.id === id)).filter(Boolean)
-                     : (categoryProviders.length > 0 ? [categoryProviders[0]] : [PROVIDERS[0]]);
+                   const activeProviders = categoryProviders.length > 0 ? categoryProviders : (PROVIDERS.length > 0 ? [PROVIDERS[0]] : []);
 
                    const activeQuery = searchQuery || searchValues.query || 'paneer';
 
