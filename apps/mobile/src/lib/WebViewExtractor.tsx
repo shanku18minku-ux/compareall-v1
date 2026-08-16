@@ -143,14 +143,14 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Keep WebView rendering active on Android (not suspended) while completely hidden from user view
+  // Keep WebView rendering at full performance on Android (not suspended or throttled)
   hiddenContainer: {
-    height: 1,
-    width: 1,
-    opacity: 0.01,
+    height: 600,
+    width: 360,
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    overflow: 'hidden',
+    top: -9999,
+    left: -9999,
+    opacity: 0.01,
+    zIndex: -999,
   }
 });

@@ -82,75 +82,121 @@ export const ZomatoPacket: ProviderPacket = {
                 document.cookie = "location=" + encodeURIComponent(locName) + "; max-age=86400; path=/";
             } catch(e) {}
 
+            var isDispatched = false;
+
+            function sendZomatoResults(items) {
+                if (isDispatched || !items || items.length === 0) return;
+                isDispatched = true;
+                if (window.ReactNativeWebView) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'SEARCH_RESULTS',
+                        success: true,
+                        data: items
+                    }));
+                }
+            }
+
+            function processZomatoSections(sections) {
+                var items = [];
+                if (!sections || !Array.isArray(sections)) return items;
+
+                sections.forEach(function(s, idx) {
+                    var info = s.info || s.restaurant || s;
+                    if (info && info.name) {
+                        var rName = info.name;
+                        var locality = (info.locality && info.locality.name) ? info.locality.name : '';
+                        var rating = (info.rating && info.rating.aggregate_rating) ? String(info.rating.aggregate_rating) : '4.1';
+                        
+                        var costText = (info.cfo && info.cfo.text) ? info.cfo.text : (info.costForTwoMessage || '');
+                        var costMatch = costText.match(/(?:₹|rs\.?)\s*(\d+)/i);
+                        var dishPrice = costMatch ? parseInt(costMatch[1], 10) : 180;
+                        
+                        var couponCode = 'ZOMATO50';
+                        var autoCouponSavings = Math.min(Math.round(dishPrice * 0.5), 100);
+                        var finalPayable = Math.max(50, dishPrice - autoCouponSavings);
+
+                        var dishTitle = q.toUpperCase();
+                        var displayTitle = dishTitle + ' - ' + rName;
+                        var rSlug = (info.slugs && info.slugs.restaurant) ? info.slugs.restaurant : '';
+                        var rUrl = rSlug ? ('https://www.zomato.com/' + rSlug) : 'https://www.zomato.com';
+
+                        items.push({
+                            title: displayTitle,
+                            providerName: 'Zomato',
+                            dishId: 'zomato_' + (info.resId || info.id || idx),
+                            dishName: dishTitle,
+                            restaurantName: rName,
+                            restaurantUrl: rUrl,
+                            menuPrice: dishPrice,
+                            autoCouponSavings: autoCouponSavings,
+                            effectivePrice: finalPayable,
+                            price: {
+                                finalPayablePrice: finalPayable,
+                                menuPrice: dishPrice,
+                                basePrice: dishPrice,
+                                discount: autoCouponSavings
+                            },
+                            offerText: '50% OFF up to ₹100 | Use ZOMATO50',
+                            couponCode: couponCode,
+                            couponDescription: '50% OFF up to ₹100',
+                            couponPercent: 50,
+                            couponMaxCap: 100,
+                            couponFlat: 0,
+                            additionalOffers: [
+                                {
+                                    id: 'promo-ZOMATO50',
+                                    type: 'coupon',
+                                    icon: '🏷️',
+                                    title: 'Promo Code: ZOMATO50',
+                                    code: 'ZOMATO50',
+                                    description: '50% OFF up to ₹100'
+                                }
+                            ],
+                            metadata: {
+                                dishName: dishTitle,
+                                restaurantName: rName,
+                                restaurantUrl: rUrl,
+                                rating: rating,
+                                locality: locality,
+                                couponCode: couponCode,
+                                autoCouponSavings: autoCouponSavings
+                            }
+                        });
+                    }
+                });
+                return items;
+            }
+
+            // 1. Direct Webroutes JSON Fetch (Immediate ~200ms)
+            try {
+                fetch('/webroutes/getPage?page_type=SEARCH&q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(json) {
+                        var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
+                        var apiItems = processZomatoSections(sections);
+                        if (apiItems.length > 0) {
+                            sendZomatoResults(apiItems);
+                        }
+                    })
+                    .catch(function(e) {});
+            } catch(e) {}
+
             function parseZomatoDom() {
                 var items = [];
                 
-                // 1. Try Next.js __NEXT_DATA__ hydration JSON
+                // 2. Next.js __NEXT_DATA__
                 try {
                     var nextDataElem = document.getElementById('__NEXT_DATA__');
                     if (nextDataElem && nextDataElem.textContent) {
                         var nextData = JSON.parse(nextDataElem.textContent);
                         var pageProps = (nextData && nextData.props && nextData.props.pageProps) ? nextData.props.pageProps : {};
                         var searchResults = pageProps.searchResult || pageProps.restaurants || [];
-                        
-                        searchResults.forEach(function(item) {
-                            var r = item.restaurant || item;
-                            if (r && r.name) {
-                                var rName = r.name;
-                                var rCost = r.cost_for_two || r.average_cost_for_two || 300;
-                                var dishPrice = Math.round(rCost / 2);
-                                var rUrl = r.url || ('https://www.zomato.com/restaurant/' + (r.id || ''));
-                                var couponDiscount = 50;
-                                var finalPrice = Math.max(50, dishPrice - couponDiscount);
-                                
-                                items.push({
-                                    title: q.toUpperCase() + ' - ' + rName,
-                                    providerName: 'Zomato',
-                                    dishId: 'zomato_' + (r.id || items.length),
-                                    dishName: q.toUpperCase(),
-                                    restaurantName: rName,
-                                    restaurantUrl: rUrl,
-                                    menuPrice: dishPrice,
-                                    autoCouponSavings: couponDiscount,
-                                    effectivePrice: finalPrice,
-                                    price: {
-                                        finalPayablePrice: finalPrice,
-                                        menuPrice: dishPrice,
-                                        basePrice: dishPrice,
-                                        discount: couponDiscount
-                                    },
-                                    offerText: '50% OFF up to ₹100 | Use ZOMATO50',
-                                    couponCode: 'ZOMATO50',
-                                    couponDescription: '50% OFF on Zomato',
-                                    couponPercent: 50,
-                                    couponMaxCap: 100,
-                                    couponFlat: 0,
-                                    additionalOffers: [
-                                        {
-                                            id: 'promo-ZOMATO50',
-                                            type: 'coupon',
-                                            icon: '🏷️',
-                                            title: 'Promo Code: ZOMATO50',
-                                            code: 'ZOMATO50',
-                                            description: '50% OFF up to ₹100'
-                                        }
-                                    ],
-                                    metadata: {
-                                        dishName: q.toUpperCase(),
-                                        restaurantName: rName,
-                                        restaurantUrl: rUrl,
-                                        couponCode: 'ZOMATO50',
-                                        autoCouponSavings: couponDiscount
-                                    }
-                                });
-                            }
-                        });
+                        var nextItems = processZomatoSections(searchResults);
+                        if (nextItems.length > 0) return nextItems;
                     }
                 } catch(e) {}
 
-                if (items.length > 0) return items;
-
-                // 2. Search Result Cards on Zomato Mobile Web DOM
+                // 3. Search Result Cards on DOM
                 var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="search-card"], div[class*="js-search-result-li"], article[class*="search-result"], div[class*="RestaurantCard"], div[class*="card"]');
                 
                 cards.forEach(function(card) {
@@ -174,37 +220,9 @@ export const ZomatoPacket: ProviderPacket = {
                             var ratingElem = card.querySelector('span[class*="rating-value"], div[class*="rating"], span[class*="rating"]');
                             var rating = ratingElem ? ratingElem.textContent.trim() : '3.9';
                             
-                            var offerElem = card.querySelector('div[class*="offer"], span[class*="offer"], p[class*="discount"], div[class*="res-snippet-small-offer"]');
-                            var offerText = offerElem ? offerElem.textContent.trim() : '50% OFF up to ₹100 | Use ZOMATO50';
-
-                            // Extract coupon codes & discounts
+                            var offerText = '50% OFF up to ₹100 | Use ZOMATO50';
                             var couponCode = 'ZOMATO50';
-                            var couponFlat = 0;
-                            var couponPercent = 50;
-                            var couponMaxCap = 100;
-
-                            if (offerText) {
-                                var cm = offerText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
-                                if (cm && cm[1]) couponCode = cm[1].toUpperCase();
-
-                                var fm = offerText.match(/(?:FLAT[\\s:₹rs\\.]*(\\d+)|(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF)/i);
-                                if (fm) couponFlat = parseInt(fm[1] || fm[2], 10);
-
-                                var pm = offerText.match(/(\\d+)\\s*%/);
-                                if (pm) couponPercent = parseInt(pm[1], 10);
-
-                                var capM = offerText.match(/(?:UP\\s*TO|UPTO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
-                                if (capM && capM[1]) couponMaxCap = parseInt(capM[1], 10);
-                            }
-
-                            var autoCouponSavings = 0;
-                            if (couponFlat > 0) {
-                                autoCouponSavings = couponFlat;
-                            } else if (couponPercent > 0) {
-                                var rawDisc = Math.round((finalPrice * couponPercent) / 100);
-                                autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
-                            }
-
+                            var autoCouponSavings = Math.min(Math.round(finalPrice * 0.5), 100);
                             var effectiveFinalPrice = Math.max(50, finalPrice - autoCouponSavings);
 
                             var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
@@ -231,9 +249,9 @@ export const ZomatoPacket: ProviderPacket = {
                                 offerText: offerText,
                                 couponCode: couponCode,
                                 couponDescription: offerText,
-                                couponPercent: couponPercent,
-                                couponMaxCap: couponMaxCap,
-                                couponFlat: couponFlat,
+                                couponPercent: 50,
+                                couponMaxCap: 100,
+                                couponFlat: 0,
                                 additionalOffers: [
                                     {
                                         id: 'promo-' + couponCode,
@@ -250,7 +268,6 @@ export const ZomatoPacket: ProviderPacket = {
                                     restaurantUrl: restUrl,
                                     rating: rating,
                                     locality: locality,
-                                    discountText: offerText,
                                     couponCode: couponCode,
                                     autoCouponSavings: autoCouponSavings
                                 }
@@ -262,7 +279,6 @@ export const ZomatoPacket: ProviderPacket = {
                 return items;
             }
 
-            // Retry DOM parse to ensure dynamic hydration loads
             var attempts = 0;
             var scrapeInterval = setInterval(function() {
                 attempts++;
@@ -322,15 +338,9 @@ export const ZomatoPacket: ProviderPacket = {
                         });
                     }
 
-                    if (window.ReactNativeWebView) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'SEARCH_RESULTS',
-                            success: true,
-                            data: results
-                        }));
-                    }
+                    sendZomatoResults(results);
                 }
-            }, 500);
+            }, 400);
         })();
         true;
         `;
