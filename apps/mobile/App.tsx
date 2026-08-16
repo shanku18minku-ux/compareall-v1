@@ -134,13 +134,19 @@ export default function App() {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
-      // Open the restaurant menu page first so Swiggy has active store & menu context
+      // Open the restaurant menu page first so platform has active store & menu context
       let initialUrl = restaurantUrl;
       if (!initialUrl) {
         if (restaurantName && restaurantName !== 'General' && restaurantName !== 'Restaurant Order') {
-          initialUrl = `https://www.swiggy.com/search?query=${encodeURIComponent(restaurantName)}`;
+          if (provider.id === 'food-b') {
+            initialUrl = `https://www.zomato.com/search?q=${encodeURIComponent(restaurantName)}`;
+          } else if (provider.id === 'food-a') {
+            initialUrl = `https://www.swiggy.com/search?query=${encodeURIComponent(restaurantName)}`;
+          } else {
+            initialUrl = `${provider.url}/search?q=${encodeURIComponent(restaurantName)}`;
+          }
         } else {
-          initialUrl = provider.url;
+          initialUrl = provider.id === 'food-b' ? 'https://www.zomato.com/delivery' : provider.url;
         }
       }
 
@@ -786,9 +792,35 @@ export default function App() {
                               </View>
 
                               {isConnected ? (
-                                <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
-                                  <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
-                                </TouchableOpacity>
+                                <View style={{ width: '100%', gap: 6, marginTop: 8 }}>
+                                  <TouchableOpacity
+                                    style={[styles.checkItOutBtn, { backgroundColor: provider.brandColor || '#0284c7' }]}
+                                    onPress={() => {
+                                      let deliveryUrl = provider.url;
+                                      if (provider.id === 'food-b') {
+                                        deliveryUrl = 'https://www.zomato.com/delivery';
+                                      } else if (provider.id === 'food-a') {
+                                        deliveryUrl = 'https://www.swiggy.com/restaurants';
+                                      }
+                                      setCheckoutModal({
+                                        providerName: provider.name,
+                                        providerIcon: provider.icon,
+                                        providerCategory: provider.category,
+                                        brandColor: provider.brandColor,
+                                        targetUrl: deliveryUrl,
+                                        checkoutUrl: provider.checkoutUrl || `${provider.url}/cart`,
+                                        restaurantUrl: deliveryUrl,
+                                        cartItems: [],
+                                      });
+                                    }}
+                                  >
+                                    <Text style={styles.checkItOutBtnText}>🚀 Check It Out →</Text>
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
+                                    <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
+                                  </TouchableOpacity>
+                                </View>
                               ) : (
                                 <TouchableOpacity
                                   style={styles.linkNowBtn}
@@ -1578,10 +1610,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
+  checkItOutBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  checkItOutBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
   disconnectBtnSmall: {
     backgroundColor: '#f8f8f8',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
@@ -1589,9 +1638,9 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
   },
   disconnectBtnTextSmall: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: 10,
   },
   authContainer: {
     width: '100%',
