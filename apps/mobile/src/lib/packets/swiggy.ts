@@ -69,8 +69,38 @@ export const SwiggyPacket: ProviderPacket = {
                 
                 if (json && json.data && json.data.cards) {
                     json.data.cards.forEach(function(c) {
-                        if (c.groupedCard && c.groupedCard.cardGroupMap && c.groupedCard.cardGroupMap.DISH) {
-                            cardsList = c.groupedCard.cardGroupMap.DISH.cards || [];
+                        if (c.groupedCard && c.groupedCard.cardGroupMap) {
+                            if (c.groupedCard.cardGroupMap.DISH) {
+                                cardsList = c.groupedCard.cardGroupMap.DISH.cards || [];
+                            } else if (cardsList.length === 0 && c.groupedCard.cardGroupMap.RESTAURANT) {
+                                var restList = c.groupedCard.cardGroupMap.RESTAURANT.cards || [];
+                                restList.forEach(function(rc) {
+                                    var rInfo = rc.card?.card?.info;
+                                    if (rInfo && rInfo.name) {
+                                        var rCost = parseFloat((rInfo.costForTwoMessage || '').replace(/[^0-9]/g, '')) || 200;
+                                        items.push({
+                                            title: rInfo.name + ' - ' + (rInfo.locality || rInfo.areaName || ''),
+                                            providerName: 'Swiggy',
+                                            dishId: rInfo.id || '',
+                                            dishName: rInfo.name || '',
+                                            restaurantName: rInfo.name,
+                                            restaurantUrl: 'https://www.swiggy.com/restaurants/' + (rInfo.slugs?.restaurant || '') + '-' + (rInfo.id || ''),
+                                            menuPrice: Math.round(rCost / 2),
+                                            autoCouponSavings: 0,
+                                            effectivePrice: Math.round(rCost / 2),
+                                            price: {
+                                                finalPayablePrice: Math.round(rCost / 2),
+                                                menuPrice: Math.round(rCost / 2),
+                                                basePrice: Math.round(rCost / 2),
+                                                discount: 0
+                                            },
+                                            offerText: rInfo.aggregatedDiscountInfoV3?.header || '',
+                                            couponCode: '',
+                                            additionalOffers: []
+                                        });
+                                    }
+                                });
+                            }
                         }
                     });
                 }

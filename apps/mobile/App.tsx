@@ -237,11 +237,10 @@ export default function App() {
   };
 
   const handleSearch = (queryOverride?: string) => {
-    const q = (queryOverride !== undefined ? queryOverride : searchQuery).trim();
+    const q = (queryOverride !== undefined ? queryOverride : (searchValues.query || searchQuery)).trim();
     if (!q) return;
-    if (queryOverride !== undefined) {
-      setSearchQuery(q);
-    }
+    setSearchQuery(q);
+    setSearchValues(prev => ({ ...prev, query: q }));
     setIsSearching(true);
     setResults([]);
     setTimeout(() => setIsSearching(false), 15000);
@@ -433,28 +432,39 @@ export default function App() {
             
             {isSearching && (
               <View style={styles.loadingBox}>
-                <Text>Extracting private data in background...</Text>
-                {connectedProviders.map(id => {
-                   const provider = getFilteredProviders().find(p => p.id === id);
-                   if (!provider) return null;
-                   
-                   const packet = getPacket(id);
-                   const searchUrl = packet ? packet.getSearchUrl(searchQuery) : provider.url;
-                   const injectionScript = packet ? packet.getExtractorInjection(searchUrl, searchQuery, location) : undefined;
-                   
-                   return (
-                     <WebViewExtractor 
-                        key={id} 
-                        url={searchUrl}
-                        providerId={id}
-                        location={location}
-                        isActive={true}
-                        onDataExtracted={handleDataExtracted}
-                        onError={(err) => console.log('Err:', err)}
-                        injectionScript={injectionScript}
-                     />
-                   );
-                })}
+                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8 }}>Extracting live pricing & coupons...</Text>
+                {(() => {
+                   const categoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
+                   const activeProviders = connectedProviders.length > 0
+                     ? connectedProviders.map(id => getFilteredProviders().find(p => p.id === id)).filter(Boolean)
+                     : (categoryProviders.length > 0 ? [categoryProviders[0]] : [PROVIDERS[0]]);
+
+                   const activeQuery = searchQuery || searchValues.query || 'paneer';
+
+                   return activeProviders.map(provider => {
+                      if (!provider) return null;
+                      const id = provider.id;
+                      const packet = getPacket(id);
+                      const searchUrl = packet ? packet.getSearchUrl(activeQuery) : provider.url;
+                      const injectionScript = packet ? packet.getExtractorInjection(searchUrl, activeQuery, location) : undefined;
+                      
+                      return (
+                        <WebViewExtractor 
+                           key={id + '__' + activeQuery} 
+                           url={searchUrl}
+                           providerId={id}
+                           location={location}
+                           isActive={true}
+                           onDataExtracted={handleDataExtracted}
+                           onError={(err) => {
+                             console.log('Err:', err);
+                             setIsSearching(false);
+                           }}
+                           injectionScript={injectionScript}
+                        />
+                      );
+                   });
+                })()}
               </View>
             )}
 
