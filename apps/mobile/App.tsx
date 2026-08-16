@@ -49,6 +49,7 @@ export default function App() {
   // Universal Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartModalVisible, setIsCartModalVisible] = useState(false);
+  const [expandedOffers, setExpandedOffers] = useState<{ [key: string]: boolean }>({});
 
   // Location State
   const [location, setLocation] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
@@ -584,6 +585,22 @@ export default function App() {
                           )}
 
                           {offer.additionalOffers && offer.additionalOffers.length > 0 && (
+                            <TouchableOpacity 
+                              style={styles.expandOffersBtn}
+                              onPress={() => {
+                                const k = `${group.title}__${offer.providerName}__${i}`;
+                                Vibration.vibrate(15);
+                                setExpandedOffers(prev => ({ ...prev, [k]: !prev[k] }));
+                              }}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            >
+                              <Text style={styles.expandOffersBtnText}>
+                                {expandedOffers[`${group.title}__${offer.providerName}__${i}`] ? 'Hide Details ▴' : `View ${offer.additionalOffers.length} Offers & Perks ▾`}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {expandedOffers[`${group.title}__${offer.providerName}__${i}`] && offer.additionalOffers && offer.additionalOffers.length > 0 && (
                             <View style={styles.additionalOffersBox}>
                               {offer.additionalOffers.map((ao: any, aIdx: number) => (
                                 <View key={aIdx} style={styles.additionalOfferBadge}>
@@ -1047,6 +1064,16 @@ const styles = StyleSheet.create({
     color: '#d97706',
     fontSize: 12,
     marginTop: 3,
+    fontWeight: '600',
+  },
+  expandOffersBtn: {
+    marginTop: 4,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  expandOffersBtnText: {
+    fontSize: 11,
+    color: '#0284c7',
     fontWeight: '600',
   },
   additionalOffersBox: {
