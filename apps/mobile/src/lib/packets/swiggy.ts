@@ -8,13 +8,16 @@ export const swiggyMetadata: ProviderMetadata = {
     icon: '🍔',
     authType: 'otp',
     url: 'https://www.swiggy.com',
-    loginUrl: 'https://www.swiggy.com',
+    loginUrl: 'https://www.swiggy.com/auth',
     desc: 'Account-specific menu and cart pricing is available.',
     regions: ['all']
 };
 
 export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
+
+    // When the user logs in on /auth, Swiggy automatically redirects to the home page or /restaurants
+    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com\/(?!auth)/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements only visible to logged-in users.
@@ -26,10 +29,11 @@ export const SwiggyPacket: ProviderPacket = {
                     document.querySelector('[class*="userAccount"]'),
                     document.querySelector('[data-testid="profile"]'),
                     document.querySelector('[href*="/account"]'),
+                    document.querySelector('[href*="/my-account"]'),
                     Array.from(document.querySelectorAll('a, span, div'))
                         .find(function(el) {
                             var txt = el.textContent.trim().toLowerCase();
-                            return txt === 'logout' || txt === 'sign out';
+                            return txt === 'logout' || txt === 'sign out' || txt === 'my account';
                         })
                 ].filter(Boolean);
 
