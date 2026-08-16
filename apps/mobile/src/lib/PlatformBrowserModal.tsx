@@ -146,29 +146,6 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           </View>
         </View>
 
-        {/* Dynamic Category Mode Switcher */}
-        <View style={styles.tabSwitcher}>
-          {Boolean(restaurantUrl) && (
-            <TouchableOpacity
-              style={[styles.tabBtn, !currentUrl.includes('/checkout') && styles.tabBtnActive]}
-              onPress={goToSecondary}
-            >
-              <Text style={[styles.tabBtnText, !currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
-                {secondaryTabTitle}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={[styles.tabBtn, currentUrl.includes('/checkout') && styles.tabBtnActive]}
-            onPress={goToCheckout}
-          >
-            <Text style={[styles.tabBtnText, currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
-              {checkoutTabTitle}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Top Floating Coupon Bar if coupon exists */}
         {Boolean(couponCode) && (
           <View style={styles.couponBanner}>
@@ -220,16 +197,6 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           sharedCookiesEnabled={true}
           style={styles.webview}
         />
-
-        {/* Floating Quick Action if not on checkout */}
-        {!currentUrl.includes('/checkout') && (
-          <TouchableOpacity
-            style={[styles.floatingCheckoutBtn, { backgroundColor: brandColor }]}
-            onPress={goToCheckout}
-          >
-            <Text style={styles.floatingCheckoutBtnText}>{bottomActionText}</Text>
-          </TouchableOpacity>
-        )}
       </SafeAreaView>
     </Modal>
   );
