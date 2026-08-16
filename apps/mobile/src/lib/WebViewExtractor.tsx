@@ -72,6 +72,20 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
     true;
   `;
 
+  // Watchdog timer: ensure extraction script runs even if page load event is delayed
+  React.useEffect(() => {
+    if (!isActive) return;
+    const timer = setTimeout(() => {
+      if (webViewRef.current && injectedJavascript) {
+        try {
+          webViewRef.current.injectJavaScript(injectedJavascript);
+        } catch(e) {}
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [isActive, url, injectedJavascript]);
+
   if (!isActive) return null;
 
   return (
@@ -88,15 +102,24 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         injectedJavaScriptBeforeContentLoaded={beforeContentScript}
         injectedJavaScript={injectedJavascript}
+        onLoadProgress={({ nativeEvent }) => {
+          if (nativeEvent.progress > 0.6 && injectedJavascript && webViewRef.current) {
+            try {
+              webViewRef.current.injectJavaScript(injectedJavascript);
+            } catch(e) {}
+          }
+        }}
         onLoadEnd={() => {
           if (injectedJavascript && webViewRef.current) {
-            webViewRef.current.injectJavaScript(injectedJavascript);
+            try {
+              webViewRef.current.injectJavaScript(injectedJavascript);
+            } catch(e) {}
           }
         }}
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
-            if (data.type === 'SEARCH_RESULTS' || data.success) {
+            if (data.type === 'SEARCH_RESULTS' || data.success || data.items || data.data) {
               onDataExtracted(data);
             } else {
               onError(data.error || 'Unknown extraction error');
@@ -108,6 +131,11 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           onError(nativeEvent.description);
+          if (injectedJavascript && webViewRef.current) {
+            try {
+              webViewRef.current.injectJavaScript(injectedJavascript);
+            } catch(e) {}
+          }
         }}
       />
     </View>

@@ -523,8 +523,7 @@ export default function App() {
                            isActive={true}
                            onDataExtracted={handleDataExtracted}
                            onError={(err) => {
-                             console.log('Err:', err);
-                             setIsSearching(false);
+                             console.log('[CompareAll Extractor] Notice for provider:', id, err);
                            }}
                            injectionScript={injectionScript}
                         />
