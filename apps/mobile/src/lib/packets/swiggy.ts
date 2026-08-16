@@ -19,8 +19,8 @@ export const swiggyMetadata: ProviderMetadata = {
 export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
 
-    // Only trigger success when user is actually authenticated
-    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com\/(my-account|account)/,
+    // When the user logs in on /auth, Swiggy redirects away to the home page or /restaurants
+    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements only visible to logged-in users.
