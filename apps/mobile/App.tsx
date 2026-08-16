@@ -319,6 +319,7 @@ export default function App() {
       {/* Platform Checkout Browser Modal — opens platform website directly for order placement */}
       {checkoutModal && (
         <PlatformBrowserModal
+          key={checkoutModal.targetUrl}
           visible={true}
           providerName={checkoutModal.providerName}
           providerIcon={checkoutModal.providerIcon}

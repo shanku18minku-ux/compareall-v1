@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -46,6 +46,10 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   const [currentUrl, setCurrentUrl] = useState(targetUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [copied, setCopied] = useState(Boolean(couponCode));
+
+  useEffect(() => {
+    setCurrentUrl(targetUrl);
+  }, [targetUrl]);
 
   const userLat = location?.latitude || 28.6139;
   const userLng = location?.longitude || 77.2090;
