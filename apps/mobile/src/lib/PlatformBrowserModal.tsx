@@ -236,6 +236,26 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           source={{ uri: targetUrl }}
           userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
           injectedJavaScriptBeforeContentLoaded={beforeContentScript}
+          injectedJavaScript={`
+            (function() {
+              var lat = ${userLat};
+              var lng = ${userLng};
+              var locName = ${JSON.stringify(locName)};
+              var city = locName.split(',')[0].trim();
+              var locObj = { lat: lat, lng: lng, address: locName, name: locName, city: city };
+              var locStr = JSON.stringify(locObj);
+
+              try {
+                localStorage.setItem('userLocation', locStr);
+                localStorage.setItem('location', locStr);
+                localStorage.setItem('swiggy_address', locName);
+                localStorage.setItem('swiggy_city', city);
+                localStorage.setItem('swiggy_lat', String(lat));
+                localStorage.setItem('swiggy_lng', String(lng));
+              } catch(e) {}
+            })();
+            true;
+          `}
           onNavigationStateChange={(navState: WebViewNavigation) => {
             setCurrentUrl(navState.url);
             setCanGoBack(navState.canGoBack);
@@ -246,6 +266,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           javaScriptEnabled={true}
           thirdPartyCookiesEnabled={true}
           sharedCookiesEnabled={true}
+          geolocationEnabled={true}
           style={styles.webview}
         />
       </SafeAreaView>
