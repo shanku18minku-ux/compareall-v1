@@ -344,12 +344,15 @@ export default function App() {
              }
           });
           updated.forEach(g => {
+              // Sort offers inside the group so the cheapest rupee price is ALWAYS #1
+              g.offers.sort((a: any, b: any) => a.price.finalPayablePrice - b.price.finalPayablePrice);
               const effectivePrices = g.offers.map((o: any) => o.price.finalPayablePrice);
               const maxMenuPrices = g.offers.map((o: any) => o.price.basePrice || o.price.menuPrice);
-              g.lowestPrice = Math.min(...effectivePrices);
+              g.lowestPrice = effectivePrices[0];
+              g.bestProvider = g.offers[0]?.providerName;
               g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
           });
-          // Sort results so the lowest effective payable price (maximum savings deal) is #1 at the top!
+          // Rank all search results by absolute lowest rupee payable price
           updated.sort((a, b) => a.lowestPrice - b.lowestPrice);
           return updated;
        });
@@ -459,24 +462,32 @@ export default function App() {
               {results.map((group, index) => (
                 <View key={index} style={styles.resultCard}>
                   <Text style={styles.resultTitle}>{group.title}</Text>
-                  <Text style={styles.resultBestPrice}>
-                    Best Price: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
-                  </Text>
+                  <View style={styles.resultBestPriceBox}>
+                    <Text style={styles.resultBestPrice}>
+                      🏆 Best Deal on {group.bestProvider || 'Swiggy'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
+                    </Text>
+                  </View>
                   
                   {group.offers.map((offer: any, i: number) => {
                     const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || 'food-a';
                     const itemId = `${providerId}__${group.title}`;
                     const cartItem = cartItems.find(item => item.id === itemId);
                     const qty = cartItem ? cartItem.quantity : 0;
+                    const isWinner = i === 0 && group.offers.length > 1;
 
                     return (
-                      <View key={i} style={styles.offerItem}>
+                      <View key={i} style={[styles.offerItem, isWinner && styles.offerItemWinner]}>
                         <View style={styles.offerMainInfo}>
                           <View style={styles.offerHeaderRow}>
                             <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                            {isWinner && (
+                              <View style={styles.winnerBadge}>
+                                <Text style={styles.winnerBadgeText}>🌟 LOWEST PRICE</Text>
+                              </View>
+                            )}
                             {offer.autoCouponSavings > 0 && (
                               <View style={styles.autoAppliedPill}>
-                                <Text style={styles.autoAppliedPillText}>🏷️ Best Coupon Applied</Text>
+                                <Text style={styles.autoAppliedPillText}>🏷️ Coupon Applied</Text>
                               </View>
                             )}
                           </View>
@@ -841,19 +852,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
+  resultBestPriceBox: {
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
   resultBestPrice: {
-    fontSize: 14,
-    color: 'green',
-    fontWeight: '600',
-    marginBottom: 15,
+    fontSize: 13,
+    color: '#15803d',
+    fontWeight: 'bold',
   },
   offerItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
     borderColor: '#eee',
+    borderRadius: 10,
+  },
+  offerItemWinner: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    marginVertical: 4,
+  },
+  winnerBadge: {
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  winnerBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900',
   },
   offerMainInfo: {
     flex: 1,
