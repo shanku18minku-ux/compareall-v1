@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 
+import { CartItem } from './CartTypes';
+
 interface PlatformBrowserModalProps {
   visible: boolean;
   providerName: string;
   providerIcon: string;
   targetUrl: string;
+  cartItems?: CartItem[];
   couponCode?: string;
   location?: { latitude: number; longitude: number; name: string } | null;
   onClose: () => void;
@@ -25,6 +28,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   providerName,
   providerIcon,
   targetUrl,
+  cartItems,
   couponCode,
   location,
   onClose,
@@ -67,6 +71,61 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           return 1;
         };
       }
+    })();
+    true;
+  `;
+
+  // Auto-Cart-Bridge script: Adds selected dish to Swiggy menu & immediately takes user to final Checkout & Payment
+  const autoCheckoutScript = `
+    (function() {
+      var dishes = ${JSON.stringify((cartItems || []).map(i => ({ dishName: i.dishName, dishId: i.dishId, quantity: i.quantity })))};
+      var couponCode = ${JSON.stringify(couponCode || '')};
+      var hasNavigated = false;
+
+      function checkAndBridgeToCheckout() {
+        if (hasNavigated) return;
+
+        // If already on checkout page
+        if (window.location.pathname.indexOf('/checkout') !== -1) {
+          hasNavigated = true;
+          return;
+        }
+
+        // If on restaurant page, auto-click ADD on target dish
+        if (window.location.pathname.indexOf('/restaurants/') !== -1) {
+          var allDishContainers = document.querySelectorAll('[data-testid*="normal-dish-item"], [class*="styles_item"], [class*="item_container"], div[class*="styles_container"]');
+          
+          dishes.forEach(function(d) {
+            var nameToFind = (d.dishName || '').toLowerCase().trim();
+            for (var i = 0; i < allDishContainers.length; i++) {
+              var c = allDishContainers[i];
+              if (c.textContent && c.textContent.toLowerCase().indexOf(nameToFind) !== -1) {
+                var btn = c.querySelector('button, [data-testid="add-button"], div[role="button"]');
+                if (btn && (btn.textContent.indexOf('ADD') !== -1 || btn.textContent.indexOf('+') !== -1)) {
+                  btn.click();
+                  break;
+                }
+              }
+            }
+          });
+
+          // After adding, navigate directly to Swiggy's final checkout page
+          setTimeout(function() {
+            if (!hasNavigated) {
+              hasNavigated = true;
+              var cartBtn = document.querySelector('[data-testid="cart-button"], [class*="viewCart"], [class*="checkout"]');
+              if (cartBtn) {
+                cartBtn.click();
+              } else {
+                window.location.href = 'https://www.swiggy.com/checkout';
+              }
+            }
+          }, 800);
+        }
+      }
+
+      var poll = setInterval(checkAndBridgeToCheckout, 400);
+      setTimeout(function() { clearInterval(poll); }, 6000);
     })();
     true;
   `;
@@ -143,6 +202,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
           source={{ uri: targetUrl }}
           userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
           injectedJavaScriptBeforeContentLoaded={beforeContentScript}
+          injectedJavaScript={autoCheckoutScript}
           onNavigationStateChange={(navState: WebViewNavigation) => {
             setCurrentUrl(navState.url);
             setCanGoBack(navState.canGoBack);

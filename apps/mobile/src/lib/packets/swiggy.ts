@@ -154,9 +154,16 @@ export const SwiggyPacket: ProviderPacket = {
                                 description: 'Unlimited Free Delivery on orders above ₹149'
                             });
 
+                            var restSlug = restInfo?.slugs?.restaurant || '';
+                            var restId = restInfo?.id || '';
+                            var restaurantUrl = (restSlug && restId) ? ('https://www.swiggy.com/restaurants/' + restSlug + '-' + restId) : 'https://www.swiggy.com';
+
                             items.push({
                                 title: title,
                                 providerName: 'Swiggy',
+                                dishId: info.id || '',
+                                dishName: info.name || '',
+                                restaurantUrl: restaurantUrl,
                                 price: {
                                     finalPayablePrice: finalPrice,
                                     basePrice: basePrice,
@@ -170,7 +177,10 @@ export const SwiggyPacket: ProviderPacket = {
                                 couponFlat: couponFlat,
                                 additionalOffers: platformOffers,
                                 metadata: {
+                                    dishId: info.id || '',
+                                    dishName: info.name || '',
                                     restaurantName: restName,
+                                    restaurantUrl: restaurantUrl,
                                     rating: restInfo?.avgRating,
                                     sla: restInfo?.sla?.slaString,
                                     discountText: promoBadge,

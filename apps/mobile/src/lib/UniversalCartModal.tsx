@@ -18,7 +18,7 @@ interface UniversalCartModalProps {
   onUpdateQuantity: (id: string, newQuantity: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
-  onCheckout: (providerId: string, restaurantName: string, couponCode?: string) => void;
+  onCheckout: (providerId: string, restaurantName: string, couponCode?: string, restaurantUrl?: string, items?: CartItem[]) => void;
   onClose: () => void;
 }
 
@@ -42,6 +42,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
           providerId: item.providerId,
           providerName: item.providerName,
           restaurantName: item.restaurantName || 'Restaurant Order',
+          restaurantUrl: item.restaurantUrl,
           items: [],
           subtotal: 0,
           itemDiscounts: 0,
@@ -59,6 +60,9 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       const itemFinal = item.price * item.quantity;
       groupMap[groupKey].subtotal += itemFinal;
       groupMap[groupKey].itemDiscounts += Math.max(0, itemSubtotal - itemFinal);
+      if (item.restaurantUrl && !groupMap[groupKey].restaurantUrl) {
+        groupMap[groupKey].restaurantUrl = item.restaurantUrl;
+      }
       if (item.couponCode && !groupMap[groupKey].couponCode) {
         groupMap[groupKey].couponCode = item.couponCode;
         groupMap[groupKey].couponDescription = item.couponDescription;
@@ -109,7 +113,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
         await Clipboard.setStringAsync(group.couponCode);
       } catch (_) {}
     }
-    onCheckout(group.providerId, group.restaurantName, group.couponCode);
+    onCheckout(group.providerId, group.restaurantName, group.couponCode, group.restaurantUrl, group.items);
   };
 
   return (

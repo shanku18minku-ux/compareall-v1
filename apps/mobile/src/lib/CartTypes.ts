@@ -12,7 +12,9 @@ export interface CartItem {
   id: string; // unique item id
   title: string; // full formatted title
   dishName: string;
+  dishId?: string;
   restaurantName: string;
+  restaurantUrl?: string;
   providerId: string;
   providerName: string;
   price: number;
@@ -32,6 +34,7 @@ export interface CartGroup {
   providerId: string;
   providerName: string;
   restaurantName: string;
+  restaurantUrl?: string;
   items: CartItem[];
   subtotal: number;
   itemDiscounts: number;
