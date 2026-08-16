@@ -123,17 +123,26 @@ export default function App() {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
-      // Dynamic checkout URL from provider metadata, or default to provider url
-      const directCheckoutUrl = provider.checkoutUrl || provider.url;
+      // Open the restaurant menu page first so Swiggy has active store & menu context
+      let initialUrl = restaurantUrl;
+      if (!initialUrl) {
+        if (restaurantName && restaurantName !== 'General' && restaurantName !== 'Restaurant Order') {
+          initialUrl = `https://www.swiggy.com/search?query=${encodeURIComponent(restaurantName)}`;
+        } else {
+          initialUrl = provider.url;
+        }
+      }
+
+      const checkoutUrl = provider.checkoutUrl || `${provider.url}/checkout`;
 
       setCheckoutModal({
         providerName: provider.name,
         providerIcon: provider.icon,
         providerCategory: provider.category,
         brandColor: provider.brandColor,
-        targetUrl: directCheckoutUrl,
-        checkoutUrl: directCheckoutUrl,
-        restaurantUrl: restaurantUrl,
+        targetUrl: initialUrl,
+        checkoutUrl: checkoutUrl,
+        restaurantUrl: initialUrl,
         couponCode: couponCode,
         cartItems: items || [],
       });

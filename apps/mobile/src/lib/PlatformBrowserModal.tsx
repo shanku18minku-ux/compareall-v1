@@ -144,15 +144,6 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
 
         {/* Dynamic Category Mode Switcher */}
         <View style={styles.tabSwitcher}>
-          <TouchableOpacity
-            style={[styles.tabBtn, currentUrl.includes('/checkout') && styles.tabBtnActive]}
-            onPress={goToCheckout}
-          >
-            <Text style={[styles.tabBtnText, currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
-              {checkoutTabTitle}
-            </Text>
-          </TouchableOpacity>
-
           {Boolean(restaurantUrl) && (
             <TouchableOpacity
               style={[styles.tabBtn, !currentUrl.includes('/checkout') && styles.tabBtnActive]}
@@ -163,6 +154,15 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
               </Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={[styles.tabBtn, currentUrl.includes('/checkout') && styles.tabBtnActive]}
+            onPress={goToCheckout}
+          >
+            <Text style={[styles.tabBtnText, currentUrl.includes('/checkout') && styles.tabBtnTextActive]}>
+              {checkoutTabTitle}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Top Floating Coupon Bar if coupon exists */}
