@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAr
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
+import { UniversalCartModal } from './src/lib/UniversalCartModal';
+import { CartItem } from './src/lib/CartTypes';
 import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
 
 // Load platform metadata dynamically from registered packets
@@ -11,7 +13,7 @@ const PROVIDERS = getAllProvidersMetadata();
 const CATEGORIES = ['Food', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Connections');
+  const [activeTab, setActiveTab] = useState<'Search' | 'Connections' | 'Cart'>('Connections');
   const [activeCategory, setActiveCategory] = useState('Food');
 
   // Connections state
@@ -25,11 +27,86 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
 
+  // Universal Cart State
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartModalVisible, setIsCartModalVisible] = useState(false);
+
   // Location State
   const [location, setLocation] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
   const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
   const [manualLocationInput, setManualLocationInput] = useState('');
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  // ── Cart Handlers ──────────────────────────────────────────────────────────
+  const handleAddToCart = (offer: any, groupTitle: string) => {
+    Vibration.vibrate(25);
+    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || 'food-a';
+    const itemId = `${providerId}__${groupTitle}`;
+    
+    // Extract dish name and restaurant name
+    const parts = groupTitle.split(' - ');
+    const dishName = parts[0] || groupTitle;
+    const restaurantName = parts[1] || offer.metadata?.restaurantName || offer.providerName;
+
+    setCartItems(prev => {
+      const existing = prev.find(i => i.id === itemId);
+      if (existing) {
+        return prev.map(i => i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i);
+      }
+      return [
+        ...prev,
+        {
+          id: itemId,
+          title: groupTitle,
+          dishName: dishName,
+          restaurantName: restaurantName,
+          providerId: providerId,
+          providerName: offer.providerName,
+          price: offer.price.finalPayablePrice,
+          basePrice: offer.price.basePrice,
+          discount: offer.price.discount,
+          offerText: offer.offerText,
+          quantity: 1,
+        }
+      ];
+    });
+  };
+
+  const handleUpdateCartQty = (itemId: string, newQty: number) => {
+    Vibration.vibrate(20);
+    if (newQty <= 0) {
+      handleRemoveFromCart(itemId);
+      return;
+    }
+    setCartItems(prev => prev.map(item => item.id === itemId ? { ...item, quantity: newQty } : item));
+  };
+
+  const handleRemoveFromCart = (itemId: string) => {
+    Vibration.vibrate(30);
+    setCartItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleClearCart = () => {
+    Vibration.vibrate(40);
+    setCartItems([]);
+    setIsCartModalVisible(false);
+  };
+
+  const handleCartCheckout = (providerId: string, restaurantName: string) => {
+    setIsCartModalVisible(false);
+    const provider = PROVIDERS.find(p => p.id === providerId);
+    if (provider) {
+      setLoginModal({
+        id: provider.id,
+        name: provider.name,
+        icon: provider.icon,
+        loginUrl: provider.url || 'https://www.swiggy.com',
+      });
+    }
+  };
+
+  const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCartAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const fetchCurrentLocation = async () => {
     setIsFetchingLocation(true);
@@ -233,7 +310,7 @@ export default function App() {
               </View>
             )}
 
-            <ScrollView style={styles.resultsContainer}>
+            <ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
               {results.map((group, index) => (
                 <View key={index} style={styles.resultCard}>
                   <Text style={styles.resultTitle}>{group.title}</Text>
@@ -241,23 +318,60 @@ export default function App() {
                     Best Price: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
                   </Text>
                   
-                  {group.offers.map((offer: any, i: number) => (
-                    <View key={i} style={styles.offerItem}>
-                      <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                      <Text style={styles.offerPrice}>
-                        ₹{offer.price.finalPayablePrice}
-                        {offer.price.discount > 0 && (
-                          <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
-                        )}
-                      </Text>
-                      {offer.price.discount > 0 && (
-                        <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>
-                      )}
-                      {Boolean(offer.offerText) && (
-                        <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
-                      )}
-                    </View>
-                  ))}
+                  {group.offers.map((offer: any, i: number) => {
+                    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || 'food-a';
+                    const itemId = `${providerId}__${group.title}`;
+                    const cartItem = cartItems.find(item => item.id === itemId);
+                    const qty = cartItem ? cartItem.quantity : 0;
+
+                    return (
+                      <View key={i} style={styles.offerItem}>
+                        <View style={styles.offerMainInfo}>
+                          <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                          <Text style={styles.offerPrice}>
+                            ₹{offer.price.finalPayablePrice}
+                            {offer.price.discount > 0 && (
+                              <Text style={styles.basePrice}> (Base: ₹{offer.price.basePrice})</Text>
+                            )}
+                          </Text>
+                          {offer.price.discount > 0 && (
+                            <Text style={styles.discount}>Discount: -₹{offer.price.discount}</Text>
+                          )}
+                          {Boolean(offer.offerText) && (
+                            <Text style={styles.benefit}>🏷️ Promo: {offer.offerText}</Text>
+                          )}
+                        </View>
+
+                        {/* Add to Cart Stepper */}
+                        <View style={styles.cartActionContainer}>
+                          {qty === 0 ? (
+                            <TouchableOpacity
+                              style={styles.addToCartBtn}
+                              onPress={() => handleAddToCart(offer, group.title)}
+                            >
+                              <Text style={styles.addToCartBtnText}>+ ADD</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <View style={styles.stepperContainer}>
+                              <TouchableOpacity
+                                style={styles.stepperBtn}
+                                onPress={() => handleUpdateCartQty(itemId, qty - 1)}
+                              >
+                                <Text style={styles.stepperBtnText}>−</Text>
+                              </TouchableOpacity>
+                              <Text style={styles.stepperQtyText}>{qty}</Text>
+                              <TouchableOpacity
+                                style={styles.stepperBtn}
+                                onPress={() => handleUpdateCartQty(itemId, qty + 1)}
+                              >
+                                <Text style={styles.stepperBtnText}>+</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </ScrollView>
@@ -278,7 +392,7 @@ export default function App() {
               </ScrollView>
             </View>
 
-            <ScrollView style={styles.tabContent}>
+            <ScrollView style={styles.tabContent} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
               <Text style={styles.pageTitle}>Link Accounts</Text>
               
               {!location && <Text style={{color: '#e91e63', marginBottom: 15, fontSize: 13, fontWeight: '600', paddingHorizontal: 15}}>📍 Note: Train delivery apps will only appear if your location is a railway station.</Text>}
@@ -333,6 +447,29 @@ export default function App() {
         )}
       </View>
 
+      {/* Floating Sticky Cart Bar */}
+      {totalCartCount > 0 && (
+        <TouchableOpacity
+          style={styles.floatingCartBar}
+          activeOpacity={0.9}
+          onPress={() => setIsCartModalVisible(true)}
+        >
+          <View style={styles.floatingCartLeft}>
+            <View style={styles.floatingCartBadge}>
+              <Text style={styles.floatingCartBadgeText}>{totalCartCount}</Text>
+            </View>
+            <View>
+              <Text style={styles.floatingCartPrice}>₹{totalCartAmount}</Text>
+              <Text style={styles.floatingCartSub}>Universal Basket</Text>
+            </View>
+          </View>
+          <View style={styles.floatingCartRight}>
+            <Text style={styles.floatingCartActionText}>VIEW CART →</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
           <Text style={styles.navIcon}>🔍</Text>
@@ -342,7 +479,29 @@ export default function App() {
           <Text style={styles.navIcon}>🔗</Text>
           <Text style={[styles.navText, activeTab === 'Connections' && styles.navTextActive]}>Connections</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => setIsCartModalVisible(true)}>
+          <View style={styles.navCartIconBox}>
+            <Text style={styles.navIcon}>🛒</Text>
+            {totalCartCount > 0 && (
+              <View style={styles.navBadge}>
+                <Text style={styles.navBadgeText}>{totalCartCount}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.navText, activeTab === 'Cart' && styles.navTextActive]}>Cart</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Universal Cart Modal */}
+      <UniversalCartModal
+        visible={isCartModalVisible}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateCartQty}
+        onRemoveItem={handleRemoveFromCart}
+        onClearCart={handleClearCart}
+        onCheckout={handleCartCheckout}
+        onClose={() => setIsCartModalVisible(false)}
+      />
 
 
       {/* Location Modal */}
@@ -502,32 +661,91 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   offerItem: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderColor: '#eee',
   },
+  offerMainInfo: {
+    flex: 1,
+    paddingRight: 10,
+  },
   offerProvider: {
-    fontWeight: '600',
-    fontSize: 16,
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#111',
   },
   offerPrice: {
     fontSize: 15,
+    fontWeight: '600',
     marginTop: 2,
   },
   basePrice: {
     color: '#888',
     textDecorationLine: 'line-through',
+    fontWeight: 'normal',
   },
   discount: {
     color: 'green',
     fontSize: 13,
     marginTop: 2,
+    fontWeight: '500',
   },
   benefit: {
-    color: '#ff9500',
+    color: '#d97706',
+    fontSize: 12,
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  cartActionContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  addToCartBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#16a34a',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    shadowColor: '#16a34a',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  addToCartBtnText: {
+    color: '#16a34a',
+    fontWeight: 'bold',
     fontSize: 13,
-    marginTop: 2,
-    fontWeight: '500',
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  stepperBtn: {
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperBtnText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#16a34a',
+  },
+  stepperQtyText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#16a34a',
+    paddingHorizontal: 8,
   },
   categoryBar: {
     paddingVertical: 15,
@@ -724,6 +942,85 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: '#ff3b30',
     fontWeight: '600'
+  },
+  floatingCartBar: {
+    position: 'absolute',
+    bottom: 85,
+    left: 16,
+    right: 16,
+    backgroundColor: '#16a34a',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#16a34a',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  floatingCartLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  floatingCartBadge: {
+    backgroundColor: '#fff',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  floatingCartBadgeText: {
+    color: '#16a34a',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  floatingCartPrice: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  floatingCartSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  floatingCartRight: {
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  floatingCartActionText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  navCartIconBox: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    backgroundColor: '#ef4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  navBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   bottomNav: {
     flexDirection: 'row',
