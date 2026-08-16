@@ -73,21 +73,47 @@ export const SwiggyPacket: ProviderPacket = {
                 }
                 
                 cardsList.forEach(function(c) {
-                    if (items.length >= 25) return;
+                    if (items.length >= 30) return;
                     var info = c.card?.card?.info;
                     var restInfo = c.card?.card?.restaurant?.info;
                     if (info && info.name) {
                         var price = (info.price || info.defaultPrice || 0) / 100;
                         if (price > 0) {
                             var restName = restInfo?.name || '';
-                            var title = restName ? (info.name + ' (' + restName + ')') : info.name;
+                            var area = restInfo?.locality || restInfo?.areaName || '';
+                            var rating = restInfo?.avgRating ? (' ⭐' + restInfo.avgRating) : '';
+                            var deliveryTime = restInfo?.sla?.slaString ? (' • ' + restInfo.sla.slaString) : '';
+                            var subtitle = (restName + (area ? (', ' + area) : '') + rating + deliveryTime).trim();
+                            var title = subtitle ? (info.name + ' - ' + subtitle) : info.name;
+                            
+                            // Real discount from Swiggy restaurant
+                            var discountHeader = restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
+                            var discountAmount = 0;
+                            if (discountHeader) {
+                                var numMatch = discountHeader.match(/([0-9]+)/);
+                                if (numMatch) {
+                                    discountAmount = parseInt(numMatch[1], 10);
+                                    if (discountHeader.includes('%')) {
+                                        discountAmount = Math.round((price * discountAmount) / 100);
+                                    }
+                                }
+                            }
+                            
+                            var finalPrice = discountAmount > 0 ? Math.max(1, price - discountAmount) : price;
+
                             items.push({
                                 title: title,
                                 providerName: 'Swiggy',
                                 price: {
-                                    finalPayablePrice: price,
-                                    basePrice: Math.round(price * 1.15),
-                                    discount: Math.round(price * 0.15)
+                                    finalPayablePrice: finalPrice,
+                                    basePrice: price,
+                                    discount: discountAmount
+                                },
+                                metadata: {
+                                    restaurantName: restName,
+                                    rating: restInfo?.avgRating,
+                                    sla: restInfo?.sla?.slaString,
+                                    discountText: discountHeader
                                 }
                             });
                         }
