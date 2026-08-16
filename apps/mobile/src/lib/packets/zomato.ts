@@ -8,7 +8,7 @@ export const zomatoMetadata: ProviderMetadata = {
     icon: '🔴',
     brandColor: '#cb202d',
     authType: 'otp',
-    url: 'https://www.zomato.com',
+    url: 'https://www.zomato.com/restaurants?category=1&context=delivery',
     loginUrl: 'https://www.zomato.com/login',
     checkoutUrl: 'https://www.zomato.com/cart',
     actionTitle: 'Order on Zomato',

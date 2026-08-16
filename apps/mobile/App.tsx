@@ -798,7 +798,7 @@ export default function App() {
                                     onPress={() => {
                                       let deliveryUrl = provider.url;
                                       if (provider.id === 'food-b') {
-                                        deliveryUrl = 'https://www.zomato.com/delivery';
+                                        deliveryUrl = 'https://www.zomato.com/restaurants?category=1&context=delivery';
                                       } else if (provider.id === 'food-a') {
                                         deliveryUrl = 'https://www.swiggy.com/restaurants';
                                       }

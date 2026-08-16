@@ -252,6 +252,16 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
                 localStorage.setItem('swiggy_city', city);
                 localStorage.setItem('swiggy_lat', String(lat));
                 localStorage.setItem('swiggy_lng', String(lng));
+                
+                // Zomato Delivery tab auto-click
+                if (window.location.hostname.includes('zomato.com')) {
+                  localStorage.setItem('current_location', locStr);
+                  localStorage.setItem('delivery_location', locStr);
+                  var deliveryTab = document.querySelector('a[href*="delivery"], [data-tab="delivery"], div[class*="delivery"]');
+                  if (deliveryTab && !window.location.search.includes('context=delivery')) {
+                    deliveryTab.click();
+                  }
+                }
               } catch(e) {}
             })();
             true;
