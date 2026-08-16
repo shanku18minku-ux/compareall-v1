@@ -133,19 +133,45 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                 // Zomato, Blinkit & general platform storage keys
                 localStorage.setItem('current_location', locStr);
                 localStorage.setItem('user_coords', JSON.stringify({ latitude: lat, longitude: lng }));
-                localStorage.setItem('delivery_location', locStr);
-            } catch (e) {}
-
-            // 3. Set standard location cookies on document
+            // 4. Intercept network requests (fetch & XHR) for instant OTP verification detection
             try {
-                var expires = "; max-age=86400; path=/";
-                document.cookie = "lat=" + lat + expires;
-                document.cookie = "lng=" + lng + expires;
-                document.cookie = "address=" + encodeURIComponent(locName) + expires;
-                document.cookie = "userLocation=" + encodeURIComponent(locStr) + expires;
-                document.cookie = "location=" + encodeURIComponent(locStr) + expires;
-                document.cookie = "swiggy_city=" + encodeURIComponent(cityPart) + expires;
-            } catch (e) {}
+                var origFetch = window.fetch;
+                if (origFetch) {
+                    window.fetch = function() {
+                        var args = arguments;
+                        var url = (args[0] && typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                        return origFetch.apply(this, args).then(function(res) {
+                            try {
+                                if (url && (url.indexOf('auth') !== -1 || url.indexOf('otp') !== -1 || url.indexOf('verify') !== -1 || url.indexOf('login') !== -1 || url.indexOf('session') !== -1)) {
+                                    if (res.status >= 200 && res.status < 300) {
+                                        setTimeout(function() {
+                                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                                        }, 600);
+                                    }
+                                }
+                            } catch(e) {}
+                            return res;
+                        });
+                    };
+                }
+
+                var origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url) {
+                    this.addEventListener('load', function() {
+                        try {
+                            var urlStr = String(url || '');
+                            if (urlStr && (urlStr.indexOf('auth') !== -1 || urlStr.indexOf('otp') !== -1 || urlStr.indexOf('verify') !== -1 || urlStr.indexOf('login') !== -1)) {
+                                if (this.status >= 200 && this.status < 300) {
+                                    setTimeout(function() {
+                                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                                    }, 600);
+                                }
+                            }
+                        } catch(e) {}
+                    });
+                    return origOpen.apply(this, arguments);
+                };
+            } catch(e) {}
         })();
         true;
     `;
