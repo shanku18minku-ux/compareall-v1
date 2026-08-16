@@ -8,7 +8,6 @@ import { UniversalCartModal } from './src/lib/UniversalCartModal';
 import { DynamicSearchBar } from './src/lib/search/DynamicSearchBar';
 import { CartItem } from './src/lib/CartTypes';
 import { getPacket, getAllProvidersMetadata } from './src/lib/packets/registry';
-import { fetchLiveSwiggyDishes } from './src/lib/api/liveSearch';
 
 // Load platform metadata dynamically from registered packets
 const PROVIDERS = getAllProvidersMetadata();
@@ -245,16 +244,7 @@ export default function App() {
     setIsSearching(true);
     setResults([]);
 
-    // 1. Instant Direct Native Fetch (~200ms ultra-fast response)
-    fetchLiveSwiggyDishes(q, location)
-      .then(items => {
-        if (items && items.length > 0) {
-          handleDataExtracted({ type: 'SEARCH_RESULTS', success: true, data: items });
-        }
-      })
-      .catch(e => console.log('Instant fetch error:', e));
-
-    // Fallback safety timeout
+    // Safety timeout in case provider is offline
     setTimeout(() => {
       setIsSearching(prev => {
         return false;
