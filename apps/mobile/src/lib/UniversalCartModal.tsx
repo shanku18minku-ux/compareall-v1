@@ -72,39 +72,75 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       }
     });
 
-    // Calculate Best Coupon Savings for each Platform/Restaurant Group
+    // Calculate Best Coupon Savings and Smart Deal Upsells for each Group
     Object.values(groupMap).forEach(group => {
       let maxCouponDiscount = 0;
       let bestCode = group.couponCode || '';
       let bestDesc = group.couponDescription || '';
+      let upsell: { missingAmount: number; nextCode: string; nextSavings: number; minOrder: number } | null = null;
 
+      // Extract all platform offers across all items in this group
+      const allOffers: any[] = [];
       group.items.forEach(it => {
+        if (it.additionalOffers) allOffers.push(...it.additionalOffers);
+        allOffers.push({
+          code: it.couponCode,
+          description: it.couponDescription,
+          percent: it.couponPercent,
+          maxCap: it.couponMaxCap,
+          flat: it.couponFlat,
+        });
+      });
+
+      // Parse common Swiggy/Zomato coupon patterns if cart meets thresholds
+      if (group.subtotal >= 499) {
+        allOffers.push({ code: 'FLAT200', flat: 200, minOrder: 499, description: 'Flat ₹200 OFF on orders above ₹499' });
+      } else if (group.subtotal >= 449) {
+        allOffers.push({ code: 'FLAT150', flat: 150, minOrder: 449, description: 'Flat ₹150 OFF on orders above ₹449' });
+      } else if (group.subtotal >= 399) {
+        allOffers.push({ code: 'FLAT125', flat: 125, minOrder: 399, description: 'Flat ₹125 OFF on orders above ₹399' });
+      } else if (group.subtotal >= 299) {
+        allOffers.push({ code: 'FLAT100', flat: 100, minOrder: 299, description: 'Flat ₹100 OFF on orders above ₹299' });
+      }
+
+      // Check missing deals (e.g. Add ₹49 more for Flat ₹200 OFF)
+      if (group.subtotal < 499 && group.subtotal >= 350) {
+        upsell = { missingAmount: 499 - group.subtotal, nextCode: 'FLAT200', nextSavings: 200, minOrder: 499 };
+      } else if (group.subtotal < 449 && group.subtotal >= 300) {
+        upsell = { missingAmount: 449 - group.subtotal, nextCode: 'FLAT150', nextSavings: 150, minOrder: 449 };
+      } else if (group.subtotal < 299 && group.subtotal >= 200) {
+        upsell = { missingAmount: 299 - group.subtotal, nextCode: 'FLAT100', nextSavings: 100, minOrder: 299 };
+      }
+
+      allOffers.forEach(of => {
+        if (!of) return;
         let itDiscount = 0;
-        let effectiveCap = it.couponMaxCap;
+        let effectiveCap = of.maxCap;
         if (!effectiveCap || effectiveCap === 0) {
-          if (it.couponPercent && it.couponPercent >= 70) effectiveCap = 140;
-          else if (it.couponPercent && it.couponPercent >= 60) effectiveCap = 120;
-          else if (it.couponPercent && it.couponPercent >= 50) effectiveCap = 100;
-          else if (it.couponPercent && it.couponPercent >= 40) effectiveCap = 80;
+          if (of.percent && of.percent >= 70) effectiveCap = 140;
+          else if (of.percent && of.percent >= 60) effectiveCap = 120;
+          else if (of.percent && of.percent >= 50) effectiveCap = 100;
+          else if (of.percent && of.percent >= 40) effectiveCap = 80;
         }
 
-        if (it.couponPercent && it.couponPercent > 0) {
-          const raw = Math.round((group.subtotal * it.couponPercent) / 100);
+        if (of.percent && of.percent > 0) {
+          const raw = Math.round((group.subtotal * of.percent) / 100);
           itDiscount = effectiveCap && effectiveCap > 0 ? Math.min(raw, effectiveCap) : raw;
-        } else if (it.couponFlat && it.couponFlat > 0) {
-          itDiscount = it.couponFlat;
+        } else if (of.flat && of.flat > 0) {
+          itDiscount = of.flat;
         }
 
         if (itDiscount > maxCouponDiscount) {
           maxCouponDiscount = itDiscount;
-          if (it.couponCode) bestCode = it.couponCode;
-          if (it.couponDescription) bestDesc = it.couponDescription;
+          if (of.code) bestCode = of.code;
+          if (of.description) bestDesc = of.description;
         }
       });
 
       group.couponSavings = maxCouponDiscount;
-      group.couponCode = bestCode;
-      group.couponDescription = bestDesc;
+      group.couponCode = bestCode || group.couponCode;
+      group.couponDescription = bestDesc || group.couponDescription;
+      (group as any).upsell = upsell;
       group.finalTotal = Math.max(0, group.subtotal - maxCouponDiscount);
     });
 
@@ -261,6 +297,14 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                         <Text style={styles.groupTotalValue}>₹{group.finalTotal}</Text>
                       </View>
                     </View>
+
+                    {(group as any).upsell && (
+                      <View style={styles.upsellBadgeBox}>
+                        <Text style={styles.upsellBadgeText}>
+                          🔥 Add ₹{(group as any).upsell.missingAmount} more to unlock <Text style={{ fontWeight: 'bold', color: '#b45309' }}>{(group as any).upsell.nextCode}</Text> (Save ₹{(group as any).upsell.nextSavings})!
+                        </Text>
+                      </View>
+                    )}
 
                     <TouchableOpacity
                       style={styles.orderOnProviderBtn}
@@ -608,6 +652,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  upsellBadgeBox: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  upsellBadgeText: {
+    fontSize: 12,
+    color: '#92400e',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   billCard: {
     backgroundColor: '#fff',

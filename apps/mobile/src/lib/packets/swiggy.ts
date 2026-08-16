@@ -166,62 +166,124 @@ export const SwiggyPacket: ProviderPacket = {
                                 }
                             });
 
-                            var couponCode = '';
-                            var codeMatch = allDiscountText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
-                            if (codeMatch && codeMatch[1] && codeMatch[1].toUpperCase() !== 'CODE' && codeMatch[1].toUpperCase() !== 'USE') {
-                                couponCode = codeMatch[1].toUpperCase();
-                            } else {
-                                var codeMatch2 = allDiscountText.match(/(?:USE\\s+CODE\\s+|USE\\s+|CODE\\s+|COUPON\\s+)([A-Z0-9_-]+)/i);
-                                if (codeMatch2 && codeMatch2[1]) {
-                                    couponCode = codeMatch2[1].toUpperCase();
-                                }
-                            }
+                            // Comprehensive extraction of ALL restaurant promo codes (FLAT150, FLAT200, FEASTMODE, etc.)
+                            var availableCoupons = [];
+                            var descList = (restInfo && restInfo.aggregatedDiscountInfoV2 && restInfo.aggregatedDiscountInfoV2.descriptionList) ? restInfo.aggregatedDiscountInfoV2.descriptionList : [];
+                            
+                            descList.forEach(function(d) {
+                                if (d && d.meta) {
+                                    var metaStr = d.meta;
+                                    var cCode = '';
+                                    var cm = metaStr.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
+                                    if (cm && cm[1] && cm[1].toUpperCase() !== 'CODE' && cm[1].toUpperCase() !== 'USE') {
+                                        cCode = cm[1].toUpperCase();
+                                    }
+                                    if (!cCode) {
+                                        var flatMatch = metaStr.match(/FLAT\\s*(\\d+)/i);
+                                        if (flatMatch && flatMatch[1]) cCode = 'FLAT' + flatMatch[1];
+                                    }
 
-                            if (!couponCode && restInfo && restInfo.aggregatedDiscountInfoV3 && restInfo.aggregatedDiscountInfoV3.couponDetails && restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode) {
-                                couponCode = restInfo.aggregatedDiscountInfoV3.couponDetails.couponCode;
+                                    var flatVal = 0;
+                                    var flatM = metaStr.match(/(?:FLAT[\\s:₹rs\\.]*(\\d+)|(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF)/i);
+                                    if (flatM && metaStr.indexOf('%') === -1) {
+                                        flatVal = parseInt(flatM[1] || flatM[2], 10);
+                                    }
+
+                                    var percVal = 0;
+                                    var percM = metaStr.match(/(\\d+)\\s*%/);
+                                    if (percM) percVal = parseInt(percM[1], 10);
+
+                                    var capVal = 0;
+                                    var capM = metaStr.match(/(?:UP\\s*TO|UPTO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
+                                    if (capM && capM[1]) {
+                                        capVal = parseInt(capM[1], 10);
+                                    } else if (percVal >= 70) {
+                                        capVal = 140;
+                                    } else if (percVal >= 60) {
+                                        capVal = 120;
+                                    } else if (percVal >= 50) {
+                                        capVal = 100;
+                                    } else if (percVal >= 40) {
+                                        capVal = 80;
+                                    }
+
+                                    var minOrderVal = 0;
+                                    var minM = metaStr.match(/(?:ABOVE|MIN(?:IMUM)?[\\s:]*ORDER)[\\s:₹rs\\.]*(\\d+)/i);
+                                    if (minM && minM[1]) minOrderVal = parseInt(minM[1], 10);
+
+                                    if (cCode || flatVal > 0 || percVal > 0) {
+                                        availableCoupons.push({
+                                            code: cCode || ('OFFER' + (flatVal || percVal)),
+                                            description: metaStr,
+                                            flat: flatVal,
+                                            percent: percVal,
+                                            maxCap: capVal,
+                                            minOrder: minOrderVal
+                                        });
+                                    }
+                                }
+                            });
+
+                            // Evaluate all coupons and pick the one that gives MAX RUPEE SAVINGS
+                            var bestCoupon = null;
+                            var maxSavings = 0;
+
+                            availableCoupons.forEach(function(cp) {
+                                var sav = 0;
+                                if (cp.flat > 0) {
+                                    sav = (finalPrice >= cp.minOrder || cp.minOrder === 0) ? cp.flat : Math.round(cp.flat * 0.7);
+                                } else if (cp.percent > 0) {
+                                    var rawDisc = Math.round((finalPrice * cp.percent) / 100);
+                                    sav = cp.maxCap > 0 ? Math.min(rawDisc, cp.maxCap) : rawDisc;
+                                }
+                                if (sav > maxSavings) {
+                                    maxSavings = sav;
+                                    bestCoupon = cp;
+                                }
+                            });
+
+                            var couponCode = bestCoupon ? bestCoupon.code : '';
+                            if (!couponCode) {
+                                var codeMatch = allDiscountText.match(/(?:USE\\s+CODE|USE|CODE|COUPON)[\\s:]+([A-Z0-9_-]+)/i);
+                                if (codeMatch && codeMatch[1] && codeMatch[1].toUpperCase() !== 'CODE' && codeMatch[1].toUpperCase() !== 'USE') {
+                                    couponCode = codeMatch[1].toUpperCase();
+                                }
                             }
                             if (!couponCode && (discountHeader.indexOf('%') !== -1 || discountHeader.indexOf('FLAT') !== -1 || discountHeader.indexOf('OFF') !== -1)) {
                                 var numMatch = discountHeader.match(/\\d+/);
                                 couponCode = 'FEASTMODE' + (numMatch ? numMatch[0] : '');
                             }
 
-                            var couponPercent = 0;
-                            var percentMatch = allDiscountText.match(/(\\d+)\\s*%/);
-                            if (percentMatch) couponPercent = parseInt(percentMatch[1], 10);
+                            var couponPercent = bestCoupon ? bestCoupon.percent : 0;
+                            var couponMaxCap = bestCoupon ? bestCoupon.maxCap : 0;
+                            var couponFlat = bestCoupon ? bestCoupon.flat : 0;
+                            var couponDesc = bestCoupon ? bestCoupon.description : (descMeta || discountHeader);
 
-                            var couponMaxCap = 0;
-                            var capMatch = allDiscountText.match(/(?:UP\\s*TO|UPTO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
-                            if (capMatch && capMatch[1]) {
-                                couponMaxCap = parseInt(capMatch[1], 10);
-                            } else if (couponPercent >= 70) {
-                                couponMaxCap = 140;
-                            } else if (couponPercent >= 60) {
-                                couponMaxCap = 120;
-                            } else if (couponPercent >= 50) {
-                                couponMaxCap = 100;
-                            } else if (couponPercent >= 40) {
-                                couponMaxCap = 80;
-                            }
+                            var autoCouponSavings = maxSavings > 0 ? maxSavings : (couponFlat > 0 ? couponFlat : Math.round((finalPrice * (couponPercent || 50)) / 100));
+                            autoCouponSavings = Math.min(finalPrice, autoCouponSavings);
 
-                            var couponFlat = 0;
-                            var flatMatch = allDiscountText.match(/(?:FLAT[\\s:₹rs\\.]*(\\d+)|(?:FLAT|₹|RS\\.?)[\\s]*(\\d+)\\s*OFF)/i);
-                            if (flatMatch && allDiscountText.indexOf('%') === -1) {
-                                couponFlat = parseInt(flatMatch[1] || flatMatch[2], 10);
-                            }
-
-                            var capText = couponMaxCap > 0 ? (' (Up to ₹' + couponMaxCap + ')') : '';
-                            var promoBadge = (descMeta || discountHeader) + capText + (couponCode ? (' | Use ' + couponCode) : '');
+                            var promoBadge = (couponDesc || discountHeader) + (couponCode ? (' | Use ' + couponCode) : '');
 
                             // Comprehensive platform offers (Coupons, Bank, Wallet, Swiggy One)
                             var platformOffers = [];
-                            if (couponCode) {
+                            availableCoupons.forEach(function(cp) {
+                                platformOffers.push({
+                                    id: 'promo-' + cp.code,
+                                    type: 'coupon',
+                                    icon: '🏷️',
+                                    title: 'Promo Code: ' + cp.code,
+                                    code: cp.code,
+                                    description: cp.description
+                                });
+                            });
+                            if (platformOffers.length === 0 && couponCode) {
                                 platformOffers.push({
                                     id: 'promo-' + couponCode,
                                     type: 'coupon',
                                     icon: '🏷️',
                                     title: 'Promo Code: ' + couponCode,
                                     code: couponCode,
-                                    description: (descMeta || discountHeader) + ' with code ' + couponCode
+                                    description: couponDesc
                                 });
                             }
                             platformOffers.push({
