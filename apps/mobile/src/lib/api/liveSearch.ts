@@ -117,8 +117,13 @@ export async function fetchLiveSwiggyDishes(
                     const discountHeader = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
                     const discountSubHeader = restInfo?.aggregatedDiscountInfoV3?.subHeader || restInfo?.aggregatedDiscountInfoV3?.discountTag || '';
                     const descMeta = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
-                    const shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
-                    const allDiscountText = `${discountHeader} ${discountSubHeader} ${descMeta} ${shortMeta}`;
+                    // Check for dish-specific offer tags
+                    const offerTags = info.offerTags || [];
+                    offerTags.forEach((ot: any) => {
+                        if (ot && (ot.title || ot.subTitle)) {
+                            allDiscountText += ` ${ot.title || ''} ${ot.subTitle || ''}`;
+                        }
+                    });
 
                     let couponCode = '';
                     const codeMatch = allDiscountText.match(/(?:USE\s+CODE|USE|CODE|COUPON)[\s:]+([A-Z0-9_-]+)/i);
