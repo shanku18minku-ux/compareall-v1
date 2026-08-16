@@ -7,8 +7,10 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Vibration,
 } from 'react-native';
 import { WebView, WebViewNavigation } from 'react-native-webview';
+import * as Clipboard from 'expo-clipboard';
 
 import { CartItem } from './CartTypes';
 
@@ -50,6 +52,13 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   useEffect(() => {
     setCurrentUrl(targetUrl);
   }, [targetUrl]);
+
+  useEffect(() => {
+    if (couponCode) {
+      Clipboard.setStringAsync(couponCode).catch(() => {});
+      setCopied(true);
+    }
+  }, [couponCode]);
 
   const locName = location?.name || 'Medininagar, Jharkhand';
   const userLat = location?.latitude || 24.0416;
@@ -201,7 +210,11 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
             <TouchableOpacity
               style={styles.couponCopyBtn}
               onPress={() => {
-                setCopied(true);
+                if (couponCode) {
+                  Clipboard.setStringAsync(couponCode).catch(() => {});
+                  Vibration.vibrate(30);
+                  setCopied(true);
+                }
               }}
             >
               <Text style={styles.couponCopyBtnText}>{copied ? 'COPIED ✓' : 'COPY CODE'}</Text>

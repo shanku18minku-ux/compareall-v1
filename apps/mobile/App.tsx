@@ -323,6 +323,8 @@ export default function App() {
               g.lowestPrice = Math.min(...effectivePrices);
               g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
           });
+          // Sort results so the lowest effective payable price (maximum savings deal) is #1 at the top!
+          updated.sort((a, b) => a.lowestPrice - b.lowestPrice);
           return updated;
        });
        setIsSearching(false);
