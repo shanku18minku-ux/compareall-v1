@@ -99,18 +99,22 @@ export const SwiggyPacket: ProviderPacket = {
                             var itemDiscount = Math.max(0, basePrice - finalPrice);
                             
                             // Active restaurant promo / coupon (for display badge & auto-application)
-                            var discountHeader = restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
-                            var couponDesc = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
-                            var shortMeta = restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
+                            var discountHeader = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
+                            var discountSubHeader = restInfo?.aggregatedDiscountInfoV3?.subHeader || restInfo?.aggregatedDiscountInfoV3?.discountTag || '';
+                            var couponDesc = (discountSubHeader ? (discountHeader + ' ' + discountSubHeader) : '') || restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
+                            var shortMeta = restInfo?.aggregatedDiscountInfoV3?.header || restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
 
                             var couponCode = '';
-                            var codeMatch = (shortMeta + ' ' + couponDesc).match(/Use\\s+(?:code\\s+)?([A-Z0-9_-]+)/i);
+                            var codeMatch = (shortMeta + ' ' + couponDesc + ' ' + discountSubHeader).match(/(?:Use|code|Coupon)\s+([A-Z0-9_-]+)/i);
                             if (codeMatch) {
                                 couponCode = codeMatch[1].toUpperCase();
+                            } else if (discountHeader.includes('%') || discountHeader.includes('FLAT')) {
+                                // Extract pseudo-code or tag if no explicit code
+                                couponCode = restInfo?.aggregatedDiscountInfoV3?.couponDetails?.couponCode || 'DEAL' + (discountHeader.match(/[0-9]+/)?.[0] || '');
                             }
 
                             var couponPercent = 0;
-                            var percentMatch = (discountHeader + ' ' + couponDesc).match(/([0-9]+)\\s*%/);
+                            var percentMatch = (discountHeader + ' ' + couponDesc + ' ' + discountSubHeader).match(/([0-9]+)\s*%/);
                             if (percentMatch) couponPercent = parseInt(percentMatch[1], 10);
 
                             var couponMaxCap = 0;
