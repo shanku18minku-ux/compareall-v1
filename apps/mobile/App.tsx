@@ -204,7 +204,7 @@ export default function App() {
                    
                    const packet = getPacket(id);
                    const searchUrl = packet ? packet.getSearchUrl(searchQuery) : provider.url;
-                   const injectionScript = packet ? packet.getExtractorInjection(searchUrl) : undefined;
+                   const injectionScript = packet ? packet.getExtractorInjection(searchUrl, searchQuery, location) : undefined;
                    
                    return (
                      <WebViewExtractor 

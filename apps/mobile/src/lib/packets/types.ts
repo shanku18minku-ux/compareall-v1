@@ -30,9 +30,9 @@ export interface ProviderPacket {
 
     /**
      * Script injected into the WebView to extract search results.
-     * Must parse the DOM and post the results back to the host.
+     * Must parse the DOM or internal endpoints and post the results back to the host.
      */
-    getExtractorInjection: (searchUrl: string) => string;
+    getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => string;
 
     /**
      * Generates the platform-specific search URL based on the user's query.
