@@ -213,9 +213,15 @@ export default function App() {
   const getFilteredProviders = () => {
      if (!location || !location.name) return PROVIDERS;
      const locName = location.name.toLowerCase();
+     const isRailwayStation = locName.includes('station') || locName.includes('railway') || locName.includes('junction') || locName.includes('cantt') || locName.includes('terminal');
+
      return PROVIDERS.filter(p => {
+         // Train food delivery apps ONLY appear if the user is at a railway station
+         if (p.subcategory === 'Train Food Delivery' || p.regions.includes('station')) {
+             return isRailwayStation;
+         }
          if (p.regions.includes('all')) return true;
-         return p.regions.some(region => locName.includes(region));
+         return p.regions.some(region => locName.includes(region.toLowerCase()));
      });
   };
 
@@ -482,55 +488,71 @@ export default function App() {
             </View>
 
             <ScrollView style={styles.tabContent} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
-              <Text style={styles.pageTitle}>Link Accounts</Text>
-              
-              {!location && <Text style={{color: '#e91e63', marginBottom: 15, fontSize: 13, fontWeight: '600', paddingHorizontal: 15}}>📍 Note: Train delivery apps will only appear if your location is a railway station.</Text>}
-              
-              {Array.from(new Set(getFilteredProviders().filter(p => p.category === activeCategory).map(p => p.subcategory))).map(subcat => {
-                 const subcatProviders = getFilteredProviders().filter(p => p.category === activeCategory && p.subcategory === subcat);
-                 if (subcatProviders.length === 0) return null;
-                 
-                 return (
-                    <View key={subcat} style={styles.subcatSection}>
-                       <Text style={styles.subcatTitle}>{subcat}</Text>
-                       <View style={styles.gridContainer}>
-                          {subcatProviders.map(provider => {
-                             const isConnected = connectedProviders.includes(provider.id);
-                             return (
-                                <View key={provider.id} style={styles.gridCard}>
-                                   <View style={styles.gridCardTop}>
-                                      <View style={styles.gridIconBox}>
-                                         <Text style={styles.gridIconText}>{provider.icon}</Text>
-                                      </View>
-                                      <Text style={styles.gridProviderName}>{provider.name}</Text>
-                                   </View>
+              <View style={styles.connectionsHeaderBox}>
+                <Text style={styles.pageTitle}>Link Accounts</Text>
+                <TouchableOpacity style={styles.locBadge} onPress={() => setIsLocationModalVisible(true)}>
+                  <Text style={styles.locBadgeText}>📍 {location ? location.name : 'Select Location'} ✏️</Text>
+                </TouchableOpacity>
+              </View>
 
-                                   {isConnected ? (
-                                      <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
-                                          <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
-                                      </TouchableOpacity>
-                                   ) : (
-                                      <TouchableOpacity
-                                         style={styles.linkNowBtn}
-                                         onPress={() => {
-                                            setLoginModal({
-                                               id: provider.id,
-                                               name: provider.name,
-                                               icon: provider.icon,
-                                               loginUrl: provider.loginUrl || provider.url,
-                                            });
-                                         }}
-                                      >
-                                         <Text style={styles.linkNowText}>LINK NOW</Text>
-                                      </TouchableOpacity>
-                                   )}
+              {getFilteredProviders().filter(p => p.category === activeCategory).length === 0 ? (
+                <View style={styles.noPlatformBox}>
+                  <Text style={styles.noPlatformIcon}>📍</Text>
+                  <Text style={styles.noPlatformTitle}>No {activeCategory} Platforms in {location?.name || 'this area'}</Text>
+                  <Text style={styles.noPlatformSub}>
+                    None of the integrated {activeCategory.toLowerCase()} apps currently operate in your selected location.
+                  </Text>
+                  <TouchableOpacity style={styles.changeLocBtn} onPress={() => setIsLocationModalVisible(true)}>
+                    <Text style={styles.changeLocBtnText}>Change Location</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                Array.from(new Set(getFilteredProviders().filter(p => p.category === activeCategory).map(p => p.subcategory))).map(subcat => {
+                  const subcatProviders = getFilteredProviders().filter(p => p.category === activeCategory && p.subcategory === subcat);
+                  if (subcatProviders.length === 0) return null;
+                  
+                  return (
+                    <View key={subcat} style={styles.subcatSection}>
+                      <Text style={styles.subcatTitle}>{subcat}</Text>
+                      <View style={styles.gridContainer}>
+                        {subcatProviders.map(provider => {
+                          const isConnected = connectedProviders.includes(provider.id);
+                          return (
+                            <View key={provider.id} style={styles.gridCard}>
+                              <View style={styles.gridCardTop}>
+                                <View style={styles.gridIconBox}>
+                                  <Text style={styles.gridIconText}>{provider.icon}</Text>
                                 </View>
-                              );
-                          })}
-                       </View>
+                                <Text style={styles.gridProviderName}>{provider.name}</Text>
+                              </View>
+
+                              {isConnected ? (
+                                <TouchableOpacity style={styles.disconnectBtnSmall} onPress={() => handleDisconnect(provider.id)}>
+                                  <Text style={styles.disconnectBtnTextSmall}>✓ Connected</Text>
+                                </TouchableOpacity>
+                              ) : (
+                                <TouchableOpacity
+                                  style={styles.linkNowBtn}
+                                  onPress={() => {
+                                    setLoginModal({
+                                      id: provider.id,
+                                      name: provider.name,
+                                      icon: provider.icon,
+                                      loginUrl: provider.loginUrl || provider.url,
+                                    });
+                                  }}
+                                >
+                                  <Text style={styles.linkNowText}>LINK NOW</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
                     </View>
-                 );
-              })}
+                  );
+                })
+              )}
             </ScrollView>
           </View>
         )}
@@ -1223,5 +1245,63 @@ const styles = StyleSheet.create({
   manualSubmitText: {
     color: '#fff',
     fontWeight: 'bold',
-  }
+  },
+  connectionsHeaderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  locBadge: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  locBadgeText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noPlatformBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    marginTop: 20,
+    backgroundColor: '#18181b',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  noPlatformIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  noPlatformTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  noPlatformSub: {
+    fontSize: 13,
+    color: '#a1a1aa',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  changeLocBtn: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  changeLocBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
 });
