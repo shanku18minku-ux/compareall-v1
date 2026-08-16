@@ -382,8 +382,12 @@ export default function App() {
             if (provider) {
               setSearchCategory(provider.category);
             }
-            setConnectedProviders(prev => [...prev, loginModal.id]);
+            setConnectedProviders(prev => {
+              if (prev.includes(loginModal.id)) return prev;
+              return [...prev, loginModal.id];
+            });
             setLoginModal(null);
+            setActiveTab('Search');
           }}
           onClose={() => setLoginModal(null)}
         />
