@@ -63,7 +63,9 @@ export const LoginDriver = forwardRef<LoginDriverRef, LoginDriverProps>(({
         <WebView
             ref={webViewRef}
             source={{ uri: url }}
-            style={{ display: 'none', width: 0, height: 0 }}
+            // CRITICAL FIX: 'display:none' and width/height=0 causes Android to SUSPEND the WebView.
+            // This absolute offscreen position keeps it ALIVE so Swiggy loads silently in background.
+            style={{ position: 'absolute', top: -10000, left: -10000, width: 1, height: 1, opacity: 0 }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             thirdPartyCookiesEnabled={true}

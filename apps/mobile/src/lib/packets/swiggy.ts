@@ -17,102 +17,147 @@ export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
     
     getLoginInjection: () => `
-        let isAuthenticating = false;
+        (function() {
+            var phoneReady = false;   // true when phone input is already visible
+            var pendingPhone = null;  // phone number queued before form was ready
+            var pendingOtp = null;    // otp queued before otp inputs appeared
 
-        function simulateType(element, text) {
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            nativeInputValueSetter.call(element, text);
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-            element.dispatchEvent(new Event('blur', { bubbles: true })); // Trigger React validation
-        }
-
-        function pollUntil(conditionFn, actionFn, interval = 100, maxAttempts = 50) {
-            let attempts = 0;
-            const timer = setInterval(() => {
-                const el = conditionFn();
-                if (el) {
-                    clearInterval(timer);
-                    actionFn(el);
-                } else if (++attempts >= maxAttempts) {
-                    clearInterval(timer);
-                }
-            }, interval);
-        }
-
-        function handlePhoneInput(phone) {
-            // Find Login Button
-            const loginBtn = Array.from(document.querySelectorAll('span, button, a'))
-                .find(el => el.textContent.includes('Login') || el.textContent.includes('Sign In') || el.textContent.includes('Sign in'));
-            
-            if (loginBtn) {
-                loginBtn.click();
+            // ── Helpers ─────────────────────────────────────────────────────
+            function simulateType(el, text) {
+                try {
+                    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    setter.call(el, text);
+                } catch(e) { el.value = text; }
+                el.dispatchEvent(new Event('input',  { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('blur',   { bubbles: true }));
             }
 
-            // Wait for phone input
-            pollUntil(
-                () => document.querySelector('input[type="tel"], input[inputmode="numeric"]'),
-                (phoneInput) => {
-                    simulateType(phoneInput, phone);
-                    
-                    // Click continue
-                    pollUntil(
-                        () => Array.from(document.querySelectorAll('button, a, span'))
-                            .find(el => el.textContent.match(/Continue|Get OTP|Login|Next/i) && !el.disabled && el.offsetParent !== null),
-                        (btn) => {
+            function poll(fn, cb, ms, max) {
+                var n = 0;
+                var t = setInterval(function() {
+                    var el = fn();
+                    if (el) { clearInterval(t); cb(el); }
+                    else if (++n >= max) clearInterval(t);
+                }, ms);
+            }
+
+            function findLoginBtn() {
+                return Array.from(document.querySelectorAll('span,button,a'))
+                    .find(function(el) {
+                        var txt = el.textContent.trim();
+                        return (txt === 'Login' || txt === 'Sign in' || txt === 'Sign In') && el.offsetParent !== null;
+                    });
+            }
+
+            function findPhoneInput() {
+                return document.querySelector('input[type="tel"], input[inputmode="numeric"]');
+            }
+
+            function findContinueBtn() {
+                return Array.from(document.querySelectorAll('button,span,a'))
+                    .find(function(el) {
+                        return el.textContent.match(/Continue|Get OTP|Next/i)
+                            && !el.disabled
+                            && el.offsetParent !== null;
+                    });
+            }
+
+            // ── STEP 1: PRE-WARM ─────────────────────────────────────────────
+            // On page load, immediately click Login so phone input appears BEFORE
+            // the user has even typed anything. This eliminates ~2s of cold delay.
+            function preWarm() {
+                poll(findLoginBtn, function(btn) {
+                    btn.click();
+                    poll(findPhoneInput, function() {
+                        phoneReady = true;
+                        // If user already typed their number, fire it now
+                        if (pendingPhone) {
+                            doPhoneSubmit(pendingPhone);
+                            pendingPhone = null;
+                        }
+                    }, 80, 60);
+                }, 80, 80);
+            }
+
+            // ── STEP 2: PHONE SUBMIT ─────────────────────────────────────────
+            function doPhoneSubmit(phone) {
+                poll(findPhoneInput, function(input) {
+                    simulateType(input, phone);
+                    setTimeout(function() {
+                        poll(findContinueBtn, function(btn) {
                             btn.click();
                             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'OTP_REQUESTED' }));
-                        }
-                    );
-                }
-            );
-        }
-
-        function handleOtpInput(otp) {
-            pollUntil(
-                () => {
-                    const inputs = document.querySelectorAll('input[type="tel"], input[inputmode="numeric"], input[type="text"]');
-                    return inputs.length > 1 ? inputs : null; // Multiple inputs usually means OTP
-                },
-                (inputs) => {
-                    const otpChars = otp.split('');
-                    for (let i = 0; i < Math.min(inputs.length, otpChars.length); i++) {
-                        simulateType(inputs[i], otpChars[i]);
-                    }
-                    
-                    pollUntil(
-                        () => Array.from(document.querySelectorAll('button, span'))
-                            .find(el => el.textContent.match(/Verify|Submit|Confirm/i) && !el.disabled && el.offsetParent !== null),
-                        (btn) => {
-                            btn.click();
-                            setTimeout(() => {
-                                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
-                            }, 1000);
-                        }
-                    );
-                }
-            );
-        }
-
-        window.addEventListener('NATIVE_ACTION', function(e) {
-            try {
-                var action = e.detail;
-                console.log('Action received:', action);
-                
-                if (action.type === 'PHONE') {
-                    isAuthenticating = true;
-                    handlePhoneInput(action.value);
-                } else if (action.type === 'OTP') {
-                    handleOtpInput(action.value);
-                }
-            } catch (err) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: err.message }));
+                        }, 80, 40);
+                    }, 120); // Small delay for React to enable the button
+                }, 80, 40);
             }
-        });
+
+            // ── STEP 3: OTP SUBMIT ───────────────────────────────────────────
+            function doOtpSubmit(otp) {
+                poll(function() {
+                    var inputs = document.querySelectorAll('input[type="tel"],input[inputmode="numeric"],input[type="text"]');
+                    // Swiggy can have a single 4-digit field OR 4 separate 1-digit boxes
+                    if (inputs.length >= 4) return inputs;
+                    if (inputs.length === 1 && inputs[0] !== findPhoneInput()) return inputs;
+                    return null;
+                }, function(inputs) {
+                    if (inputs.length === 1) {
+                        // Single field (e.g. type="tel" accepting "1234")
+                        simulateType(inputs[0], otp);
+                    } else {
+                        // Separate boxes
+                        otp.split('').forEach(function(ch, i) {
+                            if (inputs[i]) simulateType(inputs[i], ch);
+                        });
+                    }
+                    setTimeout(function() {
+                        poll(function() {
+                            return Array.from(document.querySelectorAll('button,span'))
+                                .find(function(el) {
+                                    return el.textContent.match(/Verify|Submit|Confirm/i)
+                                        && !el.disabled && el.offsetParent !== null;
+                                });
+                        }, function(btn) {
+                            btn.click();
+                            setTimeout(function() {
+                                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                            }, 800);
+                        }, 80, 40);
+                    }, 100);
+                }, 80, 60);
+            }
+
+            // ── Event Listener ───────────────────────────────────────────────
+            window.addEventListener('NATIVE_ACTION', function(e) {
+                try {
+                    var action = e.detail;
+                    if (action.type === 'PHONE') {
+                        if (phoneReady) {
+                            doPhoneSubmit(action.value);
+                        } else {
+                            pendingPhone = action.value; // queue until form is warm
+                        }
+                    } else if (action.type === 'OTP') {
+                        doOtpSubmit(action.value);
+                    }
+                } catch(err) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: err.message }));
+                }
+            });
+
+            // Kick off pre-warm immediately
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', preWarm);
+            } else {
+                preWarm();
+            }
+        })();
         true;
     `,
 
     getExtractorInjection: (searchUrl: string) => `
+
         // Basic extractor for Swiggy
         (function() {
             try {
