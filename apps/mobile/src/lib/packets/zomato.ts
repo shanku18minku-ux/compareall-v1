@@ -9,7 +9,7 @@ export const zomatoMetadata: ProviderMetadata = {
     brandColor: '#cb202d',
     authType: 'otp',
     url: 'https://www.zomato.com',
-    loginUrl: 'https://www.zomato.com',
+    loginUrl: 'https://www.zomato.com/login',
     checkoutUrl: 'https://www.zomato.com/cart',
     actionTitle: 'Order on Zomato',
     desc: 'Live restaurant menus, dishes, and promo discounts across India.',
@@ -19,48 +19,21 @@ export const zomatoMetadata: ProviderMetadata = {
 export const ZomatoPacket: ProviderPacket = {
     metadata: zomatoMetadata,
 
-    // When user logs in with OTP, Zomato redirects/stays on the home/city page
+    // Only triggers after user completes OTP and redirects away from /login
     successUrlPattern: /^https?:\/\/(www\.)?zomato\.com/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements visible to logged-in users on Zomato.
     getLoginDetectionScript: () => `
         (function() {
-            // Auto-trigger "Log in" modal if user is on the landing page and not yet logged in
-            var openInterval = setInterval(function() {
-                try {
-                    // Check if already logged in first
-                    var isUserLoggedIn = Boolean(
-                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"], [class*="Profile"]') ||
-                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1)) ||
-                        localStorage.getItem('user') ||
-                        localStorage.getItem('user_id')
-                    );
+            var currentUrl = window.location.href || '';
+            
+            // Never fire success while still on login or auth screens
+            if (currentUrl.indexOf('/login') !== -1 || currentUrl.indexOf('/auth') !== -1 || currentUrl.indexOf('/otp') !== -1) {
+                return;
+            }
 
-                    if (isUserLoggedIn) {
-                        clearInterval(openInterval);
-                        if (window.ReactNativeWebView) {
-                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
-                        }
-                        return;
-                    }
-
-                    // If login modal not already open, click "Log in" or "Sign up" button
-                    var phoneInput = document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"]');
-                    if (!phoneInput) {
-                        var buttons = Array.from(document.querySelectorAll('a, button, div[role="button"]'));
-                        var loginBtn = buttons.find(function(b) {
-                            var txt = (b.textContent || '').trim().toLowerCase();
-                            return txt === 'log in' || txt === 'login' || txt === 'sign in';
-                        });
-                        if (loginBtn) {
-                            loginBtn.click();
-                        }
-                    }
-                } catch(e) {}
-            }, 600);
-
-            // Periodic check for successful login confirmation
+            // Check if user has actually authenticated
             var checkLoginInterval = setInterval(function() {
                 try {
                     var isUserLoggedIn = Boolean(
@@ -74,7 +47,6 @@ export const ZomatoPacket: ProviderPacket = {
 
                     if (isUserLoggedIn && !hasPhoneInput) {
                         clearInterval(checkLoginInterval);
-                        clearInterval(openInterval);
                         if (window.ReactNativeWebView) {
                             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                         }
