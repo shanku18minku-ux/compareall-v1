@@ -95,10 +95,30 @@ export const SwiggyPacket: ProviderPacket = {
                             var basePrice = defaultPrice > finalPrice ? defaultPrice : price;
                             var itemDiscount = Math.max(0, basePrice - finalPrice);
                             
-                            // Active restaurant promo / coupon (for display badge)
+                            // Active restaurant promo / coupon (for display badge & auto-application)
                             var discountHeader = restInfo?.aggregatedDiscountInfoV2?.header || restInfo?.aggregatedDiscountInfo?.header || '';
-                            var couponCode = restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
-                            var promoBadge = discountHeader ? (discountHeader + (couponCode ? (' (' + couponCode + ')') : '')) : '';
+                            var couponDesc = restInfo?.aggregatedDiscountInfoV2?.descriptionList?.[0]?.meta || restInfo?.aggregatedDiscountInfo?.descriptionList?.[0]?.meta || '';
+                            var shortMeta = restInfo?.aggregatedDiscountInfoV2?.shortDescriptionList?.[0]?.meta || '';
+
+                            var couponCode = '';
+                            var codeMatch = (shortMeta + ' ' + couponDesc).match(/Use\\s+(?:code\\s+)?([A-Z0-9_-]+)/i);
+                            if (codeMatch) {
+                                couponCode = codeMatch[1].toUpperCase();
+                            }
+
+                            var couponPercent = 0;
+                            var percentMatch = (discountHeader + ' ' + couponDesc).match(/([0-9]+)\\s*%/);
+                            if (percentMatch) couponPercent = parseInt(percentMatch[1], 10);
+
+                            var couponMaxCap = 0;
+                            var capMatch = couponDesc.match(/(?:up to|upto|max)\\s*₹?\\s*([0-9]+)/i);
+                            if (capMatch) couponMaxCap = parseInt(capMatch[1], 10);
+
+                            var couponFlat = 0;
+                            var flatMatch = (discountHeader + ' ' + couponDesc).match(/(?:FLAT|flat)\\s*₹?\\s*([0-9]+)/i);
+                            if (flatMatch) couponFlat = parseInt(flatMatch[1], 10);
+
+                            var promoBadge = couponDesc || (discountHeader + (couponCode ? (' (Use ' + couponCode + ')') : ''));
 
                             items.push({
                                 title: title,
@@ -109,11 +129,18 @@ export const SwiggyPacket: ProviderPacket = {
                                     discount: itemDiscount
                                 },
                                 offerText: promoBadge,
+                                couponCode: couponCode,
+                                couponDescription: couponDesc || discountHeader,
+                                couponPercent: couponPercent,
+                                couponMaxCap: couponMaxCap,
+                                couponFlat: couponFlat,
                                 metadata: {
                                     restaurantName: restName,
                                     rating: restInfo?.avgRating,
                                     sla: restInfo?.sla?.slaString,
-                                    discountText: promoBadge
+                                    discountText: promoBadge,
+                                    couponCode: couponCode,
+                                    couponDescription: couponDesc
                                 }
                             });
                         }

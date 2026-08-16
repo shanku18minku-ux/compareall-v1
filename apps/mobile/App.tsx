@@ -29,7 +29,7 @@ export default function App() {
   const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
 
   // Platform checkout browser modal — opens platform website directly for order placement
-  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string } | null>(null);
+  const [checkoutModal, setCheckoutModal] = useState<{ providerName: string; providerIcon: string; targetUrl: string; couponCode?: string } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +75,11 @@ export default function App() {
           basePrice: offer.price.basePrice,
           discount: offer.price.discount,
           offerText: offer.offerText,
+          couponCode: offer.couponCode || offer.metadata?.couponCode,
+          couponDescription: offer.couponDescription || offer.metadata?.couponDescription,
+          couponPercent: offer.couponPercent,
+          couponMaxCap: offer.couponMaxCap,
+          couponFlat: offer.couponFlat,
           quantity: 1,
         }
       ];
@@ -101,7 +106,7 @@ export default function App() {
     setIsCartModalVisible(false);
   };
 
-  const handleCartCheckout = (providerId: string, restaurantName: string) => {
+  const handleCartCheckout = (providerId: string, restaurantName: string, couponCode?: string) => {
     setIsCartModalVisible(false);
     const provider = PROVIDERS.find(p => p.id === providerId);
     if (provider) {
@@ -113,6 +118,7 @@ export default function App() {
         providerName: provider.name,
         providerIcon: provider.icon,
         targetUrl: targetUrl,
+        couponCode: couponCode,
       });
     }
   };
@@ -281,6 +287,7 @@ export default function App() {
           providerName={checkoutModal.providerName}
           providerIcon={checkoutModal.providerIcon}
           targetUrl={checkoutModal.targetUrl}
+          couponCode={checkoutModal.couponCode}
           location={location}
           onClose={() => setCheckoutModal(null)}
         />

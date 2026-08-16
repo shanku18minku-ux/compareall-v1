@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Vibration,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { CartItem, CartGroup } from './CartTypes';
 
 interface UniversalCartModalProps {
@@ -17,7 +18,7 @@ interface UniversalCartModalProps {
   onUpdateQuantity: (id: string, newQuantity: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
-  onCheckout: (providerId: string, restaurantName: string) => void;
+  onCheckout: (providerId: string, restaurantName: string, couponCode?: string) => void;
   onClose: () => void;
 }
 
@@ -30,7 +31,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
   onCheckout,
   onClose,
 }) => {
-  // Group cart items by Provider + Restaurant
+  // Group cart items by Provider + Restaurant & Calculate Best Applied Coupon
   const cartGroups: CartGroup[] = React.useMemo(() => {
     const groupMap: { [key: string]: CartGroup } = {};
 
@@ -43,7 +44,10 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
           restaurantName: item.restaurantName || 'Restaurant Order',
           items: [],
           subtotal: 0,
-          totalDiscount: 0,
+          itemDiscounts: 0,
+          couponCode: item.couponCode,
+          couponDescription: item.couponDescription,
+          couponSavings: 0,
           finalTotal: 0,
           promoText: item.offerText,
         };
@@ -52,18 +56,36 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       groupMap[groupKey].items.push(item);
       const itemSubtotal = (item.basePrice || item.price) * item.quantity;
       const itemFinal = item.price * item.quantity;
-      groupMap[groupKey].subtotal += itemSubtotal;
-      groupMap[groupKey].totalDiscount += (itemSubtotal - itemFinal);
-      groupMap[groupKey].finalTotal += itemFinal;
-      if (item.offerText && !groupMap[groupKey].promoText) {
-        groupMap[groupKey].promoText = item.offerText;
+      groupMap[groupKey].subtotal += itemFinal;
+      groupMap[groupKey].itemDiscounts += Math.max(0, itemSubtotal - itemFinal);
+      if (item.couponCode && !groupMap[groupKey].couponCode) {
+        groupMap[groupKey].couponCode = item.couponCode;
+        groupMap[groupKey].couponDescription = item.couponDescription;
       }
+    });
+
+    // Calculate Best Coupon Savings for each Restaurant Group
+    Object.values(groupMap).forEach(group => {
+      const firstItem = group.items[0];
+      let couponDiscount = 0;
+      if (firstItem) {
+        if (firstItem.couponPercent && firstItem.couponPercent > 0) {
+          const raw = Math.round((group.subtotal * firstItem.couponPercent) / 100);
+          couponDiscount = firstItem.couponMaxCap ? Math.min(raw, firstItem.couponMaxCap) : raw;
+        } else if (firstItem.couponFlat && firstItem.couponFlat > 0) {
+          couponDiscount = firstItem.couponFlat;
+        }
+      }
+      group.couponSavings = couponDiscount;
+      group.finalTotal = Math.max(1, group.subtotal - couponDiscount);
     });
 
     return Object.values(groupMap);
   }, [cartItems]);
 
-  const grandTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const grandSubtotal = cartGroups.reduce((sum, g) => sum + g.subtotal, 0);
+  const grandCouponSavings = cartGroups.reduce((sum, g) => sum + g.couponSavings, 0);
+  const grandPayable = cartGroups.reduce((sum, g) => sum + g.finalTotal, 0);
   const totalItemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleQtyChange = (id: string, delta: number, currentQty: number) => {
@@ -74,6 +96,16 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
     } else {
       onUpdateQuantity(id, newQty);
     }
+  };
+
+  const handleCheckoutPress = async (group: CartGroup) => {
+    Vibration.vibrate(30);
+    if (group.couponCode) {
+      try {
+        await Clipboard.setStringAsync(group.couponCode);
+      } catch (_) {}
+    }
+    onCheckout(group.providerId, group.restaurantName, group.couponCode);
   };
 
   return (
@@ -119,8 +151,15 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                       <Text style={styles.groupProviderBadge}>{group.providerName}</Text>
                       <Text style={styles.groupRestaurantName}>{group.restaurantName}</Text>
                     </View>
-                    {group.promoText ? (
-                      <Text style={styles.groupPromoBadge}>🏷️ {group.promoText}</Text>
+                    {group.couponCode ? (
+                      <View style={styles.couponBadgeBox}>
+                        <Text style={styles.groupPromoBadge}>
+                          🏷️ Best Coupon: <Text style={{ fontWeight: 'bold' }}>{group.couponCode}</Text>
+                        </Text>
+                        {group.couponDescription ? (
+                          <Text style={styles.couponDescText}>{group.couponDescription}</Text>
+                        ) : null}
+                      </View>
                     ) : null}
                   </View>
 
@@ -158,18 +197,20 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                     ))}
                   </View>
 
-                  {/* Group Subtotal & Order Action */}
+                  {/* Group Subtotal & Applied Coupon Savings */}
                   <View style={styles.groupFooter}>
                     <View>
-                      <Text style={styles.groupTotalLabel}>Basket Subtotal</Text>
-                      <Text style={styles.groupTotalValue}>₹{group.finalTotal}</Text>
+                      <Text style={styles.groupTotalLabel}>Item Total: ₹{group.subtotal}</Text>
+                      {group.couponSavings > 0 && (
+                        <Text style={styles.couponSavingsText}>
+                          Coupon Discount ({group.couponCode}): -₹{group.couponSavings}
+                        </Text>
+                      )}
+                      <Text style={styles.groupTotalValue}>Final Payable: ₹{group.finalTotal}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.orderOnProviderBtn}
-                      onPress={() => {
-                        Vibration.vibrate(30);
-                        onCheckout(group.providerId, group.restaurantName);
-                      }}
+                      onPress={() => handleCheckoutPress(group)}
                     >
                       <Text style={styles.orderOnProviderText}>Order on {group.providerName} →</Text>
                     </TouchableOpacity>
@@ -182,16 +223,22 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                 <Text style={styles.billTitle}>Bill Summary</Text>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Item Total</Text>
-                  <Text style={styles.billValue}>₹{grandTotal}</Text>
+                  <Text style={styles.billValue}>₹{grandSubtotal}</Text>
                 </View>
+                {grandCouponSavings > 0 && (
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, { color: '#16a34a', fontWeight: '600' }]}>🏷️ Best Coupon Savings</Text>
+                    <Text style={[styles.billValue, { color: '#16a34a', fontWeight: 'bold' }]}>-₹{grandCouponSavings}</Text>
+                  </View>
+                )}
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Platform Comparison Fee</Text>
                   <Text style={[styles.billValue, { color: '#00875A', fontWeight: 'bold' }]}>FREE</Text>
                 </View>
                 <View style={styles.billDivider} />
                 <View style={styles.billRow}>
-                  <Text style={styles.billGrandTotalLabel}>To Pay</Text>
-                  <Text style={styles.billGrandTotalValue}>₹{grandTotal}</Text>
+                  <Text style={styles.billGrandTotalLabel}>Total To Pay</Text>
+                  <Text style={styles.billGrandTotalValue}>₹{grandPayable}</Text>
                 </View>
               </View>
 
@@ -325,16 +372,31 @@ const styles = StyleSheet.create({
     color: '#111',
     flex: 1,
   },
+  couponBadgeBox: {
+    marginTop: 6,
+  },
   groupPromoBadge: {
     fontSize: 12,
-    color: '#d97706',
+    color: '#15803d',
     fontWeight: '600',
-    marginTop: 6,
-    backgroundColor: '#fffbe6',
+    backgroundColor: '#f0fdf4',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
     alignSelf: 'flex-start',
+  },
+  couponDescText: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  couponSavingsText: {
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: 'bold',
+    marginVertical: 2,
   },
   itemsList: {
     marginBottom: 12,

@@ -15,6 +15,7 @@ interface PlatformBrowserModalProps {
   providerName: string;
   providerIcon: string;
   targetUrl: string;
+  couponCode?: string;
   location?: { latitude: number; longitude: number; name: string } | null;
   onClose: () => void;
 }
@@ -24,6 +25,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   providerName,
   providerIcon,
   targetUrl,
+  couponCode,
   location,
   onClose,
 }) => {
@@ -31,6 +33,7 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [currentUrl, setCurrentUrl] = useState(targetUrl);
   const [canGoBack, setCanGoBack] = useState(false);
+  const [copied, setCopied] = useState(Boolean(couponCode));
 
   const userLat = location?.latitude || 28.6139;
   const userLng = location?.longitude || 77.2090;
@@ -100,6 +103,31 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
             <Text style={styles.doneBtnText}>Done ✕</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Top Floating Coupon Bar if coupon exists */}
+        {Boolean(couponCode) && (
+          <View style={styles.couponBanner}>
+            <View style={styles.couponBannerLeft}>
+              <Text style={styles.couponBannerIcon}>🏷️</Text>
+              <View>
+                <Text style={styles.couponBannerTitle}>
+                  Best Coupon: <Text style={{ fontWeight: 'bold', color: '#16a34a' }}>{couponCode}</Text>
+                </Text>
+                <Text style={styles.couponBannerSub}>
+                  {copied ? '✓ Copied to clipboard! Paste at checkout' : 'Tap copy to use coupon'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.couponCopyBtn}
+              onPress={() => {
+                setCopied(true);
+              }}
+            >
+              <Text style={styles.couponCopyBtnText}>{copied ? 'COPIED ✓' : 'COPY CODE'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Loading Bar */}
         {loading && (
@@ -204,6 +232,47 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginLeft: 8,
     fontWeight: '500',
+  },
+  couponBanner: {
+    backgroundColor: '#f0fdf4',
+    borderBottomWidth: 1,
+    borderBottomColor: '#bbf7d0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  couponBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  couponBannerIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  couponBannerTitle: {
+    fontSize: 13,
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  couponBannerSub: {
+    fontSize: 11,
+    color: '#16a34a',
+    marginTop: 1,
+  },
+  couponCopyBtn: {
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  couponCopyBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   webview: {
     flex: 1,

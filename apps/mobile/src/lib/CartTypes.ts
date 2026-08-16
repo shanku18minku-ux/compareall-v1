@@ -9,6 +9,11 @@ export interface CartItem {
   basePrice?: number;
   discount?: number;
   offerText?: string;
+  couponCode?: string;
+  couponDescription?: string;
+  couponMaxCap?: number;
+  couponPercent?: number;
+  couponFlat?: number;
   quantity: number;
 }
 
@@ -18,7 +23,10 @@ export interface CartGroup {
   restaurantName: string;
   items: CartItem[];
   subtotal: number;
-  totalDiscount: number;
+  itemDiscounts: number;
+  couponCode?: string;
+  couponDescription?: string;
+  couponSavings: number;
   finalTotal: number;
   promoText?: string;
 }
