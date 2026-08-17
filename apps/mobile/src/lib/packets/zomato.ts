@@ -195,9 +195,20 @@ export const ZomatoPacket: ProviderPacket = {
                 return items;
             }
 
-            // 1. Direct Webroutes JSON Fetch (Immediate ~200ms)
+            // 1. Direct Webroutes JSON Fetch (Immediate ~150ms)
             try {
                 fetch('/webroutes/getPage?page_type=DELIVERY&q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(json) {
+                        var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
+                        var apiItems = processZomatoSections(sections);
+                        if (apiItems.length > 0) {
+                            sendZomatoResults(apiItems);
+                        }
+                    })
+                    .catch(function(e) {});
+
+                fetch('/webroutes/getPage?page_type=SEARCH&q=' + encodeURIComponent(q))
                     .then(function(r) { return r.json(); })
                     .then(function(json) {
                         var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
@@ -373,22 +384,13 @@ export const ZomatoPacket: ProviderPacket = {
 
                     sendZomatoResults(results);
                 }
-            }, 400);
+            }, 300);
         })();
         true;
         `;
     },
 
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        const cityName = (location?.name || 'medininagar').split(',')[0].trim().toLowerCase();
-        let citySlug = cityName.replace(/[^a-z0-9]/g, '');
-        if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon') || citySlug.includes('ncr')) {
-            citySlug = 'ncr';
-        } else if (citySlug.includes('bangalore') || citySlug.includes('bengaluru')) {
-            citySlug = 'bangalore';
-        } else if (!citySlug) {
-            citySlug = 'medininagar';
-        }
-        return `https://www.zomato.com/${citySlug}/delivery?q=${encodeURIComponent(query)}&zpwa=true`;
+        return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
