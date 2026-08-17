@@ -366,8 +366,6 @@ export default function App() {
                accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : []
              };
              
-             const dishName = offer.dishName || offer.metadata?.dishName || title;
-             const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
              const displayTitle = restName ? `${dishName} - ${restName}` : dishName;
 
              // Robust normalization to combine identical dishes from Swiggy & Zomato into 1 card
