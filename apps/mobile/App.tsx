@@ -61,6 +61,7 @@ export default function App() {
   const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
   const [manualLocationInput, setManualLocationInput] = useState('');
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [searchNonce, setSearchNonce] = useState(Date.now());
 
   // ── Cart Handlers ──────────────────────────────────────────────────────────
   const handleAddToCart = (offer: any, groupTitle: string) => {
@@ -253,6 +254,7 @@ export default function App() {
     if (!q) return;
     setSearchQuery(q);
     setSearchValues(prev => ({ ...prev, query: q }));
+    setSearchNonce(Date.now());
     setIsSearching(true);
     setResults([]);
 
@@ -533,7 +535,7 @@ export default function App() {
                       
                       return (
                         <WebViewExtractor 
-                           key={id + '__' + activeQuery} 
+                           key={id + '__' + activeQuery + '__' + searchNonce} 
                            url={searchUrl}
                            providerId={id}
                            location={location}
