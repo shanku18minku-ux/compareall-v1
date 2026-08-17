@@ -62,6 +62,7 @@ export default function App() {
   const [manualLocationInput, setManualLocationInput] = useState('');
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [searchNonce, setSearchNonce] = useState(Date.now());
+  const completedProvidersRef = useRef<Set<string>>(new Set());
 
   // ── Cart Handlers ──────────────────────────────────────────────────────────
   const handleAddToCart = (offer: any, groupTitle: string) => {
@@ -255,18 +256,20 @@ export default function App() {
     setSearchQuery(q);
     setSearchValues(prev => ({ ...prev, query: q }));
     setSearchNonce(Date.now());
+    completedProvidersRef.current.clear();
     setIsSearching(true);
     setResults([]);
 
-    // Safety timeout in case provider is offline
+    // Keep extraction active for at least 5 seconds so both Swiggy & Zomato have ample time to deliver
     setTimeout(() => {
-      setIsSearching(prev => {
-        return false;
-      });
-    }, 18000);
+      setIsSearching(false);
+    }, 5500);
   };
 
-  const handleDataExtracted = (data: any) => {
+  const handleDataExtracted = (data: any, providerId?: string) => {
+    if (providerId) {
+      completedProvidersRef.current.add(providerId);
+    }
     const items = data.data || data.items || (Array.isArray(data) ? data : []);
     if (items && items.length > 0) {
        setResults(prev => {
@@ -437,7 +440,12 @@ export default function App() {
           });
           return updated;
        });
-       setIsSearching(false);
+
+       const activeCategoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
+       const allDone = activeCategoryProviders.length > 0 && activeCategoryProviders.every(p => completedProvidersRef.current.has(p.id));
+       if (allDone) {
+         setIsSearching(false);
+       }
     }
   };
 
@@ -540,7 +548,7 @@ export default function App() {
                            providerId={id}
                            location={location}
                            isActive={true}
-                           onDataExtracted={handleDataExtracted}
+                           onDataExtracted={(data) => handleDataExtracted(data, id)}
                            onError={(err) => {
                              console.log('[CompareAll Extractor] Notice for provider:', id, err);
                            }}
