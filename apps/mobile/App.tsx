@@ -24,6 +24,10 @@ export default function App() {
 
   // Connections state
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
+  const connectedProvidersRef = useRef<string[]>([]);
+  useEffect(() => {
+    connectedProvidersRef.current = connectedProviders;
+  }, [connectedProviders]);
 
   // Login modal state — which provider's website is shown right now for linking
   const [loginModal, setLoginModal] = useState<{ id: string; name: string; icon: string; loginUrl: string } | null>(null);
@@ -288,19 +292,27 @@ export default function App() {
              const couponMaxCap = offer.couponMaxCap || 0;
              const couponFlat = offer.couponFlat || 0;
 
-             // Auto-calculate exact coupon savings
-             let autoCouponSavings = offer.autoCouponSavings || 0;
-             if (!autoCouponSavings) {
-               if (couponFlat > 0) {
-                 autoCouponSavings = couponFlat;
-               } else if (couponPercent > 0) {
-                 const raw = Math.round((menuPrice * couponPercent) / 100);
-                 autoCouponSavings = couponMaxCap > 0 ? Math.min(raw, couponMaxCap) : raw;
-               }
+             // Check if user has connected this provider account
+             const isAccountConnected = connectedProvidersRef.current.some(cpId => {
+               const p = PROVIDERS.find(prov => prov.id === cpId);
+               return p && (p.id === providerId || p.name.toLowerCase() === providerName.toLowerCase());
+             }) || (providerId && connectedProvidersRef.current.includes(providerId));
+
+             // Calculate potential coupon savings available on platform
+             let potentialCouponSavings = 0;
+             if (couponFlat > 0) {
+               potentialCouponSavings = couponFlat;
+             } else if (couponPercent > 0) {
+               const raw = Math.round((menuPrice * couponPercent) / 100);
+               potentialCouponSavings = couponMaxCap > 0 ? Math.min(raw, couponMaxCap) : raw;
+             } else if (offer.autoCouponSavings) {
+               potentialCouponSavings = offer.autoCouponSavings;
              }
 
-             const effectiveFinalPrice = Math.max(0, menuPrice - autoCouponSavings);
-             const totalSavings = Math.max(0, (basePrice - menuPrice) + autoCouponSavings);
+             // ONLY auto-apply coupon savings if account is CONNECTED
+             const autoCouponSavings = isAccountConnected ? potentialCouponSavings : 0;
+             const effectiveFinalPrice = isAccountConnected ? Math.max(20, menuPrice - autoCouponSavings) : menuPrice;
+             const totalSavings = isAccountConnected ? Math.max(0, (basePrice - menuPrice) + autoCouponSavings) : 0;
 
              const offerPayload = {
                providerName,
@@ -310,6 +322,8 @@ export default function App() {
                restaurantUrl: offer.restaurantUrl || offer.metadata?.restaurantUrl,
                menuPrice: menuPrice,
                autoCouponSavings: autoCouponSavings,
+               potentialSavings: potentialCouponSavings,
+               isAccountConnected: !!isAccountConnected,
                effectivePrice: effectiveFinalPrice,
                price: {
                  finalPayablePrice: effectiveFinalPrice,
@@ -324,7 +338,7 @@ export default function App() {
                couponMaxCap,
                couponFlat,
                additionalOffers,
-               accountBenefits: []
+               accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : []
              };
              
              const dishName = offer.dishName || offer.metadata?.dishName || title;
@@ -610,28 +624,39 @@ export default function App() {
                             <View style={styles.winnerBadge}>
                               <Text style={styles.winnerBadgeText}>🌟 LOWEST PRICE</Text>
                             </View>
-                            {primaryOffer.autoCouponSavings > 0 && (
+                            {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 && (
                               <View style={styles.autoAppliedPill}>
-                                <Text style={styles.autoAppliedPillText}>🏷️ Coupon Applied</Text>
+                                <Text style={styles.autoAppliedPillText}>🏷️ Connected Coupon</Text>
                               </View>
                             )}
                           </TouchableOpacity>
 
                           <View style={styles.priceRowBig}>
                             <Text style={styles.effectivePriceBig}>₹{primaryOffer.price.finalPayablePrice}</Text>
-                            {primaryOffer.autoCouponSavings > 0 ? (
+                            {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
                               <Text style={styles.strikeMenuPrice}>₹{primaryOffer.menuPrice || primaryOffer.price.menuPrice || primaryOffer.price.basePrice}</Text>
-                            ) : (
-                              primaryOffer.price.discount > 0 && (
-                                <Text style={styles.basePrice}> (Base: ₹{primaryOffer.price.basePrice})</Text>
-                              )
-                            )}
+                            ) : null}
                           </View>
 
-                          {primaryOffer.autoCouponSavings > 0 && (
+                          {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
                             <Text style={styles.couponSavingsHighlight}>
                               Save ₹{primaryOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{primaryOffer.couponCode}</Text>
                             </Text>
+                          ) : (
+                            primaryOffer.couponCode ? (
+                              <TouchableOpacity
+                                style={styles.connectToUnlockBox}
+                                onPress={() => {
+                                  const prov = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer.providerName.toLowerCase());
+                                  if (prov) setLoginModal(prov);
+                                }}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.connectToUnlockText}>
+                                  🔗 Connect {primaryOffer.providerName} to unlock <Text style={{ fontWeight: 'bold' }}>₹{primaryOffer.potentialSavings || 100} OFF</Text> with {primaryOffer.couponCode}
+                                </Text>
+                              </TouchableOpacity>
+                            ) : null
                           )}
                         </View>
 
@@ -702,24 +727,39 @@ export default function App() {
                             >
                               <Text style={styles.offerProvider}>{secOffer.providerName}</Text>
                               <Text style={styles.detailInfoIcon}>ℹ️ Details</Text>
-                              {secOffer.autoCouponSavings > 0 && (
+                              {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 && (
                                 <View style={styles.autoAppliedPill}>
-                                  <Text style={styles.autoAppliedPillText}>🏷️ Coupon Applied</Text>
+                                  <Text style={styles.autoAppliedPillText}>🏷️ Connected Coupon</Text>
                                 </View>
                               )}
                             </TouchableOpacity>
 
                             <View style={styles.priceRowBig}>
                               <Text style={styles.effectivePriceBig}>₹{secOffer.price.finalPayablePrice}</Text>
-                              {secOffer.autoCouponSavings > 0 ? (
+                              {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
                                 <Text style={styles.strikeMenuPrice}>₹{secOffer.menuPrice || secOffer.price.menuPrice || secOffer.price.basePrice}</Text>
                               ) : null}
                             </View>
 
-                            {secOffer.autoCouponSavings > 0 && (
+                            {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
                               <Text style={styles.couponSavingsHighlight}>
                                 Save ₹{secOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{secOffer.couponCode}</Text>
                               </Text>
+                            ) : (
+                              secOffer.couponCode ? (
+                                <TouchableOpacity
+                                  style={styles.connectToUnlockBox}
+                                  onPress={() => {
+                                    const prov = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase());
+                                    if (prov) setLoginModal(prov);
+                                  }}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.connectToUnlockText}>
+                                    🔗 Connect {secOffer.providerName} to unlock <Text style={{ fontWeight: 'bold' }}>₹{secOffer.potentialSavings || 100} OFF</Text> with {secOffer.couponCode}
+                                  </Text>
+                                </TouchableOpacity>
+                              ) : null
                             )}
                           </View>
 
@@ -1004,6 +1044,13 @@ export default function App() {
                   <Text style={styles.breakdownFinalLabel}>Final Net Payable</Text>
                   <Text style={styles.breakdownFinalVal}>₹{detailAnalysisModal.offer.price?.finalPayablePrice}</Text>
                 </View>
+                {!detailAnalysisModal.offer.isAccountConnected && detailAnalysisModal.offer.potentialSavings > 0 && (
+                  <View style={{ backgroundColor: '#eff6ff', borderRadius: 8, padding: 10, marginTop: 10, borderWidth: 1, borderColor: '#bfdbfe' }}>
+                    <Text style={{ fontSize: 12, color: '#1e40af', lineHeight: 16 }}>
+                      💡 Link your <Text style={{ fontWeight: 'bold' }}>{detailAnalysisModal.offer.providerName}</Text> account to automatically unlock <Text style={{ fontWeight: 'bold' }}>₹{detailAnalysisModal.offer.potentialSavings} coupon discount</Text> with {detailAnalysisModal.offer.couponCode}!
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Available Extra Offers & Perks */}
@@ -1255,6 +1302,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
     marginBottom: 4,
+  },
+  connectToUnlockBox: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  connectToUnlockText: {
+    fontSize: 11,
+    color: '#1d4ed8',
+    fontWeight: '600',
   },
   offerProvider: {
     fontWeight: '700',
