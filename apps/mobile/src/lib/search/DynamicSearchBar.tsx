@@ -9,6 +9,7 @@ import {
   Vibration,
 } from 'react-native';
 import { getSearchSchema, CategorySearchSchema } from './SearchSchemas';
+import { VoiceSearchModal } from './VoiceSearchModal';
 
 interface DynamicSearchBarProps {
   category: string;
@@ -32,6 +33,7 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
   isSearching,
 }) => {
   const schema: CategorySearchSchema = getSearchSchema(category);
+  const [isVoiceModalVisible, setIsVoiceModalVisible] = React.useState(false);
 
   const handleSuggestionPress = (suggestion: string) => {
     Vibration.vibrate(20);
@@ -71,6 +73,16 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
 
   return (
     <View style={styles.container}>
+      <VoiceSearchModal 
+        visible={isVoiceModalVisible} 
+        onClose={() => setIsVoiceModalVisible(false)} 
+        onQueryExtracted={(extractedQuery) => {
+          setIsVoiceModalVisible(false);
+          onChangeValue('query', extractedQuery);
+          onSubmit(extractedQuery);
+        }} 
+      />
+
       {/* Category Pills Header */}
       <View style={styles.categoryScrollBox}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
@@ -199,6 +211,12 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
               onSubmitEditing={handleActionSubmit}
               returnKeyType="search"
             />
+            <TouchableOpacity 
+              style={styles.micBtn} 
+              onPress={() => setIsVoiceModalVisible(true)}
+            >
+              <Text style={styles.micIconText}>🎤</Text>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={styles.singleSearchBtn}
@@ -291,6 +309,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#111',
+  },
+  micBtn: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  micIconText: {
+    fontSize: 18,
   },
   singleSearchBtn: {
     backgroundColor: '#007AFF',
