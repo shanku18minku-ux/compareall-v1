@@ -410,7 +410,8 @@ export default function App() {
                couponMaxCap,
                couponFlat,
                additionalOffers,
-               accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : []
+               accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : [],
+               isRestaurantSearchResult: false
              };
              
              let displayTitle = restName ? `${dishName} - ${restName}` : dishName;
@@ -421,8 +422,11 @@ export default function App() {
              const lQuery = (searchQuery || '').toLowerCase();
              
              const isRestaurantKeyword = /(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(lQuery);
-             if (restName && (lDish === lRest || (lDish === lQuery && isRestaurantKeyword))) {
+             const isRestaurantSearch = Boolean(restName && (lDish === lRest || (lDish === lQuery && isRestaurantKeyword)));
+             
+             if (isRestaurantSearch) {
                  displayTitle = restName;
+                 offerPayload.isRestaurantSearchResult = true;
              }
 
              const extractVariantTag = (dName: string) => {
@@ -750,8 +754,12 @@ export default function App() {
                           </TouchableOpacity>
 
                           <View style={styles.priceRowBig}>
-                            <Text style={styles.effectivePriceBig}>₹{primaryOffer.price.finalPayablePrice}</Text>
-                            {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
+                            {primaryOffer.isRestaurantSearchResult ? (
+                              <Text style={[styles.effectivePriceBig, { fontSize: 16 }]}>Cost for two: ₹{primaryOffer.price.finalPayablePrice}</Text>
+                            ) : (
+                              <Text style={styles.effectivePriceBig}>₹{primaryOffer.price.finalPayablePrice}</Text>
+                            )}
+                            {!primaryOffer.isRestaurantSearchResult && primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
                               <Text style={styles.strikeMenuPrice}>₹{primaryOffer.menuPrice || primaryOffer.price.menuPrice || primaryOffer.price.basePrice}</Text>
                             ) : null}
                           </View>
@@ -778,9 +786,29 @@ export default function App() {
                           )}
                         </View>
 
-                        {/* Add to Cart Stepper */}
+                        {/* Add to Cart Stepper or Visit Restaurant */}
                         <View style={styles.cartActionContainer}>
-                          {qty === 0 ? (
+                          {primaryOffer.isRestaurantSearchResult ? (
+                            <TouchableOpacity
+                              style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
+                              onPress={() => {
+                                const prov = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer.providerName.toLowerCase());
+                                if (prov) {
+                                  setCheckoutModal({
+                                    providerName: prov.name,
+                                    providerIcon: prov.icon,
+                                    providerCategory: prov.category,
+                                    brandColor: prov.color,
+                                    targetUrl: primaryOffer.restaurantUrl || prov.url,
+                                    checkoutUrl: prov.checkoutUrl,
+                                    cartItems: []
+                                  });
+                                }
+                              }}
+                            >
+                              <Text style={styles.addToCartBtnText}>VISIT</Text>
+                            </TouchableOpacity>
+                          ) : qty === 0 ? (
                             <TouchableOpacity
                               style={styles.addToCartBtn}
                               onPress={() => handleAddToCart(primaryOffer, group.title)}
@@ -853,8 +881,12 @@ export default function App() {
                             </TouchableOpacity>
 
                             <View style={styles.priceRowBig}>
-                              <Text style={styles.effectivePriceBig}>₹{secOffer.price.finalPayablePrice}</Text>
-                              {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
+                              {secOffer.isRestaurantSearchResult ? (
+                                <Text style={[styles.effectivePriceBig, { fontSize: 16 }]}>Cost for two: ₹{secOffer.price.finalPayablePrice}</Text>
+                              ) : (
+                                <Text style={styles.effectivePriceBig}>₹{secOffer.price.finalPayablePrice}</Text>
+                              )}
+                              {!secOffer.isRestaurantSearchResult && secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
                                 <Text style={styles.strikeMenuPrice}>₹{secOffer.menuPrice || secOffer.price.menuPrice || secOffer.price.basePrice}</Text>
                               ) : null}
                             </View>
@@ -881,9 +913,29 @@ export default function App() {
                             )}
                           </View>
 
-                          {/* Add to Cart Stepper */}
+                          {/* Add to Cart Stepper or Visit */}
                           <View style={styles.cartActionContainer}>
-                            {secQty === 0 ? (
+                            {secOffer.isRestaurantSearchResult ? (
+                              <TouchableOpacity
+                                style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
+                                onPress={() => {
+                                  const prov = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase());
+                                  if (prov) {
+                                    setCheckoutModal({
+                                      providerName: prov.name,
+                                      providerIcon: prov.icon,
+                                      providerCategory: prov.category,
+                                      brandColor: prov.color,
+                                      targetUrl: secOffer.restaurantUrl || prov.url,
+                                      checkoutUrl: prov.checkoutUrl,
+                                      cartItems: []
+                                    });
+                                  }
+                                }}
+                              >
+                                <Text style={styles.addToCartBtnText}>VISIT</Text>
+                              </TouchableOpacity>
+                            ) : secQty === 0 ? (
                               <TouchableOpacity
                                 style={styles.addToCartBtn}
                                 onPress={() => handleAddToCart(secOffer, group.title)}
