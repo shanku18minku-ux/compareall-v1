@@ -16,14 +16,14 @@ interface VoiceSearchModalProps {
 }
 
 const MOCK_SCENARIOS = [
-  { spoken: "१०० रुपये से कम का पिज़्ज़ा दिखाइए", translated: "pizza under 100" },
-  { spoken: "लाज़ीज़ रेस्टोरेंट में वेज थाली", translated: "veg thali in lazeez restaurant" },
-  { spoken: "dominos theke pizza", translated: "pizza from dominos" },
-  { spoken: "₹150 లోపు చికెన్ బిర్యానీ", translated: "chicken biryani under 150" }
+  { spoken: "pizza under 100", translated: "pizza under 100" },
+  { spoken: "veg thali in lazeez restaurant", translated: "veg thali in lazeez restaurant" },
+  { spoken: "pizza from dominos", translated: "pizza from dominos" },
+  { spoken: "chicken biryani under 150", translated: "chicken biryani under 150" }
 ];
 
 export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({ visible, onClose, onQueryExtracted }) => {
-  const [phase, setPhase] = useState<'listening' | 'transcribing' | 'translating' | 'done'>('listening');
+  const [phase, setPhase] = useState<'listening' | 'transcribing' | 'done'>('listening');
   const [scenario, setScenario] = useState(MOCK_SCENARIOS[0]);
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -53,15 +53,12 @@ export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({ visible, onC
         setPhase('transcribing');
         Vibration.vibrate(50);
         setTimeout(() => {
-          setPhase('translating');
-          setTimeout(() => {
-             setPhase('done');
-             Vibration.vibrate([0, 50, 50, 50]);
-             setTimeout(() => {
-                onQueryExtracted(scenario.translated);
-             }, 800);
-          }, 1200);
-        }, 1500);
+           setPhase('done');
+           Vibration.vibrate([0, 50, 50, 50]);
+           setTimeout(() => {
+              onQueryExtracted(scenario.translated);
+           }, 800);
+        }, 1200);
       }, 2500);
     } else {
       pulseAnim.stopAnimation();
@@ -85,23 +82,17 @@ export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({ visible, onC
 
           <View style={styles.statusBox}>
             {phase === 'listening' && (
-              <Text style={styles.statusLabel}>Speak now... (Any Regional Language)</Text>
+              <Text style={styles.statusLabel}>Listening...</Text>
             )}
             {phase === 'transcribing' && (
               <>
-                <Text style={styles.statusLabel}>Transcribed (Regional):</Text>
-                <Text style={styles.spokenText}>"{scenario.spoken}"</Text>
-              </>
-            )}
-            {phase === 'translating' && (
-              <>
-                <Text style={styles.statusLabel}>AI Translating Intent...</Text>
+                <Text style={styles.statusLabel}>Transcribed:</Text>
                 <Text style={styles.spokenText}>"{scenario.spoken}"</Text>
               </>
             )}
             {phase === 'done' && (
               <>
-                <Text style={styles.statusLabel}>Intent Extracted ✅</Text>
+                <Text style={styles.statusLabel}>Searching NLP Intent:</Text>
                 <Text style={styles.translatedText}>"{scenario.translated}"</Text>
               </>
             )}
