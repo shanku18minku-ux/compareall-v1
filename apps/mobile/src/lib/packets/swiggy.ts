@@ -19,8 +19,8 @@ export const swiggyMetadata: ProviderMetadata = {
 export const SwiggyPacket: ProviderPacket = {
     metadata: swiggyMetadata,
 
-    // When the user logs in on /auth, Swiggy redirects away to the home page or /restaurants
-    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com/,
+    // Only triggers after user completes OTP and redirects to authenticated account pages
+    successUrlPattern: /^https?:\/\/(www\.)?swiggy\.com\/(my-account|profile|orders|checkout)/,
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements only visible to logged-in users.
@@ -28,7 +28,7 @@ export const SwiggyPacket: ProviderPacket = {
         (function() {
             // Auto-trigger "Sign In" drawer if not already open
             var openInterval = setInterval(function() {
-                var phoneInput = document.querySelector('input[type="tel"], input[name="mobile"], input[id="mobile"]');
+                var phoneInput = document.querySelector('input[type="tel"], input[name="mobile"], input[id="mobile"], input[placeholder*="phone" i]');
                 if (phoneInput) {
                     phoneInput.focus();
                     clearInterval(openInterval);
@@ -46,26 +46,32 @@ export const SwiggyPacket: ProviderPacket = {
             setTimeout(function() { clearInterval(openInterval); }, 6000);
 
             var checkInterval = setInterval(function() {
-                var isLoginInputVisible = document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"], input[inputmode="numeric"]');
-                if (isLoginInputVisible) return; // User is still on phone/OTP screen
+                var isLoginInputVisible = Boolean(
+                    document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"], input[inputmode="numeric"], input[placeholder*="OTP" i], [class*="otp" i]')
+                );
+                // User is still entering phone number or OTP, DO NOT connect
+                if (isLoginInputVisible) return;
 
-                var hasUserCookie = document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('_session_id') !== -1 || document.cookie.indexOf('tid') !== -1;
-                var hasUserStorage = Boolean(localStorage.getItem('user') || localStorage.getItem('user_id') || sessionStorage.getItem('user'));
+                var hasUserCookie = document.cookie && (document.cookie.indexOf('user_id=') !== -1 || document.cookie.indexOf('isLoggedIn=1') !== -1);
+                var hasUserStorage = false;
+                try {
+                    var u = localStorage.getItem('user') || localStorage.getItem('user_id');
+                    if (u && u !== 'null' && u !== 'undefined') hasUserStorage = true;
+                } catch(e) {}
+
                 var hasUserEl = Boolean(
-                    document.querySelector('[class*="userAccount"]') ||
-                    document.querySelector('[data-testid="profile"]') ||
-                    document.querySelector('[href*="/my-account"]') ||
-                    document.querySelector('[class*="icon-user"]') ||
-                    document.querySelector('[class*="profile"]') ||
+                    document.querySelector('[class*="userAccount"], [data-testid="profile"], [href*="/my-account"]') ||
                     Array.from(document.querySelectorAll('a, span, div')).find(function(el) {
                         var txt = el.textContent.trim().toLowerCase();
                         return txt === 'logout' || txt === 'sign out' || txt === 'my account';
                     })
                 );
 
-                if (hasUserCookie || hasUserStorage || hasUserEl) {
+                if ((hasUserCookie || hasUserStorage || hasUserEl) && !isLoginInputVisible) {
                     clearInterval(checkInterval);
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                    if (window.ReactNativeWebView) {
+                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                    }
                 }
             }, 800);
         })();
