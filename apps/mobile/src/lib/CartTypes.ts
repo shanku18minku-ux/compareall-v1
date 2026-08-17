@@ -41,6 +41,8 @@ export interface CartGroup {
   couponCode?: string;
   couponDescription?: string;
   couponSavings: number;
+  potentialSavings?: number;
+  potentialCode?: string;
   additionalOffers?: PlatformOffer[];
   finalTotal: number;
   promoText?: string;

@@ -20,6 +20,7 @@ interface UniversalCartModalProps {
   onClearCart: () => void;
   onCheckout: (providerId: string, restaurantName: string, couponCode?: string, restaurantUrl?: string, items?: CartItem[]) => void;
   onClose: () => void;
+  connectedProviders: string[];
 }
 
 export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
@@ -30,6 +31,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
   onClearCart,
   onCheckout,
   onClose,
+  connectedProviders,
 }) => {
   // Group cart items by Provider + Restaurant & Calculate Best Applied Coupon
   const cartGroups: CartGroup[] = React.useMemo(() => {
@@ -137,11 +139,24 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
         }
       });
 
-      group.couponSavings = maxCouponDiscount;
-      group.couponCode = bestCode || group.couponCode;
-      group.couponDescription = bestDesc || group.couponDescription;
+      const isConnected = connectedProviders.some(id => 
+        id === group.providerId || 
+        group.providerName.toLowerCase().includes(id.toLowerCase())
+      );
+
+      if (isConnected) {
+        group.couponSavings = maxCouponDiscount;
+        group.couponCode = bestCode || group.couponCode;
+        group.couponDescription = bestDesc || group.couponDescription;
+        group.finalTotal = Math.max(0, group.subtotal - maxCouponDiscount);
+      } else {
+        group.couponSavings = 0;
+        group.potentialSavings = maxCouponDiscount;
+        group.potentialCode = bestCode || group.couponCode;
+        group.finalTotal = group.subtotal;
+      }
+      
       (group as any).upsell = upsell;
-      group.finalTotal = Math.max(0, group.subtotal - maxCouponDiscount);
     });
 
     return Object.values(groupMap);
@@ -215,7 +230,7 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                       <Text style={styles.groupProviderBadge}>{group.providerName}</Text>
                       <Text style={styles.groupRestaurantName}>{group.restaurantName}</Text>
                     </View>
-                    {group.couponCode ? (
+                    {group.couponCode && group.couponSavings > 0 ? (
                       <View style={styles.couponBadgeBox}>
                         <Text style={styles.groupPromoBadge}>
                           🏷️ Best Coupon: <Text style={{ fontWeight: 'bold' }}>{group.couponCode}</Text>
@@ -292,6 +307,14 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
                           <Text style={styles.couponSavingsAmount}>-₹{group.couponSavings}</Text>
                         </View>
                       )}
+                      {(group as any).potentialSavings && (group as any).potentialSavings > 0 && group.couponSavings === 0 ? (
+                        <View style={[styles.groupPricingRow, { backgroundColor: '#fef2f2', padding: 8, borderRadius: 6, marginTop: 4 }]}>
+                          <Text style={[styles.couponSavingsText, { color: '#ef4444' }]}>
+                            🔗 Link {group.providerName} to save
+                          </Text>
+                          <Text style={[styles.couponSavingsAmount, { color: '#ef4444' }]}>-₹{(group as any).potentialSavings}</Text>
+                        </View>
+                      ) : null}
                       <View style={[styles.groupPricingRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f1f5f9' }]}>
                         <Text style={styles.groupFinalLabel}>Final Payable</Text>
                         <Text style={styles.groupTotalValue}>₹{group.finalTotal}</Text>

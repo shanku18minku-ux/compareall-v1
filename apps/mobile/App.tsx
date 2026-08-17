@@ -1125,6 +1125,7 @@ export default function App() {
       <UniversalCartModal
         visible={isCartModalVisible}
         cartItems={cartItems}
+        connectedProviders={connectedProviders}
         onUpdateQuantity={handleUpdateCartQty}
         onRemoveItem={handleRemoveFromCart}
         onClearCart={handleClearCart}
