@@ -136,8 +136,38 @@ export const EatSurePacket: ProviderPacket = {
                             }
                             if (isClosed) return;
 
-                            var priceMatch = text.match(/₹\\s*(\\d+)/);
-                            var price = priceMatch ? parseInt(priceMatch[1], 10) : getAccurateDishPrice(q, null);
+                            var priceMatches = text.match(/₹\\s*(\\d+)/g);
+                            var finalPrice = getAccurateDishPrice(q, null);
+                            var originalPrice = finalPrice;
+                            
+                            if (priceMatches && priceMatches.length > 0) {
+                                // If there are multiple prices (e.g. strikethrough), usually the lower one is final
+                                var p1 = parseInt(priceMatches[0].replace(/[^0-9]/g, ''), 10);
+                                if (priceMatches.length > 1) {
+                                    var p2 = parseInt(priceMatches[1].replace(/[^0-9]/g, ''), 10);
+                                    finalPrice = Math.min(p1, p2);
+                                    originalPrice = Math.max(p1, p2);
+                                } else {
+                                    finalPrice = p1;
+                                    originalPrice = p1;
+                                }
+                            }
+
+                            // Extract Real-time Discounts & Coupons
+                            var offerText = '';
+                            var couponCode = '';
+                            var itemDiscount = originalPrice - finalPrice;
+                            
+                            var discountMatch = text.match(/(\\d+\\s*%\\s*OFF)/i) || text.match(/(FLAT\\s*(?:₹|Rs\\.?|INR)?\\s*\\d+\\s*OFF)/i) || text.match(/(Buy\\s*1\\s*Get\\s*1)/i);
+                            var couponMatch = text.match(/(?:USE|CODE)\\s+([A-Z0-9]+)/i);
+
+                            if (discountMatch) {
+                                offerText = discountMatch[1].toUpperCase();
+                            }
+                            if (couponMatch) {
+                                couponCode = couponMatch[1];
+                                offerText = offerText ? offerText + ' | Use ' + couponCode : 'Use Code ' + couponCode;
+                            }
                             
                             var lines = text.split('\\n').map(function(s) { return s.trim(); }).filter(Boolean);
                             var title = lines.length > 0 ? lines[0] : q.toUpperCase();
@@ -153,17 +183,17 @@ export const EatSurePacket: ProviderPacket = {
                                 dishName: title,
                                 restaurantName: 'EatSure Kitchens',
                                 restaurantUrl: window.location.href,
-                                menuPrice: price,
-                                autoCouponSavings: 0,
-                                effectivePrice: price,
+                                menuPrice: originalPrice,
+                                autoCouponSavings: itemDiscount,
+                                effectivePrice: finalPrice,
                                 price: {
-                                    finalPayablePrice: price,
-                                    menuPrice: price,
-                                    basePrice: price,
-                                    discount: 0
+                                    finalPayablePrice: finalPrice,
+                                    menuPrice: originalPrice,
+                                    basePrice: originalPrice,
+                                    discount: itemDiscount
                                 },
-                                offerText: 'Get Free Dish on EatSure',
-                                couponCode: '',
+                                offerText: offerText || 'Best Price',
+                                couponCode: couponCode,
                                 additionalOffers: []
                             });
                         });
