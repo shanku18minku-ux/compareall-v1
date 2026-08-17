@@ -267,11 +267,13 @@ export default function App() {
     let apiQ = q;
     let filters: { restaurantKeyword?: string, maxPrice?: number } = {};
     
-    // Pattern 1: "[dish] from [restaurant]"
-    const fromMatch = lQuery.match(/^(.*?)\s+from\s+(.+)$/i);
+    // Pattern 1: "[dish] from|in|at [restaurant]"
+    const fromMatch = lQuery.match(/^(.*?)\s+(?:from|in|at)\s+(.+)$/i);
     if (fromMatch) {
        apiQ = fromMatch[1].trim();
-       filters.restaurantKeyword = fromMatch[2].trim();
+       let rawRest = fromMatch[2].trim();
+       rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\b/ig, '').trim();
+       filters.restaurantKeyword = rawRest || fromMatch[2].trim();
     } else {
        // Pattern 2: "[dish] under [price]" or "[dish] [price] se kam"
        const underMatch = lQuery.match(/^(.*?)\s+(?:under|below|<)\s+(\d+)/i);
@@ -421,7 +423,9 @@ export default function App() {
              // Apply NLP Filters (Restaurant, Price)
              const currentFilters = activeFiltersRef.current;
              if (currentFilters.restaurantKeyword) {
-                if (!restName.toLowerCase().includes(currentFilters.restaurantKeyword.toLowerCase())) {
+                const kw = currentFilters.restaurantKeyword.toLowerCase();
+                const rn = restName.toLowerCase();
+                if (!rn.includes(kw) && !kw.includes(rn)) {
                    return; // Skip this offer because it's from the wrong restaurant
                 }
              }
