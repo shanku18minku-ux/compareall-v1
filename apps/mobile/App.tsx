@@ -339,7 +339,7 @@ export default function App() {
              const normalizeRest = (n: string) => {
                return (n || '').toLowerCase()
                  .replace(/\bh\s*m\b/g, 'hm')
-                 .replace(/\b(?:and|&|restaurant|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen)\b/g, '')
+                 .replace(/\b(?:the|and|&|restaurant|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen|food)\b/g, '')
                  .replace(/[^a-z0-9]/g, '')
                  .trim();
              };
@@ -354,10 +354,10 @@ export default function App() {
                  const parts = g.matchKey.split('__');
                  const gDish = parts[0] || '';
                  const gRest = parts[1] || '';
-                 if (gRest && (gRest.includes(cleanRest) || cleanRest.includes(gRest))) {
-                   if (gDish && (gDish.includes(cleanDish) || cleanDish.includes(gDish))) {
-                     return true;
-                   }
+                 if (gRest && cleanRest && (gRest === cleanRest || gRest.includes(cleanRest) || cleanRest.includes(gRest))) {
+                    if (gDish && (gDish.includes(cleanDish) || cleanDish.includes(gDish))) {
+                      return true;
+                    }
                  }
                }
                return false;
@@ -452,6 +452,7 @@ export default function App() {
             });
             setLoginModal(null);
             setActiveTab('Search');
+            handleSearch(searchQuery || searchValues.query || 'Paneer Tikka');
           }}
           onClose={() => setLoginModal(null)}
         />

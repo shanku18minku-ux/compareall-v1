@@ -131,13 +131,25 @@ export const ZomatoPacket: ProviderPacket = {
                 if (!info) return 'https://www.zomato.com/' + citySlug + '/delivery';
                 var rSlug = (info.slugs && info.slugs.restaurant) ? info.slugs.restaurant : ((info.cft && info.cft.url) ? info.cft.url : '');
                 if (!rSlug && info.url) {
-                    rSlug = info.url.replace(/^https?:\/\/[^\/]+\//, '').replace(/^\//, '');
+                    var u = String(info.url);
+                    var zomatoIdx = u.indexOf('zomato.com/');
+                    if (zomatoIdx !== -1) {
+                        rSlug = u.substring(zomatoIdx + 11);
+                    } else if (u.indexOf('http') === 0) {
+                        var parts = u.split('/');
+                        rSlug = parts.slice(3).join('/');
+                    } else {
+                        rSlug = u;
+                    }
+                    if (rSlug.charAt(0) === '/') rSlug = rSlug.substring(1);
                 }
                 if (rSlug) {
-                    if (rSlug.startsWith(citySlug + '/')) {
-                        return 'https://www.zomato.com/' + rSlug.replace(/\/order$/, '') + '/order';
+                    var cleanSlug = String(rSlug);
+                    if (cleanSlug.endsWith('/order')) cleanSlug = cleanSlug.substring(0, cleanSlug.length - 6);
+                    if (cleanSlug.startsWith(citySlug + '/')) {
+                        return 'https://www.zomato.com/' + cleanSlug + '/order';
                     }
-                    return 'https://www.zomato.com/' + citySlug + '/' + rSlug.replace(/\/order$/, '') + '/order';
+                    return 'https://www.zomato.com/' + citySlug + '/' + cleanSlug + '/order';
                 }
                 return 'https://www.zomato.com/' + citySlug + '/delivery';
             }
@@ -287,7 +299,7 @@ export const ZomatoPacket: ProviderPacket = {
 
                             var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
                             var rawHref = linkElem && linkElem.href ? linkElem.href : '';
-                            var restUrl = rawHref ? (rawHref.replace(/\/order$/, '') + '/order') : ('https://www.zomato.com/' + citySlug + '/delivery');
+                            var restUrl = rawHref ? (rawHref.indexOf('/order') !== -1 ? rawHref : rawHref + '/order') : ('https://www.zomato.com/' + citySlug + '/delivery');
 
                             var displayTitle = dishTitle + ' - ' + restName;
 
