@@ -283,6 +283,44 @@ export default function App() {
              const dishName = offer.dishName || offer.metadata?.dishName || title;
              const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
 
+             // Strict Query Relevance Filter
+             const isRelevantToQuery = (dish: string, q: string) => {
+               const cleanQ = (q || '').toLowerCase().trim();
+               const cleanD = (dish || '').toLowerCase().trim();
+               if (!cleanQ) return true;
+
+               const proteins = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'paneer', 'mushroom', 'soya', 'veg', 'non-veg', 'nonveg'];
+               const queryProteins = proteins.filter(p => cleanQ.includes(p));
+               const dishProteins = proteins.filter(p => cleanD.includes(p));
+
+               if (queryProteins.includes('chicken')) {
+                 if (dishProteins.includes('paneer') || dishProteins.includes('mushroom') || (dishProteins.includes('veg') && !cleanD.includes('non-veg') && !cleanD.includes('chicken'))) {
+                   if (!cleanD.includes('chicken')) return false;
+                 }
+                 if (!cleanD.includes('chicken')) return false;
+               }
+
+               if (queryProteins.includes('paneer')) {
+                 if (dishProteins.includes('chicken') || dishProteins.includes('mutton') || dishProteins.includes('egg') || dishProteins.includes('fish')) {
+                   if (!cleanD.includes('paneer')) return false;
+                 }
+                 if (!cleanD.includes('paneer')) return false;
+               }
+
+               const stopWords = ['with', 'and', 'the', 'dry', 'gravy', 'special', 'classic', 'plate', 'full', 'half', 'hot', 'crispy', 'restaurant', 'hotel'];
+               const qWords = cleanQ.split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
+               for (const qw of qWords) {
+                 if (!cleanD.includes(qw)) {
+                   return false;
+                 }
+               }
+               return true;
+             };
+
+             if (!isRelevantToQuery(dishName, searchQuery)) {
+               return; // SKIP irrelevant dishes
+             }
+
              // Strict Veg / Non-Veg guard
              const isNonVeg = (n: string) => {
                const s = (n || '').toLowerCase();
@@ -318,10 +356,10 @@ export default function App() {
              const couponFlat = offer.couponFlat || 0;
 
              // Check if user has connected this provider account
-             const isAccountConnected = connectedProvidersRef.current.some(cpId => {
+             const isAccountConnected = Boolean(connectedProvidersRef.current.some(cpId => {
                const p = PROVIDERS.find(prov => prov.id === cpId);
                return p && (p.id === providerId || p.name.toLowerCase() === providerName.toLowerCase());
-             }) || (providerId && connectedProvidersRef.current.includes(providerId));
+             }) || (providerId && connectedProvidersRef.current.includes(providerId)));
 
              // Calculate potential coupon savings available on platform
              let potentialCouponSavings = 0;
@@ -348,7 +386,7 @@ export default function App() {
                menuPrice: menuPrice,
                autoCouponSavings: autoCouponSavings,
                potentialSavings: potentialCouponSavings,
-               isAccountConnected: !!isAccountConnected,
+               isAccountConnected: isAccountConnected,
                effectivePrice: effectiveFinalPrice,
                price: {
                  finalPayablePrice: effectiveFinalPrice,
@@ -368,11 +406,31 @@ export default function App() {
              
              const displayTitle = restName ? `${dishName} - ${restName}` : dishName;
 
+             const extractVariantTag = (dName: string) => {
+               const s = (dName || '').toLowerCase();
+               const packM = s.match(/(?:pack\s*of\s*\d+|\d+\s*pcs?|\d+\s*pieces?|combo|thali|family\s*pack|serves\s*\d+)/i);
+               if (packM) return packM[0].replace(/\s+/g, '');
+               if (s.includes('half')) return 'half';
+               if (s.includes('full')) return 'full';
+               return 'standard';
+             };
+
+             const isDishVariantCompatible = (dish1: string, price1: number, dish2: string, price2: number) => {
+               const tag1 = extractVariantTag(dish1);
+               const tag2 = extractVariantTag(dish2);
+               if (tag1 !== tag2 && (tag1 !== 'standard' || tag2 !== 'standard')) {
+                 return false; // e.g. Pack of 4 vs Single
+               }
+               if (price1 > 0 && price2 > 0) {
+                 const ratio = Math.max(price1, price2) / Math.min(price1, price2);
+                 if (ratio > 2.2) return false; // Extreme price divergence -> separate items
+               }
+               return true;
+             };
+
              // Robust normalization to combine identical dishes from Swiggy & Zomato into 1 card
              const normalizeDish = (n: string) => {
                return (n || '').toLowerCase()
-                 .replace(/\b\d+\s*(?:pic|pcs|pc|pieces|slice|slices)\b/g, '')
-                 .replace(/\b(?:half|full|quarter|small|medium|large|serves\s*\d+(?:-\d+)?)\b/g, '')
                  .replace(/[^a-z0-9]/g, ' ')
                  .replace(/\s+/g, ' ')
                  .trim();
@@ -404,7 +462,8 @@ export default function App() {
 
              const cleanDish = normalizeDish(dishName);
              const cleanRest = normalizeRest(restName);
-             const matchKey = cleanRest ? `${cleanDish}__${cleanRest}` : cleanDish;
+             const variantTag = extractVariantTag(dishName);
+             const matchKey = cleanRest ? `${cleanDish}_${variantTag}__${cleanRest}` : `${cleanDish}_${variantTag}`;
 
              const isDishMatch = (d1: string, d2: string) => {
                 if (!d1 || !d2) return false;
@@ -416,14 +475,14 @@ export default function App() {
                 const w2 = c2.split(/\s+/).filter(w => w.length > 2);
                 if (w1.length === 0 || w2.length === 0) return false;
                 const overlap = w1.filter(w => w2.includes(w));
-                return overlap.length >= 2 || (overlap.length >= 1 && (overlap.length / Math.min(w1.length, w2.length) >= 0.5));
+                return overlap.length >= 2 || (overlap.length >= 1 && (overlap.length / Math.min(w1.length, w2.length) >= 0.7));
              };
 
              const existingGroup = updated.find(g => {
-               if (g.matchKey === matchKey) return true;
-               const isR = isRestMatch(g.rawRest || g.title, restName);
+               const isR = (g.matchKey === matchKey) || isRestMatch(g.rawRest || g.title, restName);
                const isD = isDishMatch(g.rawDish || g.title, dishName);
-               return isR && isD;
+               const isVar = isDishVariantCompatible(g.rawDish || g.title, g.lowestPrice, dishName, effectiveFinalPrice);
+               return isR && isD && isVar;
              });
 
              if (existingGroup) {
