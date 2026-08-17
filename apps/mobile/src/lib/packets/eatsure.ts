@@ -14,7 +14,7 @@ export const EatSurePacket: ProviderPacket = {
         checkoutUrl: 'https://www.eatsure.com/cart',
         actionTitle: 'Order on EatSure',
         desc: 'Foodcourt on an app. 100% safe & hygienic.',
-        regions: ['pan-india']
+        regions: ['all']
     },
     getSearchUrl: (query: string, location: any) => {
         return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}`;
