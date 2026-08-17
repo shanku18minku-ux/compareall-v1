@@ -280,6 +280,31 @@ export default function App() {
           const updated = [...prev];
           items.forEach((offer: any) => {
              const title = offer.title || offer.name || 'Dish Item';
+             const dishName = offer.dishName || offer.metadata?.dishName || title;
+             const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
+
+             // Strict Veg / Non-Veg guard
+             const isNonVeg = (n: string) => {
+               const s = (n || '').toLowerCase();
+               if (s.includes('veg biryani') || s.includes('paneer biryani') || s.includes('soya biryani') || s.includes('mushroom biryani') || s.includes('veg ') || s.includes('paneer') || s.includes('mushroom') || s.includes('corn') || s.includes('dal ')) {
+                 if (!s.includes('chicken') && !s.includes('mutton') && !s.includes('egg') && !s.includes('fish') && !s.includes('prawn')) {
+                   return false;
+                 }
+               }
+               const nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
+               return nonVegKeywords.some(k => s.includes(k));
+             };
+
+             const isPureVeg = (r: string) => {
+               const s = (r || '').toLowerCase();
+               const pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+               return pureVegKeywords.some(k => s.includes(k));
+             };
+
+             if (isNonVeg(dishName) && isPureVeg(restName)) {
+               return; // SKIP pure-veg restaurants for non-veg dishes
+             }
+
              const menuPrice = offer.menuPrice || (typeof offer.price === 'object' ? Number(offer.price.menuPrice || offer.price.finalPayablePrice) : (Number(offer.price) || 0));
              const basePrice = typeof offer.price === 'object' ? Number(offer.price.basePrice) : (Number(offer.originalPrice || offer.price) || menuPrice);
              const providerName = offer.providerName || 'Swiggy';

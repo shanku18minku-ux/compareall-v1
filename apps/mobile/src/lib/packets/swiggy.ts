@@ -117,6 +117,23 @@ export const SwiggyPacket: ProviderPacket = {
                 'chicken biryani': { 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 260, 'radhika': 280, 'delicious': 240, 'buddy': 240, 'param': 250, 'hm resort': 270, 'havaly': 260, 'lajawab': 280, 'default': 250 }
             };
 
+            function isNonVegDish(dishOrQueryName) {
+                var s = (dishOrQueryName || '').toLowerCase();
+                if (s.indexOf('veg biryani') !== -1 || s.indexOf('paneer biryani') !== -1 || s.indexOf('soya biryani') !== -1 || s.indexOf('mushroom biryani') !== -1 || s.indexOf('veg ') !== -1 || s.indexOf('paneer') !== -1 || s.indexOf('mushroom') !== -1 || s.indexOf('corn') !== -1 || s.indexOf('dal ') !== -1) {
+                    if (s.indexOf('chicken') === -1 && s.indexOf('mutton') === -1 && s.indexOf('egg') === -1 && s.indexOf('fish') === -1 && s.indexOf('prawn') === -1) {
+                        return false;
+                    }
+                }
+                var nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
+                return nonVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
+            }
+
+            function isPureVegRestaurant(restaurantName) {
+                var s = (restaurantName || '').toLowerCase();
+                var pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+                return pureVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
+            }
+
             function getAccurateDishPrice(queryStr, restaurantName, parsedPrice) {
                 if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 30 && !isNaN(parsedPrice)) {
                     return parsedPrice;
@@ -151,6 +168,11 @@ export const SwiggyPacket: ProviderPacket = {
                                 restList.forEach(function(rc) {
                                     var rInfo = (rc && rc.card && rc.card.card) ? rc.card.card.info : null;
                                     if (rInfo && rInfo.name) {
+                                        // Strict Veg / Non-Veg check: Skip pure veg restaurants for non-veg dishes
+                                        if (isNonVegDish(q) && isPureVegRestaurant(rInfo.name)) {
+                                            return;
+                                        }
+
                                         var rCost = parseFloat((rInfo.costForTwoMessage || '').replace(/[^0-9]/g, '')) || 200;
                                         var rSlug = (rInfo.slugs && rInfo.slugs.restaurant) ? rInfo.slugs.restaurant : '';
                                         var rHeader = (rInfo.aggregatedDiscountInfoV3 && rInfo.aggregatedDiscountInfoV3.header) ? rInfo.aggregatedDiscountInfoV3.header : '';
@@ -184,14 +206,18 @@ export const SwiggyPacket: ProviderPacket = {
                 }
                 
                 cardsList.forEach(function(c) {
-                    if (items.length >= 30) return;
                     var info = (c && c.card && c.card.card) ? c.card.card.info : null;
                     var restInfo = (c && c.card && c.card.card && c.card.card.restaurant) ? c.card.card.restaurant.info : null;
                     if (info && info.name) {
+                        var restName = (restInfo && restInfo.name) ? restInfo.name : '';
+                        // Strict Veg / Non-Veg check
+                        if ((isNonVegDish(info.name) || isNonVegDish(q)) && isPureVegRestaurant(restName)) {
+                            return;
+                        }
+
                         // 100% Real verified price from Swiggy menu
                         var rawPrice = info.price || info.defaultPrice || 0;
                         var price = rawPrice / 100;
-                        var restName = (restInfo && restInfo.name) ? restInfo.name : '';
                         price = getAccurateDishPrice(info.name || q, restName, price);
                         
                         if (price > 0) {

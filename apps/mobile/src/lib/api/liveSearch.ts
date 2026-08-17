@@ -121,15 +121,36 @@ function getAccurateDishPrice(queryStr: string, restaurantName: string, parsedPr
     return parsedPrice || 220;
 }
 
+function isNonVegDish(dishOrQueryName: string): boolean {
+    const s = (dishOrQueryName || '').toLowerCase();
+    if (s.includes('veg biryani') || s.includes('paneer biryani') || s.includes('soya biryani') || s.includes('mushroom biryani') || s.includes('veg ') || s.includes('paneer') || s.includes('mushroom') || s.includes('corn') || s.includes('dal ')) {
+        if (!s.includes('chicken') && !s.includes('mutton') && !s.includes('egg') && !s.includes('fish') && !s.includes('prawn')) {
+            return false;
+        }
+    }
+    const nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
+    return nonVegKeywords.some(k => s.includes(k));
+}
+
+function isPureVegRestaurant(restaurantName: string): boolean {
+    const s = (restaurantName || '').toLowerCase();
+    const pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+    return pureVegKeywords.some(k => s.includes(k));
+}
+
         cardsList.forEach((c: any) => {
-            if (items.length >= 35) return;
             const info = c.card?.card?.info;
             const restInfo = c.card?.card?.restaurant?.info;
 
             if (info && info.name) {
+                const restName = restInfo?.name || '';
+                // Strict Veg / Non-Veg check
+                if ((isNonVegDish(info.name) || isNonVegDish(query)) && isPureVegRestaurant(restName)) {
+                    return;
+                }
+
                 const rawPrice = info.price || info.defaultPrice || 0;
                 let price = rawPrice / 100;
-                const restName = restInfo?.name || '';
                 price = getAccurateDishPrice(info.name || query, restName, price);
 
                 if (price > 0) {

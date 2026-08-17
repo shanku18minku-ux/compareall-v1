@@ -169,6 +169,23 @@ export const ZomatoPacket: ProviderPacket = {
                 'chicken biryani': { 'kaveri': 250, 'biryani by food': 260, '8 star': 250, 'raj rasoi': 270, 'radhika': 290, 'delicious': 250, 'buddy': 250, 'param': 260, 'hm resort': 290, 'havaly': 280, 'lajawab': 300, 'default': 260 }
             };
 
+            function isNonVegDish(dishOrQueryName) {
+                var s = (dishOrQueryName || '').toLowerCase();
+                if (s.indexOf('veg biryani') !== -1 || s.indexOf('paneer biryani') !== -1 || s.indexOf('soya biryani') !== -1 || s.indexOf('mushroom biryani') !== -1 || s.indexOf('veg ') !== -1 || s.indexOf('paneer') !== -1 || s.indexOf('mushroom') !== -1 || s.indexOf('corn') !== -1 || s.indexOf('dal ') !== -1) {
+                    if (s.indexOf('chicken') === -1 && s.indexOf('mutton') === -1 && s.indexOf('egg') === -1 && s.indexOf('fish') === -1 && s.indexOf('prawn') === -1) {
+                        return false;
+                    }
+                }
+                var nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
+                return nonVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
+            }
+
+            function isPureVegRestaurant(restaurantName) {
+                var s = (restaurantName || '').toLowerCase();
+                var pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+                return pureVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
+            }
+
             function getAccurateDishPrice(queryStr, restaurantName, parsedPrice) {
                 if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 30 && !isNaN(parsedPrice)) {
                     return parsedPrice;
@@ -241,6 +258,11 @@ export const ZomatoPacket: ProviderPacket = {
                     var info = s.info || (s.restaurant && s.restaurant.info) || (s.restaurant) || (s.card && s.card.card && s.card.card.info);
                     if (info && info.name) {
                         var rName = info.name;
+                        // Strict Veg / Non-Veg check: Pure veg restaurants must not serve non-veg
+                        if (isNonVegDish(q) && isPureVegRestaurant(rName)) {
+                            return;
+                        }
+
                         var locality = (info.locality && info.locality.name) ? info.locality.name : '';
                         var rating = (info.rating && info.rating.aggregate_rating) ? String(info.rating.aggregate_rating) : '4.1';
                         
@@ -558,20 +580,44 @@ export const ZomatoPacket: ProviderPacket = {
 
                 if (!isDispatched && attempts >= 3) {
                     var defaultRestaurants = [
-                        { name: 'The Kaveri Food', slug: 'the-kaveri-food', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                        { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', base: 230, coupon: 'ZOMATO50', disc: 95 },
-                        { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
-                        { name: 'Delicious Cafe and Restaurant', slug: 'delicious-cafe-and-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                        { name: '8 Star Restaurant', slug: '8-star-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                        { name: 'Desi Chaap Di Hatti', slug: 'desi-chaap-di-hatti', base: 260, coupon: 'ZOMATO50', disc: 100 },
-                        { name: 'Jain Shree Veg Restaurant', slug: 'jain-shree-veg-restaurant', base: 310, coupon: 'ZOMATO50', disc: 100 },
-                        { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
-                        { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
-                        { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }
+                        { name: 'The Kaveri Food', slug: 'the-kaveri-food', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', isVegOnly: false, base: 250, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', isVegOnly: false, base: 270, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Delicious Cafe and Restaurant', slug: 'delicious-cafe-and-restaurant', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 },
+                        { name: '8 Star Restaurant', slug: '8-star-restaurant', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Desi Chaap Di Hatti', slug: 'desi-chaap-di-hatti', isVegOnly: true, base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Jain Shree Veg Restaurant', slug: 'jain-shree-veg-restaurant', isVegOnly: true, base: 310, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Havaly Restaurant', slug: 'havaly-restaurant', isVegOnly: false, base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', isVegOnly: false, base: 280, coupon: 'TRYNEW', disc: 100 },
+                        { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', isVegOnly: true, base: 220, coupon: 'WELCOME', disc: 80 },
+                        { name: 'Radhika Food Plaza', slug: 'radhika-food-plaza', isVegOnly: false, base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Raj Rasoi', slug: 'raj-rasoi', isVegOnly: false, base: 250, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Dosa Plaza', slug: 'dosa-plaza', isVegOnly: true, base: 210, coupon: 'ZOMATO50', disc: 90 },
+                        { name: 'Punjabi Kitchen Desi Masala', slug: 'punjabi-kitchen-desi-masala', isVegOnly: false, base: 250, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Buddy', slug: 'buddy', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'China Town', slug: 'china-town', isVegOnly: false, base: 230, coupon: 'ZOMATO50', disc: 90 },
+                        { name: 'FFC', slug: 'ffc', isVegOnly: false, base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Hind Biryani', slug: 'hind-biryani', isVegOnly: false, base: 220, coupon: 'ZOMATO50', disc: 80 },
+                        { name: 'Zaykaa Biryani Centre', slug: 'zaykaa-biryani-centre', isVegOnly: false, base: 230, coupon: 'ZOMATO50', disc: 90 },
+                        { name: 'Khushbu ki Rasoi', slug: 'khushbu-ki-rasoi', isVegOnly: false, base: 210, coupon: 'ZOMATO50', disc: 80 },
+                        { name: 'Madhun Sweets', slug: 'madhun-sweets', isVegOnly: true, base: 240, coupon: 'ZOMATO50', disc: 90 },
+                        { name: 'MAA VAISHNO BHOJNALAYA', slug: 'maa-vaishno-bhojnalaya', isVegOnly: true, base: 260, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'River View Resort', slug: 'river-view-resort', isVegOnly: false, base: 280, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Royal Rasoi', slug: 'royal-rasoi', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Chatori', slug: 'chatori', isVegOnly: false, base: 220, coupon: 'ZOMATO50', disc: 80 },
+                        { name: 'Wah Thali Veg Restaurant', slug: 'wah-thali-veg-restaurant', isVegOnly: true, base: 240, coupon: 'ZOMATO50', disc: 90 },
+                        { name: 'Biryani Box Only Veg', slug: 'biryani-box-only-veg', isVegOnly: true, base: 250, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Lazeez Restaurant', slug: 'lazeez-restaurant', isVegOnly: false, base: 310, coupon: 'ZOMATO50', disc: 100 },
+                        { name: '8 One Cafe & Restaurant', slug: '8-one-cafe-restaurant', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 }
                     ];
 
                     var fallbackItems = [];
                     defaultRestaurants.forEach(function(dr, i) {
+                        // Strict Veg / Non-Veg check
+                        if (isNonVegDish(q) && (dr.isVegOnly || isPureVegRestaurant(dr.name))) {
+                            return;
+                        }
+
                         var accuratePrice = getAccurateDishPrice(q, dr.name, dr.base);
                         var finalP = Math.max(50, accuratePrice - dr.disc);
                         var rOrderUrl = 'https://www.zomato.com/' + citySlug + '/' + dr.slug + '/order';
