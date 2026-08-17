@@ -146,18 +146,18 @@ export const ZomatoPacket: ProviderPacket = {
                 var locObj = { lat: userLat, lon: userLng, name: locName, address: locName, citySlug: citySlug };
                 localStorage.setItem('current_location', JSON.stringify(locObj));
                 localStorage.setItem('user_coords', JSON.stringify({ latitude: userLat, longitude: userLng }));
-                document.cookie = "lat=" + userLat + "; max-age=86400; path=/";
-                document.cookie = "lon=" + userLng + "; max-age=86400; path=/";
                 document.cookie = "location=" + encodeURIComponent(locName) + "; max-age=86400; path=/";
             } catch(e) {}
 
             var isDispatched = false;
+            var latestZomatoResults = null;
 
             function sendZomatoResults(items) {
                 if (!items || items.length === 0) return;
+                latestZomatoResults = items;
+                if (isDispatched) return;
                 try {
                     if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-                        if (isDispatched) return;
                         isDispatched = true;
                         window.ReactNativeWebView.postMessage(JSON.stringify({
                             type: 'SEARCH_RESULTS',
@@ -212,7 +212,7 @@ export const ZomatoPacket: ProviderPacket = {
                         var rawCost = costMatch ? parseInt(costMatch[1].replace(/,/g, ''), 10) : 180;
                         var dishPrice = (info.cfo && info.cfo.text) ? rawCost : Math.round(rawCost / 2);
                         if (dishPrice <= 0) dishPrice = 180;
-                        
+
                         var dishTitle = q.toUpperCase();
                         var displayTitle = dishTitle + ' - ' + rName;
                         var rOrderUrl = buildRestaurantOrderUrl(info);
@@ -508,6 +508,15 @@ export const ZomatoPacket: ProviderPacket = {
             var attempts = 0;
             var scrapeInterval = setInterval(function() {
                 attempts++;
+                if (isDispatched) {
+                    clearInterval(scrapeInterval);
+                    return;
+                }
+
+                if (latestZomatoResults && latestZomatoResults.length > 0) {
+                    sendZomatoResults(latestZomatoResults);
+                }
+
                 try {
                     var domResults = parseZomatoDom();
                     if (domResults && domResults.length > 0) {
@@ -515,71 +524,72 @@ export const ZomatoPacket: ProviderPacket = {
                     }
                 } catch(e) {}
 
-                if (isDispatched || attempts >= 3) {
-                    clearInterval(scrapeInterval);
-                    if (!isDispatched) {
-                        var defaultRestaurants = [
-                            { name: 'The Kaveri Food', slug: 'the-kaveri-food', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                            { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', base: 230, coupon: 'ZOMATO50', disc: 95 },
-                            { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Delicious Cafe and Restaurant', slug: 'delicious-cafe-and-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                            { name: '8 Star Restaurant', slug: '8-star-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
-                            { name: 'Desi Chaap Di Hatti', slug: 'desi-chaap-di-hatti', base: 260, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Jain Shree Veg Restaurant', slug: 'jain-shree-veg-restaurant', base: 280, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
-                            { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }
-                        ];
+                if (!isDispatched && attempts >= 3) {
+                    var defaultRestaurants = [
+                        { name: 'The Kaveri Food', slug: 'the-kaveri-food', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', base: 230, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Delicious Cafe and Restaurant', slug: 'delicious-cafe-and-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                        { name: '8 Star Restaurant', slug: '8-star-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                        { name: 'Desi Chaap Di Hatti', slug: 'desi-chaap-di-hatti', base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Jain Shree Veg Restaurant', slug: 'jain-shree-veg-restaurant', base: 280, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
+                        { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }
+                    ];
 
-                        var fallbackItems = [];
-                        defaultRestaurants.forEach(function(dr, i) {
-                            var finalP = Math.max(50, dr.base - dr.disc);
-                            var rOrderUrl = 'https://www.zomato.com/' + citySlug + '/' + dr.slug + '/order';
+                    var fallbackItems = [];
+                    defaultRestaurants.forEach(function(dr, i) {
+                        var finalP = Math.max(50, dr.base - dr.disc);
+                        var rOrderUrl = 'https://www.zomato.com/' + citySlug + '/' + dr.slug + '/order';
 
-                            fallbackItems.push({
-                                title: q.toUpperCase() + ' - ' + dr.name,
-                                providerName: 'Zomato',
-                                dishId: 'zomato_fb_' + i,
+                        fallbackItems.push({
+                            title: q.toUpperCase() + ' - ' + dr.name,
+                            providerName: 'Zomato',
+                            dishId: 'zomato_fb_' + i,
+                            dishName: q.toUpperCase(),
+                            restaurantName: dr.name,
+                            restaurantUrl: rOrderUrl,
+                            menuPrice: dr.base,
+                            autoCouponSavings: dr.disc,
+                            effectivePrice: finalP,
+                            price: {
+                                finalPayablePrice: finalP,
+                                menuPrice: dr.base,
+                                basePrice: dr.base,
+                                discount: dr.disc
+                            },
+                            offerText: '50% OFF up to ₹' + dr.disc + ' | Use ' + dr.coupon,
+                            couponCode: dr.coupon,
+                            couponDescription: 'Zomato Promo ' + dr.coupon,
+                            couponPercent: 50,
+                            couponMaxCap: dr.disc,
+                            couponFlat: 0,
+                            additionalOffers: [
+                                {
+                                    id: 'promo-' + dr.coupon,
+                                    type: 'coupon',
+                                    icon: '🏷️',
+                                    title: 'Promo Code: ' + dr.coupon,
+                                    code: dr.coupon,
+                                    description: 'Save ₹' + dr.disc
+                                }
+                            ],
+                            metadata: {
                                 dishName: q.toUpperCase(),
                                 restaurantName: dr.name,
                                 restaurantUrl: rOrderUrl,
-                                menuPrice: dr.base,
-                                autoCouponSavings: dr.disc,
-                                effectivePrice: finalP,
-                                price: {
-                                    finalPayablePrice: finalP,
-                                    menuPrice: dr.base,
-                                    basePrice: dr.base,
-                                    discount: dr.disc
-                                },
-                                offerText: '50% OFF up to ₹' + dr.disc + ' | Use ' + dr.coupon,
+                                citySlug: citySlug,
                                 couponCode: dr.coupon,
-                                couponDescription: 'Zomato Promo ' + dr.coupon,
-                                couponPercent: 50,
-                                couponMaxCap: dr.disc,
-                                couponFlat: 0,
-                                additionalOffers: [
-                                    {
-                                        id: 'promo-' + dr.coupon,
-                                        type: 'coupon',
-                                        icon: '🏷️',
-                                        title: 'Promo Code: ' + dr.coupon,
-                                        code: dr.coupon,
-                                        description: 'Save ₹' + dr.disc
-                                    }
-                                ],
-                                metadata: {
-                                    dishName: q.toUpperCase(),
-                                    restaurantName: dr.name,
-                                    restaurantUrl: rOrderUrl,
-                                    citySlug: citySlug,
-                                    couponCode: dr.coupon,
-                                    autoCouponSavings: dr.disc
-                                }
-                            });
+                                autoCouponSavings: dr.disc
+                            }
                         });
-                        sendZomatoResults(fallbackItems);
-                    }
+                    });
+                    sendZomatoResults(fallbackItems);
+                }
+
+                if (isDispatched || attempts >= 25) {
+                    clearInterval(scrapeInterval);
                 }
             }, 250);
         })();
