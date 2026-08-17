@@ -26,22 +26,25 @@ export const ZomatoPacket: ProviderPacket = {
     // Checks for UI elements visible to logged-in users on Zomato.
     getLoginDetectionScript: () => `
         (function() {
-            var currentUrl = window.location.href || '';
-            
-            // Never fire success while still on login, phone or OTP screens
-            if (currentUrl.indexOf('/login') !== -1 || currentUrl.indexOf('/auth') !== -1 || currentUrl.indexOf('/otp') !== -1) {
-                return;
-            }
-
             var checkLoginInterval = setInterval(function() {
                 try {
+                    var currentUrl = window.location.href || '';
                     var hasPhoneOrOtpInput = Boolean(
-                        document.querySelector('input[type="tel"], input[placeholder*="Phone"], input[name="phone"], input[name="mobile"], input[placeholder*="OTP"], input[type="number"]')
+                        document.querySelector('input[type="tel"], input[placeholder*="Phone" i], input[placeholder*="Mobile" i], input[name="phone"], input[name="mobile"], input[placeholder*="OTP" i], input[type="number"], [class*="otp" i]')
                     );
 
+                    // If user is still typing phone number or entering OTP, keep waiting
+                    if (hasPhoneOrOtpInput || currentUrl.indexOf('/auth') !== -1) {
+                        return;
+                    }
+
                     var isUserLoggedIn = Boolean(
-                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"]') ||
-                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1))
+                        document.querySelector('[data-testid="user-profile"], [class*="user-profile"], [class*="avatar"], [href*="/profile"], [href*="/user/"], [href*="/logout"], [class*="profile"]') ||
+                        (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1 || document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('logged_in') !== -1)) ||
+                        localStorage.getItem('user') ||
+                        localStorage.getItem('user_id') ||
+                        sessionStorage.getItem('user') ||
+                        (currentUrl.indexOf('/login') === -1 && currentUrl.indexOf('zomato.com') !== -1 && !hasPhoneOrOtpInput)
                     );
 
                     if (isUserLoggedIn && !hasPhoneOrOtpInput) {
@@ -51,7 +54,7 @@ export const ZomatoPacket: ProviderPacket = {
                         }
                     }
                 } catch(e) {}
-            }, 1000);
+            }, 800);
         })();
         true;
     `,
