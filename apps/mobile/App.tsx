@@ -417,8 +417,11 @@ export default function App() {
 
              const extractVariantTag = (dName: string) => {
                const s = (dName || '').toLowerCase();
-               const packM = s.match(/(?:pack\s*of\s*\d+|\d+\s*pcs?|\d+\s*pieces?|combo|thali|family\s*pack|serves\s*\d+)/i);
-               if (packM) return packM[0].replace(/\s+/g, '');
+               // Detect multi-serve / combo / party meals -> ALWAYS separate cards
+               if (s.match(/(?:meal\s*for\s*\d+|\d+\s*course\s*meal|party\s*(?:pack|box|bundle|for)|big\s*big|family\s*feast|serves\s*\d+|pack\s*of\s*\d+)/i)) return 'combo_meal';
+               if (s.match(/(?:\d+\s*pcs?|\d+\s*pieces?|\d+\s*pc\b)/i)) return `${s.match(/(\d+)\s*p/i)![1]}pc`;
+               if (s.includes('combo')) return 'combo';
+               if (s.includes('thali')) return 'thali';
                if (s.includes('half')) return 'half';
                if (s.includes('full')) return 'full';
                return 'standard';
@@ -427,12 +430,12 @@ export default function App() {
              const isDishVariantCompatible = (dish1: string, price1: number, dish2: string, price2: number) => {
                const tag1 = extractVariantTag(dish1);
                const tag2 = extractVariantTag(dish2);
-               if (tag1 !== tag2 && (tag1 !== 'standard' || tag2 !== 'standard')) {
-                 return false; // e.g. Pack of 4 vs Single
-               }
+               // Any non-standard variant mismatch = separate cards
+               if (tag1 !== tag2) return false;
+               // Price safety net: more than 2x difference = separate cards
                if (price1 > 0 && price2 > 0) {
                  const ratio = Math.max(price1, price2) / Math.min(price1, price2);
-                 if (ratio > 2.2) return false; // Extreme price divergence -> separate items
+                 if (ratio > 2.0) return false;
                }
                return true;
              };
@@ -475,17 +478,26 @@ export default function App() {
              const matchKey = cleanRest ? `${cleanDish}_${variantTag}__${cleanRest}` : `${cleanDish}_${variantTag}`;
 
              const isDishMatch = (d1: string, d2: string) => {
-                if (!d1 || !d2) return false;
-                const c1 = normalizeDish(d1);
-                const c2 = normalizeDish(d2);
-                if (c1 === c2) return true;
-                if (c1.includes(c2) || c2.includes(c1)) return true;
-                const w1 = c1.split(/\s+/).filter(w => w.length > 2);
-                const w2 = c2.split(/\s+/).filter(w => w.length > 2);
-                if (w1.length === 0 || w2.length === 0) return false;
-                const overlap = w1.filter(w => w2.includes(w));
-                return overlap.length >= 2 || (overlap.length >= 1 && (overlap.length / Math.min(w1.length, w2.length) >= 0.7));
-             };
+                 if (!d1 || !d2) return false;
+                 const c1 = normalizeDish(d1);
+                 const c2 = normalizeDish(d2);
+                 // Exact match
+                 if (c1 === c2) return true;
+                 // One fully contains the other (e.g. "Chicken Biryani" inside "Hyderabadi Chicken Biryani")
+                 // BUT: if the longer one is a combo/meal, block the merge
+                 const v1 = extractVariantTag(d1);
+                 const v2 = extractVariantTag(d2);
+                 if (v1 !== v2) return false; // Different variant types -> never merge
+                 if (c1.includes(c2) || c2.includes(c1)) return true;
+                 // Keyword overlap: require >= 2 meaningful words in common, AND >= 50% match ratio
+                 const stopDishWords = ['with', 'and', 'the', 'for', 'veg', 'gravy', 'dry', 'special', 'extra', 'new', 'fresh'];
+                 const w1 = c1.split(/\s+/).filter(w => w.length > 2 && !stopDishWords.includes(w));
+                 const w2 = c2.split(/\s+/).filter(w => w.length > 2 && !stopDishWords.includes(w));
+                 if (w1.length === 0 || w2.length === 0) return false;
+                 const overlap = w1.filter(w => w2.includes(w));
+                 // Require at least 2 overlapping words AND high ratio for safety
+                 return overlap.length >= 2 && (overlap.length / Math.max(w1.length, w2.length) >= 0.5);
+              };
 
              const existingGroup = updated.find(g => {
                const isR = (g.matchKey === matchKey) || isRestMatch(g.rawRest || g.title, restName);
