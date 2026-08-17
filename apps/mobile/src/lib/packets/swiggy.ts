@@ -169,7 +169,12 @@ export const SwiggyPacket: ProviderPacket = {
                                     var rInfo = (rc && rc.card && rc.card.card) ? rc.card.card.info : null;
                                     if (rInfo && rInfo.name) {
                                         // Skip closed restaurants
-                                        if (rInfo.availability && rInfo.availability.opened === false) {
+                                        var isRestClosed = false;
+                                        if (rInfo.availability && rInfo.availability.opened === false) isRestClosed = true;
+                                        if (rInfo.isOpen === false) isRestClosed = true;
+                                        if (rInfo.availability && rInfo.availability.nextOpenTimeMessage) isRestClosed = true;
+                                        
+                                        if (isRestClosed) {
                                             return;
                                         }
 
@@ -222,7 +227,12 @@ export const SwiggyPacket: ProviderPacket = {
                         }
                         
                         // Skip if restaurant is closed
-                        if (restInfo && restInfo.availability && restInfo.availability.opened === false) {
+                        var isRestClosed = false;
+                        if (restInfo && restInfo.availability && restInfo.availability.opened === false) isRestClosed = true;
+                        if (restInfo && restInfo.isOpen === false) isRestClosed = true;
+                        if (restInfo && restInfo.availability && restInfo.availability.nextOpenTimeMessage) isRestClosed = true;
+
+                        if (isRestClosed) {
                             return;
                         }
 
