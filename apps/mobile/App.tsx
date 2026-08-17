@@ -212,17 +212,39 @@ export default function App() {
     if (!manualLocationInput.trim()) return;
     setIsFetchingLocation(true);
     try {
-      const results = await Location.geocodeAsync(manualLocationInput);
-      if (results && results.length > 0) {
-        const { latitude, longitude } = results[0];
-        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-        
-        let name = manualLocationInput;
-        if (geocode && geocode.length > 0) {
-          const place = geocode[0];
-          name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      let name = manualLocationInput;
+
+      try {
+        const results = await Location.geocodeAsync(manualLocationInput);
+        if (results && results.length > 0) {
+          latitude = results[0].latitude;
+          longitude = results[0].longitude;
+          const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+          if (geocode && geocode.length > 0) {
+            const place = geocode[0];
+            name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
+          }
         }
-        
+      } catch (expoErr) {
+        // Fallback to OpenStreetMap Nominatim if Expo geocoding fails (e.g. due to denied location permissions)
+        try {
+            const res = await fetch(\`https://nominatim.openstreetmap.org/search?q=\${encodeURIComponent(manualLocationInput)}&format=json&limit=1\`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                latitude = parseFloat(data[0].lat);
+                longitude = parseFloat(data[0].lon);
+                name = manualLocationInput.charAt(0).toUpperCase() + manualLocationInput.slice(1);
+            } else {
+                throw new Error("Not found via fallback");
+            }
+        } catch (fallbackErr) {
+            throw expoErr; // throw original error if fallback also fails
+        }
+      }
+
+      if (latitude !== undefined && longitude !== undefined) {
         setLocation({ latitude, longitude, name });
         setIsLocationModalVisible(false);
         setManualLocationInput('');
