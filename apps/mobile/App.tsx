@@ -517,7 +517,7 @@ export default function App() {
                       if (!provider) return null;
                       const id = provider.id;
                       const packet = getPacket(id);
-                      const searchUrl = packet ? packet.getSearchUrl(activeQuery) : provider.url;
+                      const searchUrl = packet ? packet.getSearchUrl(activeQuery, location) : provider.url;
                       const injectionScript = packet ? packet.getExtractorInjection(searchUrl, activeQuery, location) : undefined;
                       
                       return (

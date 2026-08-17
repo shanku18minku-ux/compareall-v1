@@ -62,6 +62,16 @@ export const ZomatoPacket: ProviderPacket = {
         const userLng = location?.longitude || 84.0706;
         const searchQuery = query || '';
 
+        const cityName = (location?.name || 'medininagar').split(',')[0].trim().toLowerCase();
+        let citySlug = cityName.replace(/[^a-z0-9]/g, '');
+        if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon') || citySlug.includes('ncr')) {
+            citySlug = 'ncr';
+        } else if (citySlug.includes('bangalore') || citySlug.includes('bengaluru')) {
+            citySlug = 'bangalore';
+        } else if (!citySlug) {
+            citySlug = 'medininagar';
+        }
+
         return `
         (function() {
             console.log('[CompareAll Zomato Extractor] Started for query: ' + ${JSON.stringify(searchQuery)});
@@ -70,10 +80,11 @@ export const ZomatoPacket: ProviderPacket = {
             var userLng = ${userLng};
             var q = ${JSON.stringify(searchQuery)};
             var locName = ${JSON.stringify(location?.name || 'Medininagar, Jharkhand')};
+            var citySlug = ${JSON.stringify(citySlug)};
 
             // Set Zomato location in storage & cookies
             try {
-                var locObj = { lat: userLat, lon: userLng, name: locName, address: locName };
+                var locObj = { lat: userLat, lon: userLng, name: locName, address: locName, citySlug: citySlug };
                 localStorage.setItem('current_location', JSON.stringify(locObj));
                 localStorage.setItem('user_coords', JSON.stringify({ latitude: userLat, longitude: userLng }));
                 document.cookie = "lat=" + userLat + "; max-age=86400; path=/";
@@ -93,6 +104,21 @@ export const ZomatoPacket: ProviderPacket = {
                         data: items
                     }));
                 }
+            }
+
+            function buildRestaurantOrderUrl(info) {
+                if (!info) return 'https://www.zomato.com/' + citySlug + '/delivery';
+                var rSlug = (info.slugs && info.slugs.restaurant) ? info.slugs.restaurant : ((info.cft && info.cft.url) ? info.cft.url : '');
+                if (!rSlug && info.url) {
+                    rSlug = info.url.replace(/^https?:\/\/[^\/]+\//, '').replace(/^\//, '');
+                }
+                if (rSlug) {
+                    if (rSlug.startsWith(citySlug + '/')) {
+                        return 'https://www.zomato.com/' + rSlug.replace(/\/order$/, '') + '/order';
+                    }
+                    return 'https://www.zomato.com/' + citySlug + '/' + rSlug.replace(/\/order$/, '') + '/order';
+                }
+                return 'https://www.zomato.com/' + citySlug + '/delivery';
             }
 
             function processZomatoSections(sections) {
@@ -116,8 +142,7 @@ export const ZomatoPacket: ProviderPacket = {
 
                         var dishTitle = q.toUpperCase();
                         var displayTitle = dishTitle + ' - ' + rName;
-                        var rSlug = (info.slugs && info.slugs.restaurant) ? info.slugs.restaurant : '';
-                        var rUrl = rSlug ? ('https://www.zomato.com/' + rSlug) : 'https://www.zomato.com';
+                        var rOrderUrl = buildRestaurantOrderUrl(info);
 
                         items.push({
                             title: displayTitle,
@@ -125,7 +150,7 @@ export const ZomatoPacket: ProviderPacket = {
                             dishId: 'zomato_' + (info.resId || info.id || idx),
                             dishName: dishTitle,
                             restaurantName: rName,
-                            restaurantUrl: rUrl,
+                            restaurantUrl: rOrderUrl,
                             menuPrice: dishPrice,
                             autoCouponSavings: autoCouponSavings,
                             effectivePrice: finalPayable,
@@ -154,9 +179,10 @@ export const ZomatoPacket: ProviderPacket = {
                             metadata: {
                                 dishName: dishTitle,
                                 restaurantName: rName,
-                                restaurantUrl: rUrl,
+                                restaurantUrl: rOrderUrl,
                                 rating: rating,
                                 locality: locality,
+                                citySlug: citySlug,
                                 couponCode: couponCode,
                                 autoCouponSavings: autoCouponSavings
                             }
@@ -168,7 +194,7 @@ export const ZomatoPacket: ProviderPacket = {
 
             // 1. Direct Webroutes JSON Fetch (Immediate ~200ms)
             try {
-                fetch('/webroutes/getPage?page_type=SEARCH&q=' + encodeURIComponent(q))
+                fetch('/webroutes/getPage?page_type=DELIVERY&q=' + encodeURIComponent(q))
                     .then(function(r) { return r.json(); })
                     .then(function(json) {
                         var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
@@ -225,7 +251,8 @@ export const ZomatoPacket: ProviderPacket = {
                             var effectiveFinalPrice = Math.max(50, finalPrice - autoCouponSavings);
 
                             var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
-                            var restUrl = linkElem && linkElem.href ? linkElem.href : 'https://www.zomato.com';
+                            var rawHref = linkElem && linkElem.href ? linkElem.href : '';
+                            var restUrl = rawHref ? (rawHref.replace(/\/order$/, '') + '/order') : ('https://www.zomato.com/' + citySlug + '/delivery');
 
                             var displayTitle = dishTitle + ' - ' + restName;
 
@@ -267,6 +294,7 @@ export const ZomatoPacket: ProviderPacket = {
                                     restaurantUrl: restUrl,
                                     rating: rating,
                                     locality: locality,
+                                    citySlug: citySlug,
                                     couponCode: couponCode,
                                     autoCouponSavings: autoCouponSavings
                                 }
@@ -286,21 +314,23 @@ export const ZomatoPacket: ProviderPacket = {
                     clearInterval(scrapeInterval);
                     if (results.length === 0) {
                         var defaultRestaurants = [
-                            { name: 'H M Resort & Restaurant', url: 'https://www.zomato.com', base: 240, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Havaly Restaurant', url: 'https://www.zomato.com', base: 260, coupon: 'ZOMATO50', disc: 100 },
-                            { name: 'Lajawab Restaurant', url: 'https://www.zomato.com', base: 280, coupon: 'TRYNEW', disc: 100 },
-                            { name: 'Param Sweets & Restaurant', url: 'https://www.zomato.com', base: 220, coupon: 'WELCOME', disc: 80 }
+                            { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
+                            { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
+                            { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
+                            { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }
                         ];
 
                         defaultRestaurants.forEach(function(dr, i) {
                             var finalP = Math.max(50, dr.base - dr.disc);
+                            var rOrderUrl = 'https://www.zomato.com/' + citySlug + '/' + dr.slug + '/order';
+
                             results.push({
                                 title: q.toUpperCase() + ' - ' + dr.name,
                                 providerName: 'Zomato',
                                 dishId: 'zomato_fallback_' + i,
                                 dishName: q.toUpperCase(),
                                 restaurantName: dr.name,
-                                restaurantUrl: dr.url,
+                                restaurantUrl: rOrderUrl,
                                 menuPrice: dr.base,
                                 autoCouponSavings: dr.disc,
                                 effectivePrice: finalP,
@@ -329,7 +359,8 @@ export const ZomatoPacket: ProviderPacket = {
                                 metadata: {
                                     dishName: q.toUpperCase(),
                                     restaurantName: dr.name,
-                                    restaurantUrl: dr.url,
+                                    restaurantUrl: rOrderUrl,
+                                    citySlug: citySlug,
                                     couponCode: dr.coupon,
                                     autoCouponSavings: dr.disc
                                 }
@@ -345,5 +376,16 @@ export const ZomatoPacket: ProviderPacket = {
         `;
     },
 
-    getSearchUrl: (query: string) => `https://www.zomato.com/search?q=${encodeURIComponent(query)}`
+    getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
+        const cityName = (location?.name || 'medininagar').split(',')[0].trim().toLowerCase();
+        let citySlug = cityName.replace(/[^a-z0-9]/g, '');
+        if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon') || citySlug.includes('ncr')) {
+            citySlug = 'ncr';
+        } else if (citySlug.includes('bangalore') || citySlug.includes('bengaluru')) {
+            citySlug = 'bangalore';
+        } else if (!citySlug) {
+            citySlug = 'medininagar';
+        }
+        return `https://www.zomato.com/${citySlug}/delivery?q=${encodeURIComponent(query)}&zpwa=true`;
+    }
 };

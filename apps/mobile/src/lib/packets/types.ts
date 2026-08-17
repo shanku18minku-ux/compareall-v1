@@ -38,7 +38,7 @@ export interface ProviderPacket {
     getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => string;
 
     /**
-     * Generates the platform-specific search URL based on the user's query.
+     * Generates the platform-specific search URL based on the user's query and location.
      */
-    getSearchUrl: (query: string) => string;
+    getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => string;
 }
