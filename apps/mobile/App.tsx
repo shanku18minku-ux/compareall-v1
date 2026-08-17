@@ -47,6 +47,8 @@ export default function App() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [apiSearchQuery, setApiSearchQuery] = useState('');
+  const activeFiltersRef = useRef<{ restaurantKeyword?: string, maxPrice?: number }>({});
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
 
@@ -259,6 +261,33 @@ export default function App() {
     if (!q) return;
     setSearchQuery(q);
     setSearchValues(prev => ({ ...prev, query: q }));
+    
+    // Natural Language Parsing for Intent & Filters
+    const lQuery = q.toLowerCase();
+    let apiQ = q;
+    let filters: { restaurantKeyword?: string, maxPrice?: number } = {};
+    
+    // Pattern 1: "[dish] from [restaurant]"
+    const fromMatch = lQuery.match(/^(.*?)\s+from\s+(.+)$/i);
+    if (fromMatch) {
+       apiQ = fromMatch[1].trim();
+       filters.restaurantKeyword = fromMatch[2].trim();
+    } else {
+       // Pattern 2: "[dish] under [price]" or "[dish] [price] se kam"
+       const underMatch = lQuery.match(/^(.*?)\s+(?:under|below|<)\s+(\d+)/i);
+       const kamMatch = lQuery.match(/^(.*?)\s+(\d+)\s+se\s+kam/i);
+       if (underMatch) {
+          apiQ = underMatch[1].trim();
+          filters.maxPrice = parseInt(underMatch[2], 10);
+       } else if (kamMatch) {
+          apiQ = kamMatch[1].trim();
+          filters.maxPrice = parseInt(kamMatch[2], 10);
+       }
+    }
+    
+    setApiSearchQuery(apiQ);
+    activeFiltersRef.current = filters;
+
     setSearchNonce(Date.now());
     completedProvidersRef.current.clear();
     setIsSearching(true);
@@ -297,6 +326,9 @@ export default function App() {
                const cleanQ = (q || '').toLowerCase().trim();
                const cleanD = (dish || '').toLowerCase().trim();
                if (!cleanQ) return true;
+               
+               // If it's a restaurant keyword search, bypass strict dish checks
+               if (/(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(cleanQ)) return true;
 
                const proteins = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'paneer', 'mushroom', 'soya', 'veg', 'non-veg', 'nonveg'];
                const queryProteins = proteins.filter(p => cleanQ.includes(p));
@@ -326,7 +358,7 @@ export default function App() {
                return true;
              };
 
-             if (!isRelevantToQuery(dishName, searchQuery)) {
+             if (!isRelevantToQuery(dishName, apiSearchQuery || searchQuery)) {
                return; // SKIP irrelevant dishes
              }
 
@@ -386,6 +418,22 @@ export default function App() {
              const effectiveFinalPrice = isAccountConnected ? Math.max(20, menuPrice - autoCouponSavings) : menuPrice;
              const totalSavings = isAccountConnected ? Math.max(0, (basePrice - menuPrice) + autoCouponSavings) : 0;
 
+             // Apply NLP Filters (Restaurant, Price)
+             const currentFilters = activeFiltersRef.current;
+             if (currentFilters.restaurantKeyword) {
+                if (!restName.toLowerCase().includes(currentFilters.restaurantKeyword.toLowerCase())) {
+                   return; // Skip this offer because it's from the wrong restaurant
+                }
+             }
+             if (currentFilters.maxPrice) {
+                const futurePrice = menuPrice - potentialCouponSavings;
+                if (isAccountConnected) {
+                    if (effectiveFinalPrice > currentFilters.maxPrice) return;
+                } else {
+                    if (futurePrice > currentFilters.maxPrice) return;
+                }
+             }
+
              const offerPayload = {
                providerName,
                dishId: offer.dishId || offer.metadata?.dishId,
@@ -419,7 +467,7 @@ export default function App() {
              // Clean up restaurant searches posing as dish searches to prevent ugly titles
              const lDish = (dishName || '').toLowerCase();
              const lRest = (restName || '').toLowerCase();
-             const lQuery = (searchQuery || '').toLowerCase();
+             const lQuery = (apiSearchQuery || searchQuery || '').toLowerCase();
              
              const isRestaurantKeyword = /(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(lQuery);
              const isRestaurantSearch = Boolean(restName && (lDish === lRest || (lDish === lQuery && isRestaurantKeyword)));
@@ -555,7 +603,7 @@ export default function App() {
               g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
           });
           // Smart Relevance-First + Lowest Rupee Price Dual Ranking
-          const currentQuery = (searchQuery || searchValues.query || '').toLowerCase().trim();
+          const currentQuery = (apiSearchQuery || searchQuery || searchValues.query || '').toLowerCase().trim();
           const queryTokens = currentQuery.split(/\s+/).filter((t: string) => t.length > 1);
 
           const getRelevanceScore = (title: string) => {
@@ -681,7 +729,7 @@ export default function App() {
                    const categoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
                    const activeProviders = categoryProviders.length > 0 ? categoryProviders : (PROVIDERS.length > 0 ? [PROVIDERS[0]] : []);
 
-                   const activeQuery = searchQuery || searchValues.query || 'paneer';
+                   const activeQuery = apiSearchQuery || searchQuery || searchValues.query || 'paneer';
 
                    return activeProviders.map(provider => {
                       if (!provider) return null;
