@@ -344,9 +344,25 @@ export default function App() {
              const normalizeRest = (n: string) => {
                return (n || '').toLowerCase()
                  .replace(/\bh\s*m\b/g, 'hm')
-                 .replace(/\b(?:the|and|&|restaurant|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen|food)\b/g, '')
+                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge)\b/g, '')
                  .replace(/[^a-z0-9]/g, '')
                  .trim();
+             };
+
+             const isRestMatch = (r1: string, r2: string) => {
+               if (!r1 || !r2) return false;
+               const clean1 = normalizeRest(r1);
+               const clean2 = normalizeRest(r2);
+               if (clean1 === clean2) return true;
+               if (clean1 && clean2 && (clean1.includes(clean2) || clean2.includes(clean1))) return true;
+               
+               // Compare significant restaurant name keywords
+               const stopWords = ['the', 'and', 'restaurant', 'restro', 'hotel', 'cafe', 'food', 'foods', 'pure', 'veg', 'kitchen'];
+               const raw1 = (r1 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
+               const raw2 = (r2 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
+               if (raw1.length === 0 || raw2.length === 0) return false;
+               const overlap = raw1.filter(w => raw2.includes(w));
+               return overlap.length >= 1;
              };
 
              const cleanDish = normalizeDish(dishName);
@@ -355,27 +371,22 @@ export default function App() {
 
              const isDishMatch = (d1: string, d2: string) => {
                 if (!d1 || !d2) return false;
-                if (d1 === d2) return true;
-                if (d1.includes(d2) || d2.includes(d1)) return true;
-                const w1 = d1.split(/\s+/).filter(w => w.length > 2);
-                const w2 = d2.split(/\s+/).filter(w => w.length > 2);
+                const c1 = normalizeDish(d1);
+                const c2 = normalizeDish(d2);
+                if (c1 === c2) return true;
+                if (c1.includes(c2) || c2.includes(c1)) return true;
+                const w1 = c1.split(/\s+/).filter(w => w.length > 2);
+                const w2 = c2.split(/\s+/).filter(w => w.length > 2);
+                if (w1.length === 0 || w2.length === 0) return false;
                 const overlap = w1.filter(w => w2.includes(w));
                 return overlap.length >= 2 || (overlap.length >= 1 && (overlap.length / Math.min(w1.length, w2.length) >= 0.5));
              };
 
              const existingGroup = updated.find(g => {
                if (g.matchKey === matchKey) return true;
-               if (cleanRest && g.matchKey) {
-                 const parts = g.matchKey.split('__');
-                 const gDish = parts[0] || '';
-                 const gRest = parts[1] || '';
-                 if (gRest && cleanRest && (gRest === cleanRest || gRest.includes(cleanRest) || cleanRest.includes(gRest))) {
-                    if (isDishMatch(gDish, cleanDish)) {
-                      return true;
-                    }
-                 }
-               }
-               return false;
+               const isR = isRestMatch(g.rawRest || g.title, restName);
+               const isD = isDishMatch(g.rawDish || g.title, dishName);
+               return isR && isD;
              });
 
              if (existingGroup) {
@@ -389,6 +400,8 @@ export default function App() {
              } else {
                  updated.push({ 
                    title: displayTitle,
+                   rawDish: dishName,
+                   rawRest: restName,
                    matchKey: matchKey,
                    lowestPrice: effectiveFinalPrice, 
                    savings: autoCouponSavings, 
