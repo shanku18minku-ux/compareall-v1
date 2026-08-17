@@ -168,6 +168,11 @@ export const SwiggyPacket: ProviderPacket = {
                                 restList.forEach(function(rc) {
                                     var rInfo = (rc && rc.card && rc.card.card) ? rc.card.card.info : null;
                                     if (rInfo && rInfo.name) {
+                                        // Skip closed restaurants
+                                        if (rInfo.availability && rInfo.availability.opened === false) {
+                                            return;
+                                        }
+
                                         // Strict Veg / Non-Veg check: Skip pure veg restaurants for non-veg dishes
                                         if (isNonVegDish(q) && isPureVegRestaurant(rInfo.name)) {
                                             return;
@@ -210,6 +215,17 @@ export const SwiggyPacket: ProviderPacket = {
                     var restInfo = (c && c.card && c.card.card && c.card.card.restaurant) ? c.card.card.restaurant.info : null;
                     if (info && info.name) {
                         var restName = (restInfo && restInfo.name) ? restInfo.name : '';
+                        
+                        // Skip if dish is out of stock
+                        if (info.inStock === 0 || info.inStock === false || info.isAvailable === false) {
+                            return;
+                        }
+                        
+                        // Skip if restaurant is closed
+                        if (restInfo && restInfo.availability && restInfo.availability.opened === false) {
+                            return;
+                        }
+
                         // Strict Veg / Non-Veg check
                         if ((isNonVegDish(info.name) || isNonVegDish(q)) && isPureVegRestaurant(restName)) {
                             return;

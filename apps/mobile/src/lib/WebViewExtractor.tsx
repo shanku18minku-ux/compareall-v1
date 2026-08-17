@@ -35,23 +35,20 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
   const userLat = location?.latitude || 24.0416;
   const userLng = location?.longitude || 84.0706;
 
+  const locationName = location?.name || 'Your Location';
+
   const beforeContentScript = `
     (function() {
         var lat = ${userLat};
         var lng = ${userLng};
+        var locName = "${locationName.replace(/"/g, '\\"')}";
+        
+        // 1. Override Geolocation API
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition = function(success, error, options) {
                 if (success) {
                     success({
-                        coords: {
-                            latitude: lat,
-                            longitude: lng,
-                            accuracy: 10,
-                            altitude: null,
-                            altitudeAccuracy: null,
-                            heading: null,
-                            speed: null
-                        },
+                        coords: { latitude: lat, longitude: lng, accuracy: 10, altitude: null, altitudeAccuracy: null, heading: null, speed: null },
                         timestamp: Date.now()
                     });
                 }
@@ -63,6 +60,28 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                 return 1;
             };
         }
+
+        // 2. Inject Swiggy LocalStorage Location
+        try {
+            if (window.location.hostname.includes('swiggy')) {
+                localStorage.setItem('userLocation', JSON.stringify({
+                    lat: lat,
+                    lng: lng,
+                    address: locName,
+                    area: locName,
+                    id: ""
+                }));
+            }
+        } catch(e) {}
+
+        // 3. Inject Zomato Cookies
+        try {
+            if (window.location.hostname.includes('zomato')) {
+                // Set basic location cookies that Zomato might use as fallback
+                document.cookie = "loc=" + encodeURIComponent(JSON.stringify({lat: lat, lon: lng})) + "; path=/; domain=.zomato.com; max-age=3600";
+                localStorage.setItem('zomato_location', JSON.stringify({lat: lat, lon: lng}));
+            }
+        } catch(e) {}
     })();
     true;
   `;

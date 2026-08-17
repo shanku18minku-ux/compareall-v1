@@ -257,6 +257,11 @@ export const ZomatoPacket: ProviderPacket = {
                     if (!s) return;
                     var info = s.info || (s.restaurant && s.restaurant.info) || (s.restaurant) || (s.card && s.card.card && s.card.card.info);
                     if (info && info.name) {
+                        // Skip closed or unserviceable restaurants/items
+                        if (info.is_closed || info.is_unserviceable || info.is_out_of_stock || (s.restaurant && s.restaurant.is_closed) || info.availability === false) {
+                            return;
+                        }
+
                         var rName = info.name;
                         // Strict Veg / Non-Veg check: Pure veg restaurants must not serve non-veg
                         if (isNonVegDish(q) && isPureVegRestaurant(rName)) {
