@@ -74,7 +74,7 @@ export const ZomatoPacket: ProviderPacket = {
             'kolkata': ['kolkata', 'calcutta', 'howrah'],
             'chennai': ['chennai', 'madras'],
             'hyderabad': ['hyderabad', 'secunderabad'],
-            'pune': ['pune', 'pimpri'],
+            'pune': ['pune', 'pimpri', 'lonavala', 'khandala'],
             'ahmedabad': ['ahmedabad'],
             'jaipur': ['jaipur'],
             'lucknow': ['lucknow'],
