@@ -258,7 +258,19 @@ export const ZomatoPacket: ProviderPacket = {
                     var info = s.info || (s.restaurant && s.restaurant.info) || (s.restaurant) || (s.card && s.card.card && s.card.card.info);
                     if (info && info.name) {
                         // Skip closed or unserviceable restaurants/items
+                        var isZomatoClosed = false;
                         if (info.is_closed || info.is_unserviceable || info.is_out_of_stock || (s.restaurant && s.restaurant.is_closed) || info.availability === false) {
+                            isZomatoClosed = true;
+                        }
+                        // Check for textual 'Opens on/at' tags often used as overlay banners
+                        if (info.bottomText && info.bottomText.text && info.bottomText.text.toLowerCase().indexOf('opens') !== -1) {
+                            isZomatoClosed = true;
+                        }
+                        if (info.timing && info.timing.text && info.timing.text.toLowerCase().indexOf('opens') !== -1) {
+                            isZomatoClosed = true;
+                        }
+                        
+                        if (isZomatoClosed) {
                             return;
                         }
 
