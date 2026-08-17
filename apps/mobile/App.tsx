@@ -413,7 +413,17 @@ export default function App() {
                accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : []
              };
              
-             const displayTitle = restName ? `${dishName} - ${restName}` : dishName;
+             let displayTitle = restName ? `${dishName} - ${restName}` : dishName;
+
+             // Clean up restaurant searches posing as dish searches to prevent ugly titles
+             const lDish = (dishName || '').toLowerCase();
+             const lRest = (restName || '').toLowerCase();
+             const lQuery = (searchQuery || '').toLowerCase();
+             
+             const isRestaurantKeyword = /(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(lQuery);
+             if (restName && (lDish === lRest || (lDish === lQuery && isRestaurantKeyword))) {
+                 displayTitle = restName;
+             }
 
              const extractVariantTag = (dName: string) => {
                const s = (dName || '').toLowerCase();
