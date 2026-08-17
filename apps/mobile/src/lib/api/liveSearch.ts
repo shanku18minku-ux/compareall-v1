@@ -94,14 +94,17 @@ export async function fetchLiveSwiggyDishes(
         }
 
 const REAL_PRICES_CATALOG: Record<string, Record<string, number>> = {
-    'paneer chilli': { 'jain shree': 310, 'kaveri': 150, 'biryani by food': 150, '8 star': 150, 'raj rasoi': 190, 'radhika': 220, 'dosa plaza': 200, 'punjabi kitchen': 200, 'delicious': 210, 'buddy': 200, 'param': 200, 'hm resort': 240, 'havaly': 220, 'lajawab': 250, 'default': 220 },
-    'paneer masala': { 'jain shree': 340, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 250, 'radhika': 260, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 270, 'havaly': 260, 'lajawab': 280, 'default': 250 },
-    'paneer butter masala': { 'jain shree': 310, 'kaveri': 220, 'biryani by food': 230, '8 star': 220, 'raj rasoi': 240, 'radhika': 250, 'dosa plaza': 230, 'punjabi kitchen': 240, 'delicious': 230, 'buddy': 230, 'param': 230, 'hm resort': 260, 'havaly': 250, 'lajawab': 280, 'default': 240 },
-    'paneer tikka': { 'jain shree': 280, 'kaveri': 210, 'biryani by food': 240, '8 star': 200, 'raj rasoi': 220, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 230, 'delicious': 190, 'buddy': 210, 'param': 210, 'hm resort': 240, 'havaly': 230, 'lajawab': 270, 'default': 230 },
-    'chicken biryani': { 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 260, 'radhika': 280, 'delicious': 240, 'buddy': 240, 'param': 250, 'hm resort': 280, 'havaly': 270, 'lajawab': 290, 'default': 250 }
+    'paneer chilli': { 'jain shree': 310, 'kaveri': 150, 'biryani by food': 150, '8 star': 150, 'raj rasoi': 190, 'radhika': 220, 'dosa plaza': 200, 'punjabi kitchen': 200, 'delicious': 210, 'buddy': 200, 'param': 200, 'hm resort': 230, 'havaly': 220, 'lajawab': 240, 'default': 220 },
+    'paneer masala': { 'jain shree': 340, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 250, 'radhika': 260, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 260, 'havaly': 250, 'lajawab': 270, 'default': 240 },
+    'paneer butter masala': { 'jain shree': 310, 'kaveri': 220, 'biryani by food': 230, '8 star': 220, 'raj rasoi': 240, 'radhika': 250, 'dosa plaza': 230, 'punjabi kitchen': 240, 'delicious': 230, 'buddy': 230, 'param': 230, 'hm resort': 250, 'havaly': 240, 'lajawab': 270, 'default': 240 },
+    'paneer tikka': { 'jain shree': 280, 'kaveri': 210, 'biryani by food': 240, '8 star': 200, 'raj rasoi': 220, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 230, 'delicious': 190, 'buddy': 210, 'param': 210, 'hm resort': 230, 'havaly': 220, 'lajawab': 260, 'default': 230 },
+    'chicken biryani': { 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 260, 'radhika': 280, 'delicious': 240, 'buddy': 240, 'param': 250, 'hm resort': 270, 'havaly': 260, 'lajawab': 280, 'default': 250 }
 };
 
 function getAccurateDishPrice(queryStr: string, restaurantName: string, parsedPrice: number): number {
+    if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 30 && !isNaN(parsedPrice)) {
+        return parsedPrice;
+    }
     const cleanQ = (queryStr || '').toLowerCase().replace(/chilly|chily/g, 'chilli').replace(/tika/g, 'tikka').replace(/paneer|panir/g, 'paneer').replace(/biriyani|biryani/g, 'biryani').trim();
     const cleanR = (restaurantName || '').toLowerCase();
     for (const dKey in REAL_PRICES_CATALOG) {
@@ -112,7 +115,6 @@ function getAccurateDishPrice(queryStr: string, restaurantName: string, parsedPr
                     return rMap[rKey];
                 }
             }
-            if (parsedPrice && parsedPrice > 50) return parsedPrice;
             return rMap['default'] || 220;
         }
     }

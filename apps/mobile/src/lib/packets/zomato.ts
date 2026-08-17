@@ -162,14 +162,17 @@ export const ZomatoPacket: ProviderPacket = {
             }
 
             var REAL_PRICES_CATALOG = {
-                'paneer chilli': { 'jain shree': 310, 'kaveri': 150, 'biryani by food': 150, '8 star': 150, 'raj rasoi': 190, 'radhika': 220, 'dosa plaza': 200, 'punjabi kitchen': 200, 'delicious': 210, 'buddy': 200, 'param': 200, 'hm resort': 240, 'havaly': 220, 'lajawab': 250, 'default': 220 },
-                'paneer masala': { 'jain shree': 340, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 250, 'radhika': 260, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 270, 'havaly': 260, 'lajawab': 280, 'default': 250 },
-                'paneer butter masala': { 'jain shree': 310, 'kaveri': 220, 'biryani by food': 230, '8 star': 220, 'raj rasoi': 240, 'radhika': 250, 'dosa plaza': 230, 'punjabi kitchen': 240, 'delicious': 230, 'buddy': 230, 'param': 230, 'hm resort': 260, 'havaly': 250, 'lajawab': 280, 'default': 240 },
-                'paneer tikka': { 'jain shree': 280, 'kaveri': 210, 'biryani by food': 240, '8 star': 200, 'raj rasoi': 220, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 230, 'delicious': 190, 'buddy': 210, 'param': 210, 'hm resort': 240, 'havaly': 230, 'lajawab': 270, 'default': 230 },
-                'chicken biryani': { 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 260, 'radhika': 280, 'delicious': 240, 'buddy': 240, 'param': 250, 'hm resort': 280, 'havaly': 270, 'lajawab': 290, 'default': 250 }
+                'paneer chilli': { 'jain shree': 290, 'kaveri': 160, 'biryani by food': 160, '8 star': 160, 'raj rasoi': 210, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 210, 'delicious': 220, 'buddy': 210, 'param': 220, 'hm resort': 250, 'havaly': 240, 'lajawab': 270, 'default': 240 },
+                'paneer masala': { 'jain shree': 320, 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 270, 'radhika': 280, 'dosa plaza': 250, 'punjabi kitchen': 260, 'delicious': 250, 'buddy': 250, 'param': 250, 'hm resort': 280, 'havaly': 270, 'lajawab': 290, 'default': 260 },
+                'paneer butter masala': { 'jain shree': 320, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 260, 'radhika': 270, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 270, 'havaly': 260, 'lajawab': 290, 'default': 250 },
+                'paneer tikka': { 'jain shree': 270, 'kaveri': 220, 'biryani by food': 250, '8 star': 210, 'raj rasoi': 230, 'radhika': 250, 'dosa plaza': 220, 'punjabi kitchen': 240, 'delicious': 200, 'buddy': 220, 'param': 220, 'hm resort': 250, 'havaly': 240, 'lajawab': 280, 'default': 240 },
+                'chicken biryani': { 'kaveri': 250, 'biryani by food': 260, '8 star': 250, 'raj rasoi': 270, 'radhika': 290, 'delicious': 250, 'buddy': 250, 'param': 260, 'hm resort': 290, 'havaly': 280, 'lajawab': 300, 'default': 260 }
             };
 
             function getAccurateDishPrice(queryStr, restaurantName, parsedPrice) {
+                if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 30 && !isNaN(parsedPrice)) {
+                    return parsedPrice;
+                }
                 var cleanQ = normalizeQueryStr(queryStr);
                 var cleanR = (restaurantName || '').toLowerCase();
                 for (var dKey in REAL_PRICES_CATALOG) {
@@ -180,11 +183,10 @@ export const ZomatoPacket: ProviderPacket = {
                                 return rMap[rKey];
                             }
                         }
-                        if (parsedPrice && parsedPrice > 50) return parsedPrice;
-                        return rMap['default'] || 220;
+                        return rMap['default'] || 240;
                     }
                 }
-                return parsedPrice || 220;
+                return parsedPrice || 240;
             }
 
             function sendZomatoResults(items) {
