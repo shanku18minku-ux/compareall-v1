@@ -269,7 +269,6 @@ export default function App() {
       setIsSearching(false);
     }, 5500);
   };
-
   const handleDataExtracted = (data: any, providerId?: string) => {
     if (providerId) {
       completedProvidersRef.current.add(providerId);
@@ -279,9 +278,19 @@ export default function App() {
        setResults(prev => {
           const updated = [...prev];
           items.forEach((offer: any) => {
-             const title = offer.title || offer.name || 'Dish Item';
-             const dishName = offer.dishName || offer.metadata?.dishName || title;
-             const restName = offer.restaurantName || offer.metadata?.restaurantName || '';
+             const sanitizeCleanTitle = (str: string) => {
+               return (str || '')
+                 .replace(/\?{2,}/g, '')
+                 .replace(/_+/g, ' ')
+                 .replace(/[^\x20-\x7E\u0900-\u097F]/g, ' ')
+                 .replace(/\s+/g, ' ')
+                 .trim();
+             };
+
+             const rawTitle = offer.title || offer.name || 'Dish Item';
+             const title = sanitizeCleanTitle(rawTitle);
+             const dishName = sanitizeCleanTitle(offer.dishName || offer.metadata?.dishName || title);
+             const restName = sanitizeCleanTitle(offer.restaurantName || offer.metadata?.restaurantName || '');
 
              // Strict Query Relevance Filter
              const isRelevantToQuery = (dish: string, q: string) => {

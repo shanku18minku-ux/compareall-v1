@@ -478,7 +478,6 @@ export const ZomatoPacket: ProviderPacket = {
                 var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="search-card"], div[class*="js-search-result-li"], article[class*="search-result"], div[class*="RestaurantCard"], div[class*="card"]');
                 
                 cards.forEach(function(card) {
-                    if (items.length >= 25) return;
                     try {
                         var titleElem = card.querySelector('a.result-title, [class*="result-title"], h4, h5, div[class*="title"], div[class*="name"]');
                         var restName = titleElem ? titleElem.textContent.replace(/\s+/g, ' ').trim() : '';
@@ -608,6 +607,7 @@ export const ZomatoPacket: ProviderPacket = {
                         { name: 'Wah Thali Veg Restaurant', slug: 'wah-thali-veg-restaurant', isVegOnly: true, base: 240, coupon: 'ZOMATO50', disc: 90 },
                         { name: 'Biryani Box Only Veg', slug: 'biryani-box-only-veg', isVegOnly: true, base: 250, coupon: 'ZOMATO50', disc: 95 },
                         { name: 'Lazeez Restaurant', slug: 'lazeez-restaurant', isVegOnly: false, base: 310, coupon: 'ZOMATO50', disc: 100 },
+                        { name: 'Hotel Shivay Blue Green Leaf Restaurant', slug: 'hotel-shivay-blue-green-leaf-restaurant', isVegOnly: false, base: 260, coupon: 'ZOMATO50', disc: 100 },
                         { name: '8 One Cafe & Restaurant', slug: '8-one-cafe-restaurant', isVegOnly: false, base: 240, coupon: 'ZOMATO50', disc: 95 }
                     ];
 
