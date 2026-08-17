@@ -1,6 +1,7 @@
 import { ProviderPacket, ProviderMetadata } from './types';
 import { SwiggyPacket } from './swiggy';
 import { ZomatoPacket } from './zomato';
+import { EatSurePacket } from './eatsure';
 
 // Generic login detection helper
 const defaultLoginDetection = () => `
@@ -19,6 +20,7 @@ export const ALL_INTEGRATED_PROVIDERS: ProviderMetadata[] = [
     // 🍔 Food Delivery
     SwiggyPacket.metadata,
     ZomatoPacket.metadata,
+    EatSurePacket.metadata,
     {
         id: 'food-c',
         name: 'EatClub',

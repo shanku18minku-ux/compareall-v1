@@ -82,6 +82,19 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                 localStorage.setItem('zomato_location', JSON.stringify({lat: lat, lon: lng}));
             }
         } catch(e) {}
+
+        // 4. Inject EatSure LocalStorage
+        try {
+            if (window.location.hostname.includes('eatsure')) {
+                localStorage.setItem('userLocation', JSON.stringify({
+                    lat: lat,
+                    lng: lng,
+                    address: locName
+                }));
+                document.cookie = "latitude=" + lat + "; path=/; domain=.eatsure.com";
+                document.cookie = "longitude=" + lng + "; path=/; domain=.eatsure.com";
+            }
+        } catch(e) {}
     })();
     true;
   `;
