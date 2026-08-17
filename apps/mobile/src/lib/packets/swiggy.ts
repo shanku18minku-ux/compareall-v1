@@ -271,31 +271,33 @@ export const SwiggyPacket: ProviderPacket = {
                             var couponPercent = bestCoupon ? bestCoupon.percent : 0;
                             var couponMaxCap = bestCoupon ? bestCoupon.maxCap : 0;
                             var couponFlat = bestCoupon ? bestCoupon.flat : 0;
-                            var couponDesc = bestCoupon ? bestCoupon.description : (descMeta || discountHeader || '50% OFF up to ₹100');
+                            var couponDesc = bestCoupon ? bestCoupon.description : (descMeta || discountHeader || '');
 
                             var autoCouponSavings = 0;
                             if (maxSavings > 0) {
                                 autoCouponSavings = maxSavings;
-                            } else if (couponFlat > 0) {
-                                autoCouponSavings = couponFlat < finalPrice ? couponFlat : Math.round(finalPrice * 0.5);
+                            } else if (couponFlat > 0 && finalPrice >= (bestCoupon ? (bestCoupon.minOrder || 0) : 0)) {
+                                autoCouponSavings = Math.min(couponFlat, finalPrice - 20);
                             } else if (couponPercent > 0) {
                                 var rawDisc = Math.round((finalPrice * couponPercent) / 100);
                                 autoCouponSavings = couponMaxCap > 0 ? Math.min(rawDisc, couponMaxCap) : rawDisc;
-                            } else {
+                            } else if (discountHeader && (discountHeader.indexOf('%') !== -1 || discountHeader.indexOf('OFF') !== -1)) {
                                 var pMatch = (allDiscountText + ' ' + discountHeader).match(/(\\d+)\\s*%/);
-                                var pct = pMatch ? parseInt(pMatch[1], 10) : 50;
-                                var capM = (allDiscountText + ' ' + discountHeader).match(/(?:UPTO|UP\\s*TO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
-                                var cap = capM ? parseInt(capM[1], 10) : 100;
-                                autoCouponSavings = Math.min(Math.round((finalPrice * pct) / 100), cap);
+                                if (pMatch) {
+                                    var pct = parseInt(pMatch[1], 10);
+                                    var capM = (allDiscountText + ' ' + discountHeader).match(/(?:UPTO|UP\\s*TO|MAX|CAP)[\\s:₹rs\\.]*(\\d+)/i);
+                                    var cap = capM ? parseInt(capM[1], 10) : 100;
+                                    autoCouponSavings = Math.min(Math.round((finalPrice * pct) / 100), cap);
+                                }
                             }
 
-                            if (autoCouponSavings <= 0) {
-                                autoCouponSavings = Math.min(Math.round(finalPrice * 0.45), 95);
+                            if (autoCouponSavings > 0) {
+                                autoCouponSavings = Math.min(finalPrice - 20, autoCouponSavings);
                             }
-                            autoCouponSavings = Math.min(finalPrice - 40, autoCouponSavings);
                             if (autoCouponSavings < 0) autoCouponSavings = 0;
 
-                            var promoBadge = (couponDesc || discountHeader || '50% OFF') + (couponCode ? (' | Use ' + couponCode) : '');
+                            var promoBadge = couponDesc || discountHeader || '';
+                            if (promoBadge && couponCode) promoBadge += (' | Use ' + couponCode);
 
                             // Comprehensive platform offers (Coupons, Bank, Wallet, Swiggy One)
                             var platformOffers = [];

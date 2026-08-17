@@ -292,35 +292,29 @@ export const ZomatoPacket: ProviderPacket = {
                             }
                         }
 
-                        if (availableCoupons.length === 0) {
-                            availableCoupons.push({ code: 'ZOMATO50', description: '50% OFF up to ₹100', flat: 0, percent: 50, maxCap: 100, minOrder: 0 });
-                            availableCoupons.push({ code: 'ZOMATO200', description: 'Flat ₹200 OFF on orders above ₹449', flat: 200, percent: 0, maxCap: 200, minOrder: 449 });
-                        }
-
                         // Evaluate best coupon for dish price
                         var bestCoupon = null;
                         var maxSavings = 0;
-                        availableCoupons.forEach(function(cp) {
-                            var sav = 0;
-                            if (cp.flat > 0) {
-                                sav = (dishPrice >= cp.minOrder || cp.minOrder === 0) ? cp.flat : Math.round(cp.flat * (dishPrice / (cp.minOrder || 300)));
-                            } else if (cp.percent > 0) {
-                                var rawDisc = Math.round((dishPrice * cp.percent) / 100);
-                                sav = cp.maxCap > 0 ? Math.min(rawDisc, cp.maxCap) : rawDisc;
-                            }
-                            if (sav > maxSavings) {
-                                maxSavings = sav;
-                                bestCoupon = cp;
-                            }
-                        });
+                        if (availableCoupons.length > 0) {
+                            availableCoupons.forEach(function(cp) {
+                                var sav = 0;
+                                if (cp.flat > 0 && (dishPrice >= (cp.minOrder || 0))) {
+                                    sav = cp.flat;
+                                } else if (cp.percent > 0) {
+                                    var rawDisc = Math.round((dishPrice * cp.percent) / 100);
+                                    sav = cp.maxCap > 0 ? Math.min(rawDisc, cp.maxCap) : rawDisc;
+                                }
+                                if (sav > maxSavings) {
+                                    maxSavings = sav;
+                                    bestCoupon = cp;
+                                }
+                            });
+                        }
 
-                        var autoCouponSavings = maxSavings > 0 ? maxSavings : Math.min(Math.round(dishPrice * 0.45), 95);
-                        autoCouponSavings = Math.min(dishPrice - 40, autoCouponSavings);
-                        if (autoCouponSavings < 0) autoCouponSavings = 0;
-
-                        var finalPayable = Math.max(40, dishPrice - autoCouponSavings);
-                        var couponCode = bestCoupon ? bestCoupon.code : 'ZOMATO50';
-                        var couponDesc = bestCoupon ? bestCoupon.description : '50% OFF up to ₹100';
+                        var autoCouponSavings = maxSavings > 0 ? Math.min(dishPrice - 20, maxSavings) : 0;
+                        var finalPayable = Math.max(20, dishPrice - autoCouponSavings);
+                        var couponCode = bestCoupon ? bestCoupon.code : '';
+                        var couponDesc = bestCoupon ? bestCoupon.description : '';
 
                         var platformOffers = [];
                         availableCoupons.forEach(function(cp) {
