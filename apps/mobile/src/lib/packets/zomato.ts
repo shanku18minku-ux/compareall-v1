@@ -66,24 +66,65 @@ export const ZomatoPacket: ProviderPacket = {
         const searchQuery = query || '';
         const rawLoc = (location?.name || 'Medininagar, Jharkhand').toLowerCase();
 
-        let citySlug = 'medininagar';
-        if (rawLoc.includes('ncr') || rawLoc.includes('delhi') || rawLoc.includes('noida') || rawLoc.includes('gurgaon') || rawLoc.includes('ghaziabad') || rawLoc.includes('faridabad')) {
-            citySlug = 'ncr';
-        } else if (rawLoc.includes('bangalore') || rawLoc.includes('bengaluru')) {
-            citySlug = 'bangalore';
-        } else if (rawLoc.includes('mumbai') || rawLoc.includes('bombay') || rawLoc.includes('thane')) {
-            citySlug = 'mumbai';
-        } else if (rawLoc.includes('patna')) {
-            citySlug = 'patna';
-        } else if (rawLoc.includes('ranchi')) {
-            citySlug = 'ranchi';
-        } else if (rawLoc.includes('medininagar') || rawLoc.includes('daltonganj') || rawLoc.includes('palamu')) {
-            citySlug = 'medininagar';
-        } else {
+        let citySlug = 'ncr';
+        const cityMap: Record<string, string[]> = {
+            'ncr': ['delhi', 'noida', 'gurgaon', 'gurugram', 'ghaziabad', 'faridabad', 'ncr', 'new delhi'],
+            'bangalore': ['bangalore', 'bengaluru'],
+            'mumbai': ['mumbai', 'bombay', 'navi mumbai', 'thane'],
+            'kolkata': ['kolkata', 'calcutta', 'howrah'],
+            'chennai': ['chennai', 'madras'],
+            'hyderabad': ['hyderabad', 'secunderabad'],
+            'pune': ['pune', 'pimpri'],
+            'ahmedabad': ['ahmedabad'],
+            'jaipur': ['jaipur'],
+            'lucknow': ['lucknow'],
+            'patna': ['patna'],
+            'ranchi': ['ranchi'],
+            'jamshedpur': ['jamshedpur', 'tatanagar'],
+            'dhanbad': ['dhanbad'],
+            'bokaro': ['bokaro'],
+            'deoghar': ['deoghar'],
+            'hazaribagh': ['hazaribagh'],
+            'medininagar': ['medininagar', 'daltonganj', 'palamu'],
+            'chandigarh': ['chandigarh', 'mohali', 'panchkula'],
+            'indore': ['indore'],
+            'bhopal': ['bhopal'],
+            'kanpur': ['kanpur'],
+            'varanasi': ['varanasi', 'banaras', 'kashi'],
+            'prayagraj': ['prayagraj', 'allahabad'],
+            'agra': ['agra'],
+            'surat': ['surat'],
+            'vadodara': ['vadodara', 'baroda'],
+            'guwahati': ['guwahati'],
+            'bhubaneswar': ['bhubaneswar'],
+            'cuttack': ['cuttack'],
+            'coimbatore': ['coimbatore'],
+            'kochi': ['kochi', 'cochin'],
+            'trivandrum': ['trivandrum', 'thiruvananthapuram'],
+            'nagpur': ['nagpur'],
+            'visakhapatnam': ['visakhapatnam', 'vizag'],
+            'ludhiana': ['ludhiana'],
+            'amritsar': ['amritsar'],
+            'dehradun': ['dehradun']
+        };
+
+        let matched = false;
+        for (const [slug, keywords] of Object.entries(cityMap)) {
+            for (const kw of keywords) {
+                if (rawLoc.includes(kw)) {
+                    citySlug = slug;
+                    matched = true;
+                    break;
+                }
+            }
+            if (matched) break;
+        }
+
+        if (!matched) {
             const parts = rawLoc.split(',').map(p => p.trim());
             for (const p of parts) {
                 const s = p.replace(/[^a-z0-9]/g, '');
-                if (s.length > 2 && !s.match(/^(india|jharkhand|bihar|delhi|maharashtra|karnataka|uttarpradesh)$/)) {
+                if (s.length > 2 && !s.match(/^(india|jharkhand|bihar|delhi|maharashtra|karnataka|uttarpradesh|westbengal|tamilnadu|telangana|gujarat|rajasthan|madhyapradesh|punjab|haryana|odisha|kerala|assam)$/)) {
                     citySlug = s;
                     break;
                 }
