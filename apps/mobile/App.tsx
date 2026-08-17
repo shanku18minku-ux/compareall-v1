@@ -230,7 +230,7 @@ export default function App() {
       } catch (expoErr) {
         // Fallback to OpenStreetMap Nominatim if Expo geocoding fails (e.g. due to denied location permissions)
         try {
-            const res = await fetch(\`https://nominatim.openstreetmap.org/search?q=\${encodeURIComponent(manualLocationInput)}&format=json&limit=1\`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(manualLocationInput)}&format=json&limit=1`);
             const data = await res.json();
             if (data && data.length > 0) {
                 latitude = parseFloat(data[0].lat);
