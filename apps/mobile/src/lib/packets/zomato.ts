@@ -98,15 +98,18 @@ export const ZomatoPacket: ProviderPacket = {
             var isDispatched = false;
 
             function sendZomatoResults(items) {
-                if (isDispatched || !items || items.length === 0) return;
-                isDispatched = true;
-                if (window.ReactNativeWebView) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'SEARCH_RESULTS',
-                        success: true,
-                        data: items
-                    }));
-                }
+                if (!items || items.length === 0) return;
+                try {
+                    if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+                        if (isDispatched) return;
+                        isDispatched = true;
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'SEARCH_RESULTS',
+                            success: true,
+                            data: items
+                        }));
+                    }
+                } catch(e) {}
             }
 
             function buildRestaurantOrderUrl(info) {
@@ -129,15 +132,18 @@ export const ZomatoPacket: ProviderPacket = {
                 if (!sections || !Array.isArray(sections)) return items;
 
                 sections.forEach(function(s, idx) {
-                    var info = s.info || s.restaurant || s;
+                    if (!s) return;
+                    var info = s.info || (s.restaurant && s.restaurant.info) || (s.restaurant) || (s.card && s.card.card && s.card.card.info);
                     if (info && info.name) {
                         var rName = info.name;
                         var locality = (info.locality && info.locality.name) ? info.locality.name : '';
                         var rating = (info.rating && info.rating.aggregate_rating) ? String(info.rating.aggregate_rating) : '4.1';
                         
-                        var costText = (info.cfo && info.cfo.text) ? info.cfo.text : (info.costForTwoMessage || '');
-                        var costMatch = costText.match(/(?:₹|rs\.?)\s*(\d+)/i);
-                        var dishPrice = costMatch ? parseInt(costMatch[1], 10) : 180;
+                        var costText = (info.cfo && info.cfo.text) ? info.cfo.text : ((info.cft && info.cft.text) ? info.cft.text : (info.costForTwoMessage || ''));
+                        var costMatch = costText.match(/(?:₹|rs\.?)\s*(\d+[\d,]*)/i);
+                        var rawCost = costMatch ? parseInt(costMatch[1].replace(/,/g, ''), 10) : 180;
+                        var dishPrice = (info.cfo && info.cfo.text) ? rawCost : Math.round(rawCost / 2);
+                        if (dishPrice <= 0) dishPrice = 180;
                         
                         var couponCode = 'ZOMATO50';
                         var autoCouponSavings = Math.min(Math.round(dishPrice * 0.5), 100);
@@ -323,10 +329,16 @@ export const ZomatoPacket: ProviderPacket = {
             var attempts = 0;
             var scrapeInterval = setInterval(function() {
                 attempts++;
-                var results = parseZomatoDom();
-                if (results.length > 0 || attempts >= 2) {
+                try {
+                    var domResults = parseZomatoDom();
+                    if (domResults && domResults.length > 0) {
+                        sendZomatoResults(domResults);
+                    }
+                } catch(e) {}
+
+                if (isDispatched || attempts >= 4) {
                     clearInterval(scrapeInterval);
-                    if (results.length === 0) {
+                    if (!isDispatched) {
                         var defaultRestaurants = [
                             { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
                             { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
@@ -334,11 +346,12 @@ export const ZomatoPacket: ProviderPacket = {
                             { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }
                         ];
 
+                        var fallbackItems = [];
                         defaultRestaurants.forEach(function(dr, i) {
                             var finalP = Math.max(50, dr.base - dr.disc);
                             var rOrderUrl = 'https://www.zomato.com/' + citySlug + '/' + dr.slug + '/order';
 
-                            results.push({
+                            fallbackItems.push({
                                 title: q.toUpperCase() + ' - ' + dr.name,
                                 providerName: 'Zomato',
                                 dishId: 'zomato_fallback_' + i,
@@ -380,9 +393,8 @@ export const ZomatoPacket: ProviderPacket = {
                                 }
                             });
                         });
+                        sendZomatoResults(fallbackItems);
                     }
-
-                    sendZomatoResults(results);
                 }
             }, 300);
         })();

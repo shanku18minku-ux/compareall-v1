@@ -72,10 +72,18 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
     true;
   `;
 
-  // Watchdog timer: ensure extraction script runs even if page load event is delayed
+  // Watchdog timer: ensure extraction script runs promptly
   React.useEffect(() => {
     if (!isActive) return;
-    const timer = setTimeout(() => {
+    const t1 = setTimeout(() => {
+      if (webViewRef.current && injectedJavascript) {
+        try {
+          webViewRef.current.injectJavaScript(injectedJavascript);
+        } catch(e) {}
+      }
+    }, 600);
+
+    const t2 = setTimeout(() => {
       if (webViewRef.current && injectedJavascript) {
         try {
           webViewRef.current.injectJavaScript(injectedJavascript);
@@ -83,7 +91,10 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
       }
     }, 1500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [isActive, url, injectedJavascript]);
 
   if (!isActive) return null;
