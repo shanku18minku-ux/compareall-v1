@@ -14,7 +14,7 @@ export const EatSurePacket: ProviderPacket = {
         checkoutUrl: 'https://www.eatsure.com/cart',
         actionTitle: 'Order on EatSure',
         desc: 'Foodcourt on an app. 100% safe & hygienic.',
-        regions: ['all']
+        regions: ['mumbai', 'pune', 'delhi', 'ncr', 'gurgaon', 'noida', 'faridabad', 'ghaziabad', 'bangalore', 'bengaluru', 'hyderabad', 'chennai', 'kolkata', 'ahmedabad', 'surat', 'vadodara', 'jaipur', 'chandigarh', 'lucknow', 'kanpur', 'indore', 'bhopal', 'nagpur', 'patna', 'ludhiana', 'agra', 'nashik', 'meerut', 'rajkot', 'varanasi', 'srinagar', 'aurangabad', 'dhanbad', 'amritsar', 'navi mumbai', 'allahabad', 'ranchi', 'howrah', 'coimbatore', 'jabalpur', 'gwalior', 'vijayawada', 'jodhpur', 'madurai', 'raipur', 'kota', 'guwahati', 'solapur', 'hubli', 'bareilly', 'moradabad', 'mysore', 'gurugram', 'jalandhar', 'tiruchirappalli', 'bhubaneswar', 'salem', 'warangal', 'thiruvananthapuram', 'bhiwandi', 'saharanpur', 'gorakhpur', 'bikaner', 'amravati', 'jamshedpur', 'bhilai', 'cuttack', 'kochi', 'udaipur', 'bhavnagar', 'dehradun', 'asansol', 'nanded', 'ajmer', 'jamnagar', 'ujjain', 'sangli', 'jalgaon', 'akola', 'gulbarga', 'haldia', 'belgaum', 'rohtak']
     },
     getSearchUrl: (query: string, location: any) => {
         return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}`;
