@@ -46,34 +46,42 @@ export const SwiggyPacket: ProviderPacket = {
             setTimeout(function() { clearInterval(openInterval); }, 6000);
 
             var checkInterval = setInterval(function() {
-                var isLoginInputVisible = Boolean(
-                    document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"], input[inputmode="numeric"], input[placeholder*="OTP" i], [class*="otp" i]')
-                );
-                // User is still entering phone number or OTP, DO NOT connect
-                if (isLoginInputVisible) return;
-
-                var hasUserCookie = document.cookie && (document.cookie.indexOf('user_id=') !== -1 || document.cookie.indexOf('isLoggedIn=1') !== -1);
-                var hasUserStorage = false;
                 try {
-                    var u = localStorage.getItem('user') || localStorage.getItem('user_id');
-                    if (u && u !== 'null' && u !== 'undefined') hasUserStorage = true;
-                } catch(e) {}
+                    var currentUrl = window.location.href || '';
+                    var isLoginInputVisible = Boolean(
+                        document.querySelector('input[type="tel"], input[name="mobile"], [class*="loginInput"], [class*="phoneInput"], input[inputmode="numeric"], input[placeholder*="OTP" i], [class*="otp" i]')
+                    );
 
-                var hasUserEl = Boolean(
-                    document.querySelector('[class*="userAccount"], [data-testid="profile"], [href*="/my-account"]') ||
-                    Array.from(document.querySelectorAll('a, span, div')).find(function(el) {
-                        var txt = el.textContent.trim().toLowerCase();
-                        return txt === 'logout' || txt === 'sign out' || txt === 'my account';
-                    })
-                );
-
-                if ((hasUserCookie || hasUserStorage || hasUserEl) && !isLoginInputVisible) {
-                    clearInterval(checkInterval);
-                    if (window.ReactNativeWebView) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                    // User is still entering phone number or OTP, wait
+                    if (isLoginInputVisible || currentUrl.indexOf('/auth') !== -1) {
+                        return;
                     }
-                }
-            }, 800);
+
+                    var hasUserCookie = Boolean(document.cookie && (document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('isLoggedIn') !== -1 || document.cookie.indexOf('token') !== -1 || document.cookie.indexOf('auth') !== -1));
+                    var hasUserStorage = false;
+                    try {
+                        var u = localStorage.getItem('user') || localStorage.getItem('user_id') || localStorage.getItem('token') || sessionStorage.getItem('user');
+                        if (u && u !== 'null' && u !== 'undefined') hasUserStorage = true;
+                    } catch(e) {}
+
+                    var hasUserEl = Boolean(
+                        document.querySelector('[class*="userAccount"], [data-testid="profile"], [href*="/my-account"], [class*="avatar"], [class*="profile"]') ||
+                        Array.from(document.querySelectorAll('a, span, div')).find(function(el) {
+                            var txt = el.textContent.trim().toLowerCase();
+                            return txt === 'logout' || txt === 'sign out' || txt === 'my account';
+                        })
+                    );
+
+                    var isAwayFromAuth = currentUrl.indexOf('/auth') === -1 && currentUrl.indexOf('swiggy.com') !== -1;
+
+                    if ((hasUserCookie || hasUserStorage || hasUserEl || isAwayFromAuth) && !isLoginInputVisible) {
+                        clearInterval(checkInterval);
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+                        }
+                    }
+                } catch(e) {}
+            }, 700);
         })();
         true;
     `,
