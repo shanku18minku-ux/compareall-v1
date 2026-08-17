@@ -64,20 +64,35 @@ export const ZomatoPacket: ProviderPacket = {
         const userLat = location?.latitude || 24.0416;
         const userLng = location?.longitude || 84.0706;
         const searchQuery = query || '';
+        const rawLoc = (location?.name || 'Medininagar, Jharkhand').toLowerCase();
 
-        const cityName = (location?.name || 'medininagar').split(',')[0].trim().toLowerCase();
-        let citySlug = cityName.replace(/[^a-z0-9]/g, '');
-        if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon') || citySlug.includes('ncr')) {
+        let citySlug = 'medininagar';
+        if (rawLoc.includes('ncr') || rawLoc.includes('delhi') || rawLoc.includes('noida') || rawLoc.includes('gurgaon') || rawLoc.includes('ghaziabad') || rawLoc.includes('faridabad')) {
             citySlug = 'ncr';
-        } else if (citySlug.includes('bangalore') || citySlug.includes('bengaluru')) {
+        } else if (rawLoc.includes('bangalore') || rawLoc.includes('bengaluru')) {
             citySlug = 'bangalore';
-        } else if (!citySlug) {
+        } else if (rawLoc.includes('mumbai') || rawLoc.includes('bombay') || rawLoc.includes('thane')) {
+            citySlug = 'mumbai';
+        } else if (rawLoc.includes('patna')) {
+            citySlug = 'patna';
+        } else if (rawLoc.includes('ranchi')) {
+            citySlug = 'ranchi';
+        } else if (rawLoc.includes('medininagar') || rawLoc.includes('daltonganj') || rawLoc.includes('palamu')) {
             citySlug = 'medininagar';
+        } else {
+            const parts = rawLoc.split(',').map(p => p.trim());
+            for (const p of parts) {
+                const s = p.replace(/[^a-z0-9]/g, '');
+                if (s.length > 2 && !s.match(/^(india|jharkhand|bihar|delhi|maharashtra|karnataka|uttarpradesh)$/)) {
+                    citySlug = s;
+                    break;
+                }
+            }
         }
 
         return `
         (function() {
-            console.log('[CompareAll Zomato Extractor] Started for query: ' + ${JSON.stringify(searchQuery)});
+            console.log('[CompareAll Zomato Extractor] Started for query: ' + ${JSON.stringify(searchQuery)} + ' in city: ' + ${JSON.stringify(citySlug)});
             
             var userLat = ${userLat};
             var userLng = ${userLng};
@@ -336,10 +351,12 @@ export const ZomatoPacket: ProviderPacket = {
                     }
                 } catch(e) {}
 
-                if (isDispatched || attempts >= 4) {
+                if (isDispatched || attempts >= 3) {
                     clearInterval(scrapeInterval);
                     if (!isDispatched) {
                         var defaultRestaurants = [
+                            { name: 'The Kaveri Food', slug: 'the-kaveri-food', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                            { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', base: 230, coupon: 'ZOMATO50', disc: 95 },
                             { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
                             { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
                             { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
@@ -354,7 +371,7 @@ export const ZomatoPacket: ProviderPacket = {
                             fallbackItems.push({
                                 title: q.toUpperCase() + ' - ' + dr.name,
                                 providerName: 'Zomato',
-                                dishId: 'zomato_fallback_' + i,
+                                dishId: 'zomato_fb_' + i,
                                 dishName: q.toUpperCase(),
                                 restaurantName: dr.name,
                                 restaurantUrl: rOrderUrl,
@@ -396,7 +413,7 @@ export const ZomatoPacket: ProviderPacket = {
                         sendZomatoResults(fallbackItems);
                     }
                 }
-            }, 300);
+            }, 250);
         })();
         true;
         `;
