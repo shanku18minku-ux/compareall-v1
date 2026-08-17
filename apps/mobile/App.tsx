@@ -471,7 +471,10 @@ export default function App() {
                const raw2 = (r2 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
                if (raw1.length === 0 || raw2.length === 0) return false;
                const overlap = raw1.filter(w => raw2.includes(w));
-               return overlap.length >= 1;
+               // If both sides have 2+ meaningful words, require 2+ overlap (prevents "Param Sweets" ↔ "Param Paratha")
+               // If either side has only 1 meaningful word (e.g. "Lajawab"), 1 word overlap is enough
+               const minRequired = (raw1.length >= 2 && raw2.length >= 2) ? 2 : 1;
+               return overlap.length >= minRequired;
              };
 
              const cleanDish = normalizeDish(dishName);
