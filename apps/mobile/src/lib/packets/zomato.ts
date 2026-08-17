@@ -370,6 +370,10 @@ export const ZomatoPacket: ProviderPacket = {
                             { name: 'The Kaveri Food', slug: 'the-kaveri-food', base: 220, coupon: 'ZOMATO50', disc: 95 },
                             { name: 'Biryani By food Restaurant', slug: 'biryani-by-food-restaurant', base: 230, coupon: 'ZOMATO50', disc: 95 },
                             { name: 'H M Resort & Restaurant', slug: 'h-m-resort-restaurant', base: 240, coupon: 'ZOMATO50', disc: 100 },
+                            { name: 'Delicious Cafe and Restaurant', slug: 'delicious-cafe-and-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                            { name: '8 Star Restaurant', slug: '8-star-restaurant', base: 220, coupon: 'ZOMATO50', disc: 95 },
+                            { name: 'Desi Chaap Di Hatti', slug: 'desi-chaap-di-hatti', base: 260, coupon: 'ZOMATO50', disc: 100 },
+                            { name: 'Jain Shree Veg Restaurant', slug: 'jain-shree-veg-restaurant', base: 280, coupon: 'ZOMATO50', disc: 100 },
                             { name: 'Havaly Restaurant', slug: 'havaly-restaurant', base: 260, coupon: 'ZOMATO50', disc: 100 },
                             { name: 'Lajawab Restaurant', slug: 'lajawab-restaurant', base: 280, coupon: 'TRYNEW', disc: 100 },
                             { name: 'Param Sweets & Restaurant', slug: 'param-sweets-restaurant', base: 220, coupon: 'WELCOME', disc: 80 }

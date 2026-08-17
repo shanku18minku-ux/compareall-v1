@@ -348,6 +348,16 @@ export default function App() {
              const cleanRest = normalizeRest(restName);
              const matchKey = cleanRest ? `${cleanDish}__${cleanRest}` : cleanDish;
 
+             const isDishMatch = (d1: string, d2: string) => {
+                if (!d1 || !d2) return false;
+                if (d1 === d2) return true;
+                if (d1.includes(d2) || d2.includes(d1)) return true;
+                const w1 = d1.split(/\s+/).filter(w => w.length > 2);
+                const w2 = d2.split(/\s+/).filter(w => w.length > 2);
+                const overlap = w1.filter(w => w2.includes(w));
+                return overlap.length >= 2 || (overlap.length >= 1 && (overlap.length / Math.min(w1.length, w2.length) >= 0.5));
+             };
+
              const existingGroup = updated.find(g => {
                if (g.matchKey === matchKey) return true;
                if (cleanRest && g.matchKey) {
@@ -355,7 +365,7 @@ export default function App() {
                  const gDish = parts[0] || '';
                  const gRest = parts[1] || '';
                  if (gRest && cleanRest && (gRest === cleanRest || gRest.includes(cleanRest) || cleanRest.includes(gRest))) {
-                    if (gDish && (gDish.includes(cleanDish) || cleanDish.includes(gDish))) {
+                    if (isDishMatch(gDish, cleanDish)) {
                       return true;
                     }
                  }
