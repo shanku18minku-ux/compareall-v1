@@ -344,7 +344,7 @@ export default function App() {
 
              const isPureVeg = (r: string) => {
                const s = (r || '').toLowerCase();
-               const pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+               const pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti', 'chaap'];
                return pureVegKeywords.some(k => s.includes(k));
              };
 
@@ -451,7 +451,8 @@ export default function App() {
              const normalizeRest = (n: string) => {
                return (n || '').toLowerCase()
                  .replace(/\bh\s*m\b/g, 'hm')
-                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|sweets|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge)\b/g, '')
+                 // NOTE: 'sweets' NOT stripped — 'Param Sweets' must stay distinct from 'Param Paratha'
+                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge)\b/g, '')
                  .replace(/[^a-z0-9]/g, '')
                  .trim();
              };
@@ -463,8 +464,9 @@ export default function App() {
                if (clean1 === clean2) return true;
                if (clean1 && clean2 && (clean1.includes(clean2) || clean2.includes(clean1))) return true;
                
-               // Compare significant restaurant name keywords
+               // Compare significant restaurant name keywords (>=2 words must match for short names)
                const stopWords = ['the', 'and', 'restaurant', 'restro', 'hotel', 'cafe', 'food', 'foods', 'pure', 'veg', 'kitchen'];
+               // Keep 'sweets', 'paratha', 'biryani' etc. as meaningful differentiators — do NOT add to stopWords
                const raw1 = (r1 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
                const raw2 = (r2 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
                if (raw1.length === 0 || raw2.length === 0) return false;

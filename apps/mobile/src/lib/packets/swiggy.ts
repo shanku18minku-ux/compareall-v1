@@ -130,7 +130,7 @@ export const SwiggyPacket: ProviderPacket = {
 
             function isPureVegRestaurant(restaurantName) {
                 var s = (restaurantName || '').toLowerCase();
-                var pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti'];
+                var pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti', 'chaap'];
                 return pureVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
             }
 
