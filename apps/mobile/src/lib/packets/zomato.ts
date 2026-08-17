@@ -213,13 +213,133 @@ export const ZomatoPacket: ProviderPacket = {
                         var dishPrice = (info.cfo && info.cfo.text) ? rawCost : Math.round(rawCost / 2);
                         if (dishPrice <= 0) dishPrice = 180;
                         
-                        var couponCode = 'ZOMATO50';
-                        var autoCouponSavings = Math.min(Math.round(dishPrice * 0.5), 100);
-                        var finalPayable = Math.max(50, dishPrice - autoCouponSavings);
-
                         var dishTitle = q.toUpperCase();
                         var displayTitle = dishTitle + ' - ' + rName;
                         var rOrderUrl = buildRestaurantOrderUrl(info);
+
+                        // Extract all restaurant-specific tiered coupons (e.g. ₹200 OFF above ₹449, 50% OFF up to ₹100)
+                        var availableCoupons = [];
+                        var rawOffers = (info.offers || info.bulkOffers || []);
+                        if (Array.isArray(rawOffers)) {
+                            rawOffers.forEach(function(o) {
+                                if (!o) return;
+                                var text = o.text || o.title || o.header || '';
+                                var cCode = o.coupon_code || o.code || '';
+                                if (!cCode) {
+                                    var cm = text.match(/(?:USE\s+CODE|USE|CODE|COUPON)[\s:]+([A-Z0-9_-]+)/i);
+                                    if (cm && cm[1]) cCode = cm[1].toUpperCase();
+                                }
+                                var flatVal = o.flat_discount || 0;
+                                if (!flatVal) {
+                                    var flatM = text.match(/(?:FLAT[\s:₹rs\.]*(\d+)|(?:FLAT|₹|RS\.?)[\s]*(\d+)\s*OFF)/i);
+                                    if (flatM && text.indexOf('%') === -1) flatVal = parseInt(flatM[1] || flatM[2], 10);
+                                }
+                                var percVal = o.offer_percentage || o.percentage || 0;
+                                if (!percVal) {
+                                    var percM = text.match(/(\d+)\s*%/);
+                                    if (percM) percVal = parseInt(percM[1], 10);
+                                }
+                                var capVal = o.max_discount || o.maxCap || 0;
+                                if (!capVal) {
+                                    var capM = text.match(/(?:UP\s*TO|UPTO|MAX|CAP)[\s:₹rs\.]*(\d+)/i);
+                                    if (capM && capM[1]) capVal = parseInt(capM[1], 10);
+                                }
+                                var minOrderVal = o.min_order_amount || o.minOrder || 0;
+                                if (!minOrderVal) {
+                                    var minM = text.match(/(?:ABOVE|MIN(?:IMUM)?[\s:]*ORDER|ON ORDERS ABOVE)[\s:₹rs\.]*(\d+)/i);
+                                    if (minM && minM[1]) minOrderVal = parseInt(minM[1], 10);
+                                }
+                                if (cCode || flatVal > 0 || percVal > 0) {
+                                    availableCoupons.push({
+                                        code: cCode || ('ZOMATO' + (flatVal || percVal)),
+                                        description: text || (flatVal ? ('Flat ₹' + flatVal + ' OFF') : (percVal + '% OFF')),
+                                        flat: flatVal,
+                                        percent: percVal,
+                                        maxCap: capVal || 120,
+                                        minOrder: minOrderVal
+                                    });
+                                }
+                            });
+                        }
+
+                        var promoText = (info.offerText || (info.cfo && info.cfo.text) || info.costForTwoMessage || '');
+                        if (promoText && availableCoupons.length === 0) {
+                            var flatVal = 0;
+                            var flatM = promoText.match(/(?:FLAT[\s:₹rs\.]*(\d+)|(?:FLAT|₹|RS\.?)[\s]*(\d+)\s*OFF)/i);
+                            if (flatM && promoText.indexOf('%') === -1) flatVal = parseInt(flatM[1] || flatM[2], 10);
+                            var percVal = 0;
+                            var percM = promoText.match(/(\d+)\s*%/);
+                            if (percM) percVal = parseInt(percM[1], 10);
+                            var capVal = 0;
+                            var capM = promoText.match(/(?:UP\s*TO|UPTO|MAX|CAP)[\s:₹rs\.]*(\d+)/i);
+                            if (capM && capM[1]) capVal = parseInt(capM[1], 10);
+                            var minOrderVal = 0;
+                            var minM = promoText.match(/(?:ABOVE|MIN(?:IMUM)?[\s:]*ORDER|ON ORDERS ABOVE)[\s:₹rs\.]*(\d+)/i);
+                            if (minM && minM[1]) minOrderVal = parseInt(minM[1], 10);
+                            var cCode = '';
+                            var cm = promoText.match(/(?:USE\s+CODE|USE|CODE|COUPON)[\s:]+([A-Z0-9_-]+)/i);
+                            if (cm && cm[1]) cCode = cm[1].toUpperCase();
+
+                            if (cCode || flatVal > 0 || percVal > 0) {
+                                availableCoupons.push({
+                                    code: cCode || ('ZOMATO' + (flatVal || percVal)),
+                                    description: promoText,
+                                    flat: flatVal,
+                                    percent: percVal,
+                                    maxCap: capVal || 120,
+                                    minOrder: minOrderVal
+                                });
+                            }
+                        }
+
+                        if (availableCoupons.length === 0) {
+                            availableCoupons.push({ code: 'ZOMATO50', description: '50% OFF up to ₹100', flat: 0, percent: 50, maxCap: 100, minOrder: 0 });
+                            availableCoupons.push({ code: 'ZOMATO200', description: 'Flat ₹200 OFF on orders above ₹449', flat: 200, percent: 0, maxCap: 200, minOrder: 449 });
+                        }
+
+                        // Evaluate best coupon for dish price
+                        var bestCoupon = null;
+                        var maxSavings = 0;
+                        availableCoupons.forEach(function(cp) {
+                            var sav = 0;
+                            if (cp.flat > 0) {
+                                sav = (dishPrice >= cp.minOrder || cp.minOrder === 0) ? cp.flat : Math.round(cp.flat * (dishPrice / (cp.minOrder || 300)));
+                            } else if (cp.percent > 0) {
+                                var rawDisc = Math.round((dishPrice * cp.percent) / 100);
+                                sav = cp.maxCap > 0 ? Math.min(rawDisc, cp.maxCap) : rawDisc;
+                            }
+                            if (sav > maxSavings) {
+                                maxSavings = sav;
+                                bestCoupon = cp;
+                            }
+                        });
+
+                        var autoCouponSavings = maxSavings > 0 ? maxSavings : Math.min(Math.round(dishPrice * 0.45), 95);
+                        autoCouponSavings = Math.min(dishPrice - 40, autoCouponSavings);
+                        if (autoCouponSavings < 0) autoCouponSavings = 0;
+
+                        var finalPayable = Math.max(40, dishPrice - autoCouponSavings);
+                        var couponCode = bestCoupon ? bestCoupon.code : 'ZOMATO50';
+                        var couponDesc = bestCoupon ? bestCoupon.description : '50% OFF up to ₹100';
+
+                        var platformOffers = [];
+                        availableCoupons.forEach(function(cp) {
+                            platformOffers.push({
+                                id: 'promo-' + cp.code,
+                                type: 'coupon',
+                                icon: '🏷️',
+                                title: 'Promo Code: ' + cp.code,
+                                code: cp.code,
+                                description: cp.description
+                            });
+                        });
+                        platformOffers.push({
+                            id: 'zomato-gold-delivery',
+                            type: 'membership',
+                            icon: '👑',
+                            title: 'Zomato Gold: Free Delivery',
+                            description: 'Unlimited Free Delivery on orders above ₹199'
+                        });
 
                         items.push({
                             title: displayTitle,
@@ -237,22 +357,13 @@ export const ZomatoPacket: ProviderPacket = {
                                 basePrice: dishPrice,
                                 discount: autoCouponSavings
                             },
-                            offerText: '50% OFF up to ₹100 | Use ZOMATO50',
+                            offerText: couponDesc + ' | Use ' + couponCode,
                             couponCode: couponCode,
-                            couponDescription: '50% OFF up to ₹100',
-                            couponPercent: 50,
-                            couponMaxCap: 100,
-                            couponFlat: 0,
-                            additionalOffers: [
-                                {
-                                    id: 'promo-ZOMATO50',
-                                    type: 'coupon',
-                                    icon: '🏷️',
-                                    title: 'Promo Code: ZOMATO50',
-                                    code: 'ZOMATO50',
-                                    description: '50% OFF up to ₹100'
-                                }
-                            ],
+                            couponDescription: couponDesc,
+                            couponPercent: bestCoupon ? bestCoupon.percent : 50,
+                            couponMaxCap: bestCoupon ? bestCoupon.maxCap : 100,
+                            couponFlat: bestCoupon ? bestCoupon.flat : 0,
+                            additionalOffers: platformOffers,
                             metadata: {
                                 dishName: dishTitle,
                                 restaurantName: rName,
