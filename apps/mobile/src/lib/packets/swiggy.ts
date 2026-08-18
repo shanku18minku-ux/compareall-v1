@@ -526,6 +526,8 @@ export const SwiggyPacket: ProviderPacket = {
                                         extractedItems.push({
                                             title: fullTitle,
                                             providerName: 'Swiggy',
+                                            dishName: titleText,
+                                            restaurantName: restText || 'Unknown Restaurant',
                                             price: {
                                                 finalPayablePrice: price,
                                                 basePrice: Math.round(price * 1.15),
