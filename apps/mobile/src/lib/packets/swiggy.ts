@@ -88,8 +88,9 @@ export const SwiggyPacket: ProviderPacket = {
 
     // ── Extractor (for search results) ─────────────────────────────────────
     getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        const userLat = location?.latitude || 24.0416;
-        const userLng = location?.longitude || 84.0706;
+        const hasLocation = Boolean(location && location.latitude && location.longitude);
+        const userLat = hasLocation ? location!.latitude : 0;
+        const userLng = hasLocation ? location!.longitude : 0;
         const searchQuery = query || '';
 
         return `
@@ -98,7 +99,9 @@ export const SwiggyPacket: ProviderPacket = {
             
             var userLat = ${userLat};
             var userLng = ${userLng};
+            var hasLocation = ${hasLocation ? 'true' : 'false'};
             var q = ${JSON.stringify(searchQuery)};
+
 
             function normalizeQueryStr(str) {
                 return (str || '').toLowerCase()
@@ -480,7 +483,11 @@ export const SwiggyPacket: ProviderPacket = {
                 return items;
             }
 
-            // Step 1: In-Origin DAPI Call (Ultra-fast ~300ms, accurate, no DOM delays)
+            // Step 1: In-Origin DAPI Call (fast, accurate — only when location is known)
+            if (!hasLocation) {
+                // No location set — skip DAPI (would return wrong-city results) and go straight to DOM
+                fallbackDomScrape();
+            } else {
             var dapiPath = '/dapi/restaurants/search/v3?lat=' + userLat + '&lng=' + userLng + '&str=' + encodeURIComponent(q) + '&trackingId=undefined&submitAction=ENTER';
             
             fetch(dapiPath, {
@@ -505,6 +512,7 @@ export const SwiggyPacket: ProviderPacket = {
             .catch(function(err) {
                 fallbackDomScrape();
             });
+            } // end if hasLocation
 
             // Step 2: DOM Scrape fallback in case API shape changes
             function fallbackDomScrape() {

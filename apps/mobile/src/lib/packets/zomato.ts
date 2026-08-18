@@ -61,10 +61,11 @@ export const ZomatoPacket: ProviderPacket = {
 
     // ── Extractor (for search results) ─────────────────────────────────────
     getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        const userLat = location?.latitude || 24.0416;
-        const userLng = location?.longitude || 84.0706;
+        const hasLocation = Boolean(location && location.latitude && location.longitude);
+        const userLat = hasLocation ? location!.latitude : 0;
+        const userLng = hasLocation ? location!.longitude : 0;
         const searchQuery = query || '';
-        const rawLoc = (location?.name || 'Medininagar, Jharkhand').toLowerCase();
+        const rawLoc = (location?.name || '').toLowerCase();
 
         let citySlug = 'ncr';
         const cityMap: Record<string, string[]> = {
@@ -137,8 +138,9 @@ export const ZomatoPacket: ProviderPacket = {
             
             var userLat = ${userLat};
             var userLng = ${userLng};
+            var hasLocation = ${hasLocation ? 'true' : 'false'};
             var q = ${JSON.stringify(searchQuery)};
-            var locName = ${JSON.stringify(location?.name || 'Medininagar, Jharkhand')};
+            var locName = ${JSON.stringify(location?.name || '')};
             var citySlug = ${JSON.stringify(citySlug)};
 
             // Set Zomato location in storage & cookies
