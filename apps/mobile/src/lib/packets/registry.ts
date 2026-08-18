@@ -349,9 +349,12 @@ export const ALL_INTEGRATED_PROVIDERS: ProviderMetadata[] = [
 ];
 
 // Define the central registry of all available provider packets
+// ⚠️ IMPORTANT: Every platform that has a real ProviderPacket MUST be listed here.
+// If a packet is missing here, it falls back to the dummy defaultExtractor which sends NO data.
 const packets: Record<string, ProviderPacket> = {
     [SwiggyPacket.metadata.id]: SwiggyPacket,
     [ZomatoPacket.metadata.id]: ZomatoPacket,
+    [EatSurePacket.metadata.id]: EatSurePacket,  // ← REQUIRED: real extractor for EatSure
 };
 
 // Auto-register mock/generic packets for metadata without full packet yet

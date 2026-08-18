@@ -197,6 +197,7 @@ export default function App() {
 
       setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
       setResults([]);
+      completedProvidersRef.current.clear(); // Reset so new location fetches fresh data
       setSearchNonce(Date.now());
       setIsLocationModalVisible(false);
     } catch (error) {
@@ -267,9 +268,28 @@ export default function App() {
 
   const getFilteredProviders = () => {
      if (!location || !location.name) return PROVIDERS;
+
+     // Normalize location name: lowercase + map known aliases so region matching works reliably
      let locName = location.name.toLowerCase();
-     if (locName.includes('bengaluru')) {
-         locName += ' bangalore';
+
+     // Alias normalization — Nominatim/Expo geocoder may return different spellings
+     const aliasMap: Record<string, string[]> = {
+       'bangalore': ['bengaluru', 'bangaluru', 'banglore', 'bangalore'],
+       'delhi':     ['new delhi', 'ndmc', 'south delhi', 'north delhi', 'east delhi', 'west delhi', 'central delhi'],
+       'ncr':       ['noida', 'gurgaon', 'gurugram', 'faridabad', 'ghaziabad'],
+       'mumbai':    ['bombay', 'navi mumbai', 'thane', 'kalyan'],
+       'kolkata':   ['calcutta', 'howrah'],
+       'hyderabad': ['secunderabad', 'cyberabad'],
+       'chennai':   ['madras'],
+       'pune':      ['pimpri', 'chinchwad', 'pcmc'],
+     };
+
+     // Expand locName so all aliases are included in a single searchable string
+     let expandedLoc = locName;
+     for (const [canonical, aliases] of Object.entries(aliasMap)) {
+       if (aliases.some(a => locName.includes(a)) || locName.includes(canonical)) {
+         expandedLoc += ' ' + canonical + ' ' + aliases.join(' ');
+       }
      }
 
      const isRailwayStation = locName.includes('station') || locName.includes('railway') || locName.includes('junction') || locName.includes('cantt') || locName.includes('terminal');
@@ -280,9 +300,10 @@ export default function App() {
              return isRailwayStation;
          }
          if (p.regions.includes('all')) return true;
-         return p.regions.some(region => locName.includes(region.toLowerCase()));
+         return p.regions.some(region => expandedLoc.includes(region.toLowerCase()));
      });
   };
+
 
   // Disconnect logic
   const handleDisconnect = (id: string) => {
