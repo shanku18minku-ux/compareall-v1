@@ -196,6 +196,8 @@ export default function App() {
       }
 
       setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
+      setResults([]);
+      setSearchNonce(Date.now());
       setIsLocationModalVisible(false);
     } catch (error) {
       console.log('Error fetching location:', error);
@@ -248,6 +250,8 @@ export default function App() {
 
       if (latitude !== undefined && longitude !== undefined) {
         setLocation({ latitude, longitude, name });
+        setResults([]); // Clear stale results from previous locations
+        setSearchNonce(Date.now()); // Ensure WebViews remount if needed
         setIsLocationModalVisible(false);
         setManualLocationInput('');
       } else {
