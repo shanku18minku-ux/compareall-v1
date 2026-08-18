@@ -29,23 +29,25 @@ export const EatSurePacket: ProviderPacket = {
     getLoginDetectionScript: () => {
         return `
             (function() {
-                var isLoggedIn = false;
-                try {
-                    var token = localStorage.getItem('token') || localStorage.getItem('access_token');
-                    if (token) isLoggedIn = true;
-                } catch(e) {}
-                
-                if (isLoggedIn) {
-                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'LOGIN_SUCCESS',
-                        provider: 'EatSure'
-                    }));
-                }
+                var checkLoginInterval = setInterval(function() {
+                    var isLoggedIn = false;
+                    try {
+                        var token = localStorage.getItem('token') || localStorage.getItem('access_token');
+                        if (token) isLoggedIn = true;
+                    } catch(e) {}
+                    
+                    if (isLoggedIn) {
+                        clearInterval(checkLoginInterval);
+                        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'SUCCESS',
+                            provider: 'EatSure'
+                        }));
+                    }
+                }, 1000);
             })();
             true;
         `;
     },
-    successUrlPattern: 'eatsure.com',
 
     getSearchUrl: (query: string, location: any) => {
         // EatSure uses lat/lng query params for location-based results
