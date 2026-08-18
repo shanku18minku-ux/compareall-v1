@@ -365,12 +365,13 @@ export default function App() {
     setIsSearching(true);
     setResults([]);
 
-    // Keep extraction active for at least 5 seconds so both Swiggy & Zomato have ample time to deliver
+    // Keep extraction active for 18 seconds — EatSure polls every 1s for up to 15s
     setTimeout(() => {
       setIsSearching(false);
-    }, 5500);
+    }, 18000);
   };
   const handleDataExtracted = (data: any, providerId?: string) => {
+    // Always mark provider as done — even empty responses complete the extraction
     if (providerId) {
       completedProvidersRef.current.add(providerId);
     }
@@ -801,7 +802,8 @@ export default function App() {
                 <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8, textAlign: 'center' }}>Getting best options for you available in {location?.name || 'your area'}...</Text>
                 {(() => {
                    const categoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
-                   const activeProviders = categoryProviders.length > 0 ? categoryProviders : (PROVIDERS.length > 0 ? [PROVIDERS[0]] : []);
+                   // Only use providers that match current location — never fall back to wrong-location provider
+                   const activeProviders = categoryProviders;
 
                    const activeQuery = apiSearchQuery || searchQuery || searchValues.query || 'paneer';
 
