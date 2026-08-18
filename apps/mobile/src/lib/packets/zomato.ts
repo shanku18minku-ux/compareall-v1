@@ -587,7 +587,7 @@ export const ZomatoPacket: ProviderPacket = {
                     }
                 } catch(e) {}
 
-                if (!isDispatched && attempts >= 3) {
+                if (!isDispatched && attempts >= 25) {
                     // No real data found — send empty instead of injecting fake/wrong-city data
                     clearInterval(scrapeInterval);
                     if (window.ReactNativeWebView) {
@@ -597,10 +597,6 @@ export const ZomatoPacket: ProviderPacket = {
                             data: []
                         }));
                     }
-                }
-
-                if (isDispatched || attempts >= 25) {
-                    clearInterval(scrapeInterval);
                 }
             }, 250);
         })();

@@ -38,13 +38,22 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
   const userLat = hasLocation ? location!.latitude : 0;
   const userLng = hasLocation ? location!.longitude : 0;
   const locationName = location?.name || '';
+  // Use JSON.stringify for safe string escaping (handles newlines, backslashes, quotes)
+  const safeLocName = JSON.stringify(locationName);
 
   const beforeContentScript = `
     (function() {
         var lat = ${userLat};
         var lng = ${userLng};
         var hasLoc = ${hasLocation ? 'true' : 'false'};
-        var locName = "${locationName.replace(/"/g, '\\"')}";
+        var locName = ${safeLocName};
+
+        // Determine current platform from URL (hostname may be empty on initial load)
+        var currentUrl = window.location.href || document.referrer || '';
+        var isSwiggy = currentUrl.includes('swiggy');
+        var isZomato = currentUrl.includes('zomato');
+        var isEatSure = currentUrl.includes('eatsure');
+
 
         var needsReload = false;
 
@@ -83,7 +92,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 
         // 2. Inject Swiggy LocalStorage Location & Cookies
         try {
-            if (window.location.hostname.includes('swiggy')) {
+            if (isSwiggy) {
                 var lsLoc = localStorage.getItem('userLocation');
                 var parsedLs = lsLoc ? JSON.parse(lsLoc) : null;
                 if (!parsedLs || parsedLs.lat != lat) {
@@ -103,7 +112,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 
         // 3. Inject Zomato Cookies
         try {
-            if (window.location.hostname.includes('zomato')) {
+            if (isZomato) {
                 var zlocCookieVal = JSON.stringify({lat: lat, lon: lng});
                 checkAndSetCookie('loc', zlocCookieVal);
                 checkAndSetCookie('z_loc', zlocCookieVal);
@@ -118,7 +127,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 
         // 4. Inject EatSure LocalStorage
         try {
-            if (window.location.hostname.includes('eatsure')) {
+            if (isEatSure) {
                 var lsLoc = localStorage.getItem('userLocation');
                 var parsedLs = lsLoc ? JSON.parse(lsLoc) : null;
                 if (!parsedLs || parsedLs.lat != lat) {

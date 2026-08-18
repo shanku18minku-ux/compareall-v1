@@ -205,6 +205,7 @@ export default function App() {
       completedProvidersRef.current.clear(); // Reset so new location fetches fresh data
       // Only re-trigger WebViews if user already had an active search query
       if (searchQueryRef.current || apiSearchQueryRef.current) {
+        setIsSearching(true);
         setSearchNonce(Date.now());
       }
       setIsLocationModalVisible(false);
@@ -237,6 +238,9 @@ export default function App() {
             const place = geocode[0];
             name = [place.name, place.street, place.city, place.region].filter(Boolean).join(', ');
           }
+        } else {
+            // Throw error to trigger fallback block
+            throw new Error("Location geocoding returned empty results");
         }
       } catch (expoErr) {
         // Fallback to OpenStreetMap Nominatim if Expo geocoding fails (e.g. due to denied location permissions)
@@ -336,8 +340,8 @@ export default function App() {
     let apiQ = q;
     let filters: { restaurantKeyword?: string, maxPrice?: number } = {};
     
-    // Pattern 1: "[dish] from|in|at [restaurant]"
-    const fromMatch = lQuery.match(/^(.*?)\s+(?:from|in|at)\s+(.+)$/i);
+    // Pattern 1: "[dish] from|in|at [restaurant]" - Requires restaurant-sounding keyword to avoid overmatching "Pasta in white sauce"
+    const fromMatch = lQuery.match(/^(.*?)\s+(?:from|in|at)\s+(.*(?:restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point).*)$/i);
     // Pattern 2: "[dish] karo [restaurant] se" OR "[dish] [restaurant] se"
     const hindiSeMatch1 = lQuery.match(/^(.*?)\s+(?:karo\s+)?(.+?)\s+se$/i);
     // Pattern 3: "[restaurant] se [dish]"
@@ -380,7 +384,9 @@ export default function App() {
     setResults([]);
 
     // Keep extraction active for 18 seconds — EatSure polls every 1s for up to 15s
-    setTimeout(() => {
+    // Store timer handle and clear previous to prevent race conditions
+    if ((window as any).searchTimeoutTimer) clearTimeout((window as any).searchTimeoutTimer);
+    (window as any).searchTimeoutTimer = setTimeout(() => {
       setIsSearching(false);
     }, 18000);
   };
@@ -644,14 +650,11 @@ export default function App() {
                  const v1 = extractVariantTag(d1);
                  const v2 = extractVariantTag(d2);
                  if (v1 !== v2) return false; // Different variant types -> never merge
-                 if (c1.includes(c2) || c2.includes(c1)) return true;
-                 // Keyword overlap: require >= 2 meaningful words in common, AND >= 50% match ratio
-                 const stopDishWords = ['with', 'and', 'the', 'for', 'veg', 'gravy', 'dry', 'special', 'extra', 'new', 'fresh'];
-                 const w1 = c1.split(/\s+/).filter(w => w.length > 2 && !stopDishWords.includes(w));
-                 const w2 = c2.split(/\s+/).filter(w => w.length > 2 && !stopDishWords.includes(w));
+                 
+                 const w1 = c1.split(/\s+/).filter(w => w.length > 2);
+                 const w2 = c2.split(/\s+/).filter(w => w.length > 2);
                  if (w1.length === 0 || w2.length === 0) return false;
                  const overlap = w1.filter(w => w2.includes(w));
-                 // Require at least 2 overlapping words AND high ratio for safety
                  return overlap.length >= 2 && (overlap.length / Math.max(w1.length, w2.length) >= 0.5);
               };
 
@@ -839,6 +842,7 @@ export default function App() {
                            onDataExtracted={(data) => handleDataExtracted(data, id)}
                            onError={(err) => {
                              console.log('[CompareAll Extractor] Notice for provider:', id, err);
+                             completedProvidersRef.current.add(id);
                            }}
                            injectionScript={injectionScript}
                         />
@@ -1112,8 +1116,10 @@ export default function App() {
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e293b', textAlign: 'center' }}>
                     No dishes found for "{searchQuery}"
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 6, lineHeight: 18 }}>
-                    Try searching for popular items like Paneer, Chicken Biryani, Pizza, or Thali in {location?.name || 'Medininagar'}.
+                  <Text style={styles.emptySubtext}>
+                    {location?.name 
+                      ? `Try searching for popular items like Paneer, Chicken Biryani, Pizza, or Thali in ${location.name}.`
+                      : 'Please set your location to start searching for food across apps.'}
                   </Text>
                 </View>
               )}
