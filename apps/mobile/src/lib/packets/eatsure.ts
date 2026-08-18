@@ -83,47 +83,14 @@ export const EatSurePacket: ProviderPacket = {
                     var items = [];
                     
                     var bodyText = document.body.innerText.toLowerCase();
-                    if (bodyText.indexOf(q) === -1 && bodyText.indexOf(q.split(' ')[0]) === -1) {
-                        return false; 
-                    }
-
+                    // Removed strict bodyText.indexOf(q) check to allow mock items to generate even if page is blank or doesn't echo query
                     var cards = Array.from(document.querySelectorAll('div')).filter(function(el) {
                         return el.querySelector('img') && el.innerText && el.innerText.indexOf('₹') !== -1 && el.clientHeight > 100 && el.clientHeight < 500;
                     });
 
                     if (cards.length === 0) {
-                        var isNonVeg = isNonVegDish(q);
-                        var price = getAccurateDishPrice(q, null);
-                        
-                        items.push({
-                            title: q.charAt(0).toUpperCase() + q.slice(1) + (isNonVeg ? ' (Non-Veg)' : ' (Veg)'),
-                            providerName: 'EatSure',
-                            dishId: 'es_' + Date.now(),
-                            dishName: q.toUpperCase(),
-                            restaurantName: 'EatSure Brands (Faasos, OvenStory, etc.)',
-                            restaurantUrl: 'https://www.eatsure.com/search?q=' + encodeURIComponent(q),
-                            menuPrice: price,
-                            autoCouponSavings: 0,
-                            effectivePrice: price,
-                            price: {
-                                finalPayablePrice: price,
-                                menuPrice: price,
-                                basePrice: price,
-                                discount: 0
-                            },
-                            offerText: 'FREE Delivery above ₹199',
-                            couponCode: 'SURE199',
-                            additionalOffers: [
-                                {
-                                    code: 'SURE199',
-                                    description: 'FREE Delivery above ₹199',
-                                    flat: 40,
-                                    percent: 0,
-                                    maxCap: 40,
-                                    minOrder: 199
-                                }
-                            ]
-                        });
+                        return false; // Keep waiting for real DOM data to load
+
                     } else {
                         cards.forEach(function(card) {
                             var text = card.innerText || '';
@@ -211,6 +178,9 @@ export const EatSurePacket: ProviderPacket = {
                     attempts++;
                     var found = extractData();
                     if (found || attempts > 15) {
+                        if (!found && attempts > 15) {
+                            sendEatSureResults([]);
+                        }
                         clearInterval(timer);
                     }
                 }, 1000);
