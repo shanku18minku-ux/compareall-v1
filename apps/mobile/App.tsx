@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration } from 'react-native';
+import { Image,  StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Modal, Vibration  } from 'react-native';
 import * as Location from 'expo-location';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
@@ -48,6 +48,10 @@ export default function App() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [apiSearchQuery, setApiSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isVegMode, setIsVegMode] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Refs to avoid stale closure in async callbacks (fetchCurrentLocation, handleManualLocation)
   const searchQueryRef = useRef('');
   const apiSearchQueryRef = useRef('');
@@ -368,7 +372,7 @@ export default function App() {
     } else if (hindiSeMatch2) {
        apiQ = hindiSeMatch2[2].trim();
        let rawRest = hindiSeMatch2[1].trim();
-       rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\b/ig, '').trim();
+       rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point|dominos|pizza|burger|mcdonalds|kfc|subway|behrouz)\b/ig, '').trim();
        filters.restaurantKeyword = rawRest || hindiSeMatch2[1].trim();
     } else {
        // Pattern 2: "[dish] under [price]" or "[dish] [price] se kam"
@@ -812,135 +816,141 @@ export default function App() {
         onClearCart={handleClearCart}
         onCheckout={handleCartCheckout}
         onClose={() => setIsCartModalVisible(false)}
-      />      {/* Restaurant Menu Modal */}
-      <Modal visible={!!selectedMenuRest} animationType="slide" transparent={false} onRequestClose={() => setSelectedMenuRest(null)}>
-        <SafeAreaView style={{flex: 1, backgroundColor: '#f9f9f9'}}>
-          {/* Header */}
-          <View style={styles.proModalHeader}>
-            <TouchableOpacity onPress={() => setSelectedMenuRest(null)} style={styles.proBackBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-              <Text style={{fontSize: 24, color: '#333'}}>?</Text>
-            </TouchableOpacity>
-            <Text style={styles.proModalTitle} numberOfLines={1}>{selectedMenuRest?.restaurantName}</Text>
-          </View>
+      />
 
-          {/* Search & Filters */}
-          <View style={styles.proSearchSection}>
-            <View style={styles.proSearchBar}>
-              <Text style={{color: '#888', fontSize: 16, marginRight: 8}}>??</Text>
-              <TextInput placeholder="Search dishes or categories" placeholderTextColor="#888" style={{flex: 1, fontSize: 15, color: '#333'}} editable={false} />
-              <View style={styles.proMenuBtn}>
-                <Text style={{fontWeight: 'bold', color: '#555', fontSize: 14}}>= Menu</Text>
-              </View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.proFilterChips}>
-              <View style={styles.proChipActive}><Text style={styles.proChipTextActive}>All</Text></View>
-              <View style={styles.proChip}><Text style={styles.proChipText}>Veg</Text></View>
-              <View style={styles.proChip}><Text style={styles.proChipText}>Non-veg</Text></View>
-              <View style={styles.proChip}><Text style={styles.proChipText}>Sort</Text></View>
-              <View style={styles.proChip}><Text style={styles.proChipText}>Swiggy exclusive</Text></View>
-            </ScrollView>
-          </View>
 
-          {/* Recommended Section */}
-          <View style={styles.proSectionHeader}>
-            <Text style={styles.proSectionTitle}>Recommended</Text>
-            <Text style={styles.proSectionExpand}>^</Text>
-          </View>
-
-          <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 40}}>
-            {selectedMenuRest && (() => {
-              let displayDishes = selectedMenuRest.dishes;
-              const activeQuery = (apiSearchQuery || searchQuery || searchValues.query || '').toLowerCase().trim();
-              if (activeQuery) {
-                  const exactMatches = selectedMenuRest.dishes.filter((d: any) => d.dishName.toLowerCase().includes(activeQuery));
-                  if (exactMatches.length > 0) {
-                      displayDishes = exactMatches;
-                  }
-              }
-              
-              return displayDishes.map((dish: any, dIdx: number) => {
-                  const bestOffer = dish.offers[0]; // Assuming sorted by price
-                  const bestProvColor = PROVIDERS.find(p => p.name.toLowerCase() === bestOffer?.providerName.toLowerCase())?.color || '#16a34a';
-
-                  return (
-                      <View key={dIdx} style={styles.proDishRow}>
-                          <View style={styles.proDishInfo}>
-                              {/* Best Price Badge */}
-                              {bestOffer && (
-                                <View style={styles.proBestPriceBadge}>
-                                    <View style={[styles.proVegIcon, {borderColor: bestOffer.isVeg ? '#16a34a' : '#ef4444'}]}>
-                                        <View style={[styles.proVegDot, {backgroundColor: bestOffer.isVeg ? '#16a34a' : '#ef4444'}]} />
+      {/* Restaurant Menu Modal */}
+      <Modal visible={!!selectedMenuRest} animationType="slide" transparent={true} onRequestClose={() => setSelectedMenuRest(null)}>
+          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'}}>
+              <View style={{flex: 0.9, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 10}}>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomWidth: 1, borderBottomColor: '#e2e8f0'}}>
+                      <Text style={{fontSize: 20, fontWeight: 'bold', color: '#1e293b'}}>{selectedMenuRest?.restaurantName}</Text>
+                      <TouchableOpacity onPress={() => setSelectedMenuRest(null)} style={{padding: 8, backgroundColor: '#f1f5f9', borderRadius: 20}}>
+                          <Text style={{fontSize: 16, fontWeight: 'bold', color: '#64748b'}}>✕</Text>
+                      </TouchableOpacity>
+                  </View>
+                  <ScrollView style={{flex: 1, padding: 16}}>
+                      {selectedMenuRest && (() => {
+                          let displayDishes = selectedMenuRest.dishes;
+                          const activeQuery = (apiSearchQuery || searchQuery || searchValues.query || '').toLowerCase().trim();
+                          if (activeQuery) {
+                              const exactMatches = selectedMenuRest.dishes.filter((d: any) => d.dishName.toLowerCase().includes(activeQuery));
+                              if (exactMatches.length > 0) {
+                                  displayDishes = exactMatches;
+                              }
+                          }
+                          return (
+                             <View style={styles.dishesContainer}>
+                             {displayDishes.map((dish: any, dIdx: number) => {
+                                return (
+                                    <View key={dIdx} style={styles.dishCard}>
+                                        <Text style={styles.dishTitle}>{dish.dishName}</Text>
+                                        <View style={styles.dishBestPriceBox}>
+                                            <Text style={styles.dishBestPrice}>
+                                                🔥 Best Price: ₹{dish.lowestPrice}
+                                            </Text>
+                                        </View>
+                                        
+                                        {dish.offers.map((offer: any, oIdx: number) => {
+                                            const providerData = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
+                                            const offProvId = providerData?.id || PROVIDERS[0]?.id;
+                                            const offProvIcon = providerData?.icon || '🍽️';
+                                            const offItemId = `${offProvId}__${dish.dishName}`;
+                                            const offCartItem = cartItems.find(item => item.id === offItemId);
+                                            const offQty = offCartItem ? offCartItem.quantity : 0;
+                                            const isConnected = connectedProviders.includes(offProvId);
+                                            
+                                            // The final payable price might be lower if connected.
+                                            const rawPrice = offer.menuPrice || offer.price?.basePrice || offer.price?.finalPayablePrice || 0;
+                                            const finalPrice = offer.price?.finalPayablePrice || rawPrice;
+                                            
+                                            return (
+                                                <View key={oIdx} style={[styles.offerItem, oIdx === 0 && styles.offerItemWinner]}>
+                                                    <View style={styles.offerMainInfo}>
+                                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                                                            <Text style={{fontSize: 16}}>{offProvIcon}</Text>
+                                                            <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                                        </View>
+                                                        
+                                                        {/* Price logic handling based on connections */}
+                                                        {isConnected ? (
+                                                            <View>
+                                                                {rawPrice > finalPrice ? (
+                                                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                                                                        <Text style={{textDecorationLine: 'line-through', color: '#94a3b8', fontSize: 13}}>₹{rawPrice}</Text>
+                                                                        <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
+                                                                    </View>
+                                                                ) : (
+                                                                    <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
+                                                                )}
+                                                                {offer.couponCode ? (
+                                                                    <Text style={{color: '#16a34a', fontSize: 11, fontWeight: 'bold'}}>
+                                                                        ✔ {offer.couponCode} Applied
+                                                                    </Text>
+                                                                ) : null}
+                                                            </View>
+                                                        ) : (
+                                                            <View>
+                                                                <Text style={styles.effectivePriceBig}>₹{rawPrice}</Text>
+                                                                <Text style={{color: '#eab308', fontSize: 11, fontStyle: 'italic', maxWidth: 160}}>
+                                                                    🔗 Connect {offer.providerName} for coupon discounts!
+                                                                </Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                    <View style={styles.cartActionContainer}>
+                                                        {offer.isRestaurantSearchResult ? (
+                                                            <TouchableOpacity
+                                                                style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
+                                                                onPress={() => {
+                                                                    const prov = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
+                                                                    if (prov) {
+                                                                        setCheckoutModal({
+                                                                            providerName: prov.name,
+                                                                            providerIcon: prov.icon,
+                                                                            providerCategory: prov.category,
+                                                                            brandColor: prov.color,
+                                                                            targetUrl: offer.restaurantUrl || prov.url,
+                                                                            checkoutUrl: prov.checkoutUrl,
+                                                                            cartItems: []
+                                                                        });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Text style={styles.addToCartBtnText}>VISIT</Text>
+                                                            </TouchableOpacity>
+                                                        ) : offQty === 0 ? (
+                                                            <TouchableOpacity
+                                                                style={styles.addToCartBtn}
+                                                                onPress={() => handleAddToCart(offer, dish.dishName)}
+                                                            >
+                                                                <Text style={styles.addToCartBtnText}>+ ADD</Text>
+                                                            </TouchableOpacity>
+                                                        ) : (
+                                                            <View style={styles.stepperContainer}>
+                                                                <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty - 1)}>
+                                                                    <Text style={styles.stepperBtnText}>-</Text>
+                                                                </TouchableOpacity>
+                                                                <Text style={styles.stepperQtyText}>{offQty}</Text>
+                                                                <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty + 1)}>
+                                                                    <Text style={styles.stepperBtnText}>+</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
                                     </View>
-                                    <Text style={styles.proBestPriceText}>Best price: {bestOffer.providerName}</Text>
-                                </View>
-                              )}
-                              
-                              <Text style={styles.proDishName}>{dish.dishName}</Text>
-                              
-                              <View style={styles.proDishTags}>
-                                  <View style={styles.proTagStars}><Text style={styles.proTagText}>? 4.4 � 1.4K+ � {bestOffer?.providerName || 'Platform'}</Text></View>
-                                  <View style={styles.proTagReorder}><Text style={styles.proTagText}>?? 81% reordered � Zomato</Text></View>
-                              </View>
-                              
-                              <Text style={styles.proRecommendedText}>RECOMMENDED</Text>
-                              
-                              <View style={styles.proPriceCompareList}>
-                                  {dish.offers.map((offer: any, oIdx: number) => {
-                                      const providerData = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
-                                      const isConnected = connectedProviders.includes(providerData?.id || '');
-                                      const rawPrice = offer.menuPrice || offer.price?.basePrice || offer.price?.finalPayablePrice || 0;
-                                      const finalPrice = offer.price?.finalPayablePrice || rawPrice;
-                                      const dotColor = providerData?.color || '#333';
-                                      
-                                      return (
-                                          <View key={oIdx} style={styles.proPriceCompareItem}>
-                                              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                  <View style={[styles.proDot, {backgroundColor: dotColor}]} />
-                                                  <Text style={styles.proPriceProvName}>{offer.providerName}</Text>
-                                              </View>
-                                              {isConnected && rawPrice > finalPrice ? (
-                                                  <View style={{flexDirection: 'row', alignItems: 'center', marginLeft: 8}}>
-                                                      <Text style={styles.proPriceStrike}>Rs {rawPrice}</Text>
-                                                      <Text style={styles.proPriceFinal}>Rs {finalPrice}</Text>
-                                                  </View>
-                                              ) : (
-                                                  <Text style={[styles.proPriceFinal, {marginLeft: 8}]}>Rs {rawPrice}</Text>
-                                              )}
-                                              {offer.couponCode && isConnected ? (
-                                                  <Text style={styles.proCouponApplied}> ?</Text>
-                                              ) : null}
-                                          </View>
-                                      );
-                                  })}
-                              </View>
-                              
-                              <Text style={styles.proDishDesc} numberOfLines={2}>
-                                  Sweet and juicy golden corn with our in house sauce. [Fat-5 per 100g, Protein-10.1 per 100g]
-                              </Text>
-                          </View>
-                          
-                          <View style={styles.proDishImageWrapper}>
-                              <View style={styles.proDishImgPlaceholder}>
-                                  <Text style={styles.proDishImgText}>{dish.dishName.charAt(0)}</Text>
-                              </View>
-                              <TouchableOpacity 
-                                  style={styles.proAddBtn}
-                                  onPress={() => {
-                                      if (bestOffer) handleAddToCart(bestOffer, dish.dishName);
-                                  }}
-                              >
-                                  <Text style={styles.proAddBtnText}>ADD</Text>
-                              </TouchableOpacity>
-                          </View>
-                      </View>
-                  );
-              });
-            })()}
-          </ScrollView>
-        </SafeAreaView>
+                                );
+                            })}
+                        </View>
+                          );
+                      })()}
+                  </ScrollView>
+              </View>
+          </View>
       </Modal>
-
-      {/* Location Modal */}
 
       {/* Location Modal */}
       <Modal visible={isLocationModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsLocationModalVisible(false)}>
@@ -2094,7 +2104,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: 'bold',
-  },  proModalHeader: {
+  },
+
+  proModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -2326,7 +2338,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 32,
-    marginTop: -16, // overlap
+    marginTop: -16,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
