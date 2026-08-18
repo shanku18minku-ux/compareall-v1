@@ -23,7 +23,7 @@ export const EatSurePacket: ProviderPacket = {
                   'madurai', 'raipur', 'kota', 'guwahati', 'solapur', 'hubli', 'bareilly',
                   'moradabad', 'mysore', 'gurugram', 'jalandhar', 'tiruchirappalli', 'bhubaneswar',
                   'salem', 'warangal', 'thiruvananthapuram', 'kochi', 'udaipur', 'dehradun',
-                  'belgaum', 'rohtak', 'all']
+                  'belgaum', 'rohtak']
     },
     
     getLoginDetectionScript: () => {
