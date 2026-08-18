@@ -461,7 +461,13 @@ export default function App() {
              const dishMatchKey = normalizeStr(dishName || 'Unknown Dish');
              let dishGroup = restGroup.dishes.find((d: any) => {
                  const existingDishKey = normalizeStr(d.dishName);
-                 return existingDishKey.includes(dishMatchKey) || dishMatchKey.includes(existingDishKey);
+                 const isFuzzyMatch = existingDishKey.includes(dishMatchKey) || dishMatchKey.includes(existingDishKey);
+                 if (!isFuzzyMatch) return false;
+                 
+                 // Prevent swallowing distinct variants (like Half vs Full) from the SAME provider.
+                 // If this provider already has an offer in this group, they must be different dishes.
+                 const hasProvider = d.offers.some((o: any) => o.providerName === providerName);
+                 return !hasProvider;
              });
              
              if (!dishGroup) {
@@ -476,12 +482,7 @@ export default function App() {
                  restGroup.dishes.push(dishGroup);
              }
              
-             const existingProviderIdx = dishGroup.offers.findIndex((o: any) => o.providerName === providerName);
-             if (existingProviderIdx >= 0) {
-                 dishGroup.offers[existingProviderIdx] = offerPayload;
-             } else {
-                 dishGroup.offers.push(offerPayload);
-             }
+             dishGroup.offers.push(offerPayload);
           });
           
           updated.forEach(rest => {
