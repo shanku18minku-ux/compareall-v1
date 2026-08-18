@@ -283,14 +283,14 @@ export default function App() {
 
   const getFilteredProviders = () => {
      if (!location || !location.name) {
-       // No location set — only show providers that work everywhere, not city-specific ones
+       // No location set - only show providers that work everywhere, not city-specific ones
        return PROVIDERS.filter(p => p.regions.includes('all'));
      }
 
      // Normalize location name: lowercase + map known aliases so region matching works reliably
      let locName = location.name.toLowerCase();
 
-     // Alias normalization — Nominatim/Expo geocoder may return different spellings
+     // Alias normalization - Nominatim/Expo geocoder may return different spellings
      const aliasMap: Record<string, string[]> = {
        'bangalore': ['bengaluru', 'bangaluru', 'banglore', 'bangalore'],
        'delhi':     ['new delhi', 'ndmc', 'south delhi', 'north delhi', 'east delhi', 'west delhi', 'central delhi'],
@@ -312,13 +312,21 @@ export default function App() {
 
      const isRailwayStation = locName.includes('station') || locName.includes('railway') || locName.includes('junction') || locName.includes('cantt') || locName.includes('terminal');
 
+     // Strict Word Matcher to avoid "medininagar" matching "nagar"
+     const matchWord = (str: string, word: string) => {
+         const regex = new RegExp(`\\b${word}\\b`, 'i');
+         return regex.test(str);
+     };
+
      return PROVIDERS.filter(p => {
          // Train food delivery apps ONLY appear if the user is at a railway station
          if (p.subcategory === 'Train Food Delivery' || p.regions.includes('station')) {
              return isRailwayStation;
          }
          if (p.regions.includes('all')) return true;
-         return p.regions.some(region => expandedLoc.includes(region.toLowerCase()));
+         
+         // Use exact word match to prevent partial matching bugs
+         return p.regions.some(region => matchWord(expandedLoc, region));
      });
   };
 
@@ -642,36 +650,64 @@ export default function App() {
                     >
                         <Text style={styles.openMenuBtnText}>{isExpanded ? 'Hide Menu ▲' : 'Open Menu ▼'}</Text>
                     </TouchableOpacity>
-
                     {isExpanded && (
                         <View style={styles.dishesContainer}>
-                            {displayDishes.map((dish: any, dIdx: number) => {
-                                const primaryOffer = dish.offers[0];
-                                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
-                                const itemId = `${providerId}__${dish.dishName}`;
-                                const cartItem = cartItems.find(item => item.id === itemId);
-                                const qty = cartItem ? cartItem.quantity : 0;
-                                
+                             {displayDishes.map((dish: any, dIdx: number) => {
                                 return (
                                     <View key={dIdx} style={styles.dishCard}>
                                         <Text style={styles.dishTitle}>{dish.dishName}</Text>
                                         <View style={styles.dishBestPriceBox}>
                                             <Text style={styles.dishBestPrice}>
-                                                🏆 Lowest on {dish.bestProvider}: ₹{dish.lowestPrice}
+                                                🔥 Best Price: ₹{dish.lowestPrice}
                                             </Text>
                                         </View>
                                         
                                         {dish.offers.map((offer: any, oIdx: number) => {
-                                            const offProvId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
+                                            const providerData = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
+                                            const offProvId = providerData?.id || PROVIDERS[0]?.id;
+                                            const offProvIcon = providerData?.icon || '🍽️';
                                             const offItemId = `${offProvId}__${dish.dishName}`;
                                             const offCartItem = cartItems.find(item => item.id === offItemId);
                                             const offQty = offCartItem ? offCartItem.quantity : 0;
+                                            const isConnected = connectedProviders.includes(offProvId);
+                                            
+                                            // The final payable price might be lower if connected.
+                                            const rawPrice = offer.menuPrice || offer.price?.basePrice || offer.price?.finalPayablePrice || 0;
+                                            const finalPrice = offer.price?.finalPayablePrice || rawPrice;
                                             
                                             return (
                                                 <View key={oIdx} style={[styles.offerItem, oIdx === 0 && styles.offerItemWinner]}>
                                                     <View style={styles.offerMainInfo}>
-                                                        <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                                        <Text style={styles.effectivePriceBig}>₹{offer.price.finalPayablePrice}</Text>
+                                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                                                            <Text style={{fontSize: 16}}>{offProvIcon}</Text>
+                                                            <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                                        </View>
+                                                        
+                                                        {/* Price logic handling based on connections */}
+                                                        {isConnected ? (
+                                                            <View>
+                                                                {rawPrice > finalPrice ? (
+                                                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                                                                        <Text style={{textDecorationLine: 'line-through', color: '#94a3b8', fontSize: 13}}>₹{rawPrice}</Text>
+                                                                        <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
+                                                                    </View>
+                                                                ) : (
+                                                                    <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
+                                                                )}
+                                                                {offer.couponCode ? (
+                                                                    <Text style={{color: '#16a34a', fontSize: 11, fontWeight: 'bold'}}>
+                                                                        ✔ {offer.couponCode} Applied
+                                                                    </Text>
+                                                                ) : null}
+                                                            </View>
+                                                        ) : (
+                                                            <View>
+                                                                <Text style={styles.effectivePriceBig}>₹{rawPrice}</Text>
+                                                                <Text style={{color: '#eab308', fontSize: 11, fontStyle: 'italic', maxWidth: 160}}>
+                                                                    🔗 Connect {offer.providerName} for coupon discounts!
+                                                                </Text>
+                                                            </View>
+                                                        )}
                                                     </View>
                                                     <View style={styles.cartActionContainer}>
                                                         {offer.isRestaurantSearchResult ? (
@@ -704,7 +740,7 @@ export default function App() {
                                                         ) : (
                                                             <View style={styles.stepperContainer}>
                                                                 <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty - 1)}>
-                                                                    <Text style={styles.stepperBtnText}>−</Text>
+                                                                    <Text style={styles.stepperBtnText}>-</Text>
                                                                 </TouchableOpacity>
                                                                 <Text style={styles.stepperQtyText}>{offQty}</Text>
                                                                 <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty + 1)}>
