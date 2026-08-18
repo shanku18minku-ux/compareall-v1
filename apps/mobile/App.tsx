@@ -391,341 +391,96 @@ export default function App() {
     }, 18000);
   };
   const handleDataExtracted = (data: any, providerId?: string) => {
-    // Always mark provider as done — even empty responses complete the extraction
+    // Always mark provider as done
     if (providerId) {
       completedProvidersRef.current.add(providerId);
     }
     const items = data.data || data.items || (Array.isArray(data) ? data : []);
+    const provider = PROVIDERS.find(p => p.id === providerId);
+    if (!provider) return;
+    const providerName = provider.name;
+
     if (items && items.length > 0) {
        setResults(prev => {
           const updated = [...prev];
-          items.forEach((offer: any) => {
-             const sanitizeCleanTitle = (str: string) => {
-               return (str || '')
-                 .replace(/\?{2,}/g, '')
-                 .replace(/_+/g, ' ')
-                 .replace(/[^\x20-\x7E\u0900-\u097F]/g, ' ')
-                 .replace(/\s+/g, ' ')
-                 .trim();
-             };
-
-             const rawTitle = offer.title || offer.name || 'Dish Item';
-             const title = sanitizeCleanTitle(rawTitle);
-             const dishName = sanitizeCleanTitle(offer.dishName || offer.metadata?.dishName || title);
-             const restName = sanitizeCleanTitle(offer.restaurantName || offer.metadata?.restaurantName || '');
-
-             // Strict Query Relevance Filter
-             const isRelevantToQuery = (dish: string, q: string) => {
-               const cleanQ = (q || '').toLowerCase().trim();
-               const cleanD = (dish || '').toLowerCase().trim();
-               if (!cleanQ) return true;
-               
-               // If it's a restaurant keyword search, bypass strict dish checks
-               if (/(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(cleanQ)) return true;
-
-               const proteins = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'paneer', 'mushroom', 'soya', 'veg', 'non-veg', 'nonveg'];
-               const queryProteins = proteins.filter(p => cleanQ.includes(p));
-               const dishProteins = proteins.filter(p => cleanD.includes(p));
-
-               if (queryProteins.includes('chicken')) {
-                 if (dishProteins.includes('paneer') || dishProteins.includes('mushroom') || (dishProteins.includes('veg') && !cleanD.includes('non-veg') && !cleanD.includes('chicken'))) {
-                   if (!cleanD.includes('chicken')) return false;
-                 }
-                 if (!cleanD.includes('chicken')) return false;
-               }
-
-               if (queryProteins.includes('paneer')) {
-                 if (dishProteins.includes('chicken') || dishProteins.includes('mutton') || dishProteins.includes('egg') || dishProteins.includes('fish')) {
-                   if (!cleanD.includes('paneer')) return false;
-                 }
-                 if (!cleanD.includes('paneer')) return false;
-               }
-
-               const stopWords = ['with', 'and', 'the', 'dry', 'gravy', 'special', 'classic', 'plate', 'full', 'half', 'hot', 'crispy', 'restaurant', 'hotel'];
-               const qWords = cleanQ.split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
-               for (const qw of qWords) {
-                 if (!cleanD.includes(qw)) {
-                   return false;
-                 }
-               }
-               return true;
-             };
-
-             if (!isRelevantToQuery(dishName, apiSearchQuery || searchQuery)) {
-               return; // SKIP irrelevant dishes
-             }
-
-             // Strict Veg / Non-Veg guard
-             const isNonVeg = (n: string) => {
-               const s = (n || '').toLowerCase();
-               if (s.includes('veg biryani') || s.includes('paneer biryani') || s.includes('soya biryani') || s.includes('mushroom biryani') || s.includes('veg ') || s.includes('paneer') || s.includes('mushroom') || s.includes('corn') || s.includes('dal ')) {
-                 if (!s.includes('chicken') && !s.includes('mutton') && !s.includes('egg') && !s.includes('fish') && !s.includes('prawn')) {
-                   return false;
-                 }
-               }
-               const nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
-               return nonVegKeywords.some(k => s.includes(k));
-             };
-
-             const isPureVeg = (r: string) => {
-               const s = (r || '').toLowerCase();
-               const pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti', 'chaap'];
-               return pureVegKeywords.some(k => s.includes(k));
-             };
-
-             if (isNonVeg(dishName) && isPureVeg(restName)) {
-               return; // SKIP pure-veg restaurants for non-veg dishes
-             }
-
-             const menuPrice = offer.menuPrice || (typeof offer.price === 'object' ? Number(offer.price.menuPrice || offer.price.finalPayablePrice) : (Number(offer.price) || 0));
-             const basePrice = typeof offer.price === 'object' ? Number(offer.price.basePrice) : (Number(offer.originalPrice || offer.price) || menuPrice);
-             const providerName = offer.providerName || 'Swiggy';
-             const offerText = offer.offerText || offer.metadata?.discountText || '';
+          
+          const normalizeStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          
+          items.forEach((item: any) => {
+             const dishName = item.name || item.title || item.dishName;
+             const restName = item.restaurant || item.restaurantName;
+             if (!dishName && !restName) return;
              
-             const additionalOffers = offer.additionalOffers || offer.metadata?.additionalOffers || [];
-             const couponCode = offer.couponCode || offer.metadata?.couponCode || '';
-             const couponDescription = offer.couponDescription || offer.metadata?.couponDescription || '';
-             const couponPercent = offer.couponPercent || 0;
-             const couponMaxCap = offer.couponMaxCap || 0;
-             const couponFlat = offer.couponFlat || 0;
-
-             // Check if user has connected this provider account
-             const isAccountConnected = Boolean(connectedProvidersRef.current.some(cpId => {
-               const p = PROVIDERS.find(prov => prov.id === cpId);
-               return p && (p.id === providerId || p.name.toLowerCase() === providerName.toLowerCase());
-             }) || (providerId && connectedProvidersRef.current.includes(providerId)));
-
-             // Calculate potential coupon savings available on platform
-             let potentialCouponSavings = 0;
-             if (couponFlat > 0) {
-               potentialCouponSavings = couponFlat;
-             } else if (couponPercent > 0) {
-               const raw = Math.round((menuPrice * couponPercent) / 100);
-               potentialCouponSavings = couponMaxCap > 0 ? Math.min(raw, couponMaxCap) : raw;
-             } else if (offer.autoCouponSavings) {
-               potentialCouponSavings = offer.autoCouponSavings;
-             }
-
-             // ONLY auto-apply coupon savings if account is CONNECTED
-             const autoCouponSavings = isAccountConnected ? potentialCouponSavings : 0;
-             const effectiveFinalPrice = isAccountConnected ? Math.max(20, menuPrice - autoCouponSavings) : menuPrice;
-             const totalSavings = isAccountConnected ? Math.max(0, (basePrice - menuPrice) + autoCouponSavings) : 0;
-
-             // Apply NLP Filters (Restaurant, Price)
-             const currentFilters = activeFiltersRef.current;
-             if (currentFilters.restaurantKeyword) {
-                const kw = currentFilters.restaurantKeyword.toLowerCase();
-                const rn = restName.toLowerCase();
-                if (!rn.includes(kw) && !kw.includes(rn)) {
-                   return; // Skip this offer because it's from the wrong restaurant
-                }
-             }
-             if (currentFilters.maxPrice) {
-                const futurePrice = menuPrice - potentialCouponSavings;
-                if (isAccountConnected) {
-                    if (effectiveFinalPrice > currentFilters.maxPrice) return;
-                } else {
-                    if (futurePrice > currentFilters.maxPrice) return;
-                }
-             }
-
+             // Base payload
              const offerPayload = {
                providerName,
-               dishId: offer.dishId || offer.metadata?.dishId,
-               dishName: offer.dishName || offer.metadata?.dishName || title,
-               restaurantName: offer.restaurantName || offer.metadata?.restaurantName,
-               restaurantUrl: offer.restaurantUrl || offer.metadata?.restaurantUrl,
-               menuPrice: menuPrice,
-               autoCouponSavings: autoCouponSavings,
-               potentialSavings: potentialCouponSavings,
-               isAccountConnected: isAccountConnected,
-               effectivePrice: effectiveFinalPrice,
-               price: {
-                 finalPayablePrice: effectiveFinalPrice,
-                 menuPrice: menuPrice,
-                 basePrice: basePrice,
-                 discount: totalSavings,
-               },
-               offerText,
-               couponCode,
-               couponDescription,
-               couponPercent,
-               couponMaxCap,
-               couponFlat,
-               additionalOffers,
-               accountBenefits: isAccountConnected ? [`${providerName} Connected: Coupon Applied`] : [],
-               isRestaurantSearchResult: false
+               restaurantName: restName || 'Unknown Restaurant',
+               restaurantUrl: item.restaurantUrl || provider.url,
+               price: item.price,
+               menuPrice: item.menuPrice,
+               isRestaurantSearchResult: !!item.isRestaurantSearchResult,
+               isAccountConnected: connectedProviders.includes(providerId!),
+               autoCouponSavings: connectedProviders.includes(providerId!) ? (item.autoCouponSavings || item.couponSavings || 0) : 0,
+               potentialSavings: item.couponSavings || item.autoCouponSavings || 100,
+               couponCode: item.couponCode,
+               additionalOffers: item.additionalOffers || [],
+               deliveryTime: item.deliveryTime,
+               rating: item.rating
              };
              
-             let displayTitle = restName ? `${dishName} - ${restName}` : dishName;
-
-             // Clean up restaurant searches posing as dish searches to prevent ugly titles
-             const lDish = (dishName || '').toLowerCase();
-             const lRest = (restName || '').toLowerCase();
-             const lQuery = (apiSearchQuery || searchQuery || '').toLowerCase();
+             const effectiveFinalPrice = item.price?.finalPayablePrice || 9999;
+             const restMatchKey = normalizeStr(restName || 'Unknown Restaurant');
              
-             const isRestaurantKeyword = /(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\s*$/i.test(lQuery);
-             const isRestaurantSearch = Boolean(restName && (lDish === lRest || (lDish === lQuery && isRestaurantKeyword)));
-             
-             if (isRestaurantSearch) {
-                 displayTitle = restName;
-                 offerPayload.isRestaurantSearchResult = true;
+             let restGroup = updated.find(g => normalizeStr(g.restaurantName) === restMatchKey);
+             if (!restGroup) {
+                 restGroup = {
+                     restaurantName: restName || 'Unknown Restaurant',
+                     matchKey: restMatchKey,
+                     platforms: [],
+                     dishes: []
+                 };
+                 updated.push(restGroup);
              }
-
-             const extractVariantTag = (dName: string) => {
-               const s = (dName || '').toLowerCase();
-               // Detect multi-serve / combo / party meals -> ALWAYS separate cards
-               if (s.match(/(?:meal\s*for\s*\d+|\d+\s*course\s*meal|party\s*(?:pack|box|bundle|for)|big\s*big|family\s*feast|serves\s*\d+|pack\s*of\s*\d+)/i)) return 'combo_meal';
-               if (s.match(/(?:\d+\s*pcs?|\d+\s*pieces?|\d+\s*pc\b)/i)) return `${s.match(/(\d+)\s*p/i)![1]}pc`;
-               if (s.includes('combo')) return 'combo';
-               if (s.includes('thali')) return 'thali';
-               if (s.includes('half')) return 'half';
-               if (s.includes('full')) return 'full';
-               return 'standard';
-             };
-
-             const isDishVariantCompatible = (dish1: string, price1: number, dish2: string, price2: number) => {
-               const tag1 = extractVariantTag(dish1);
-               const tag2 = extractVariantTag(dish2);
-               // Any non-standard variant mismatch = separate cards
-               if (tag1 !== tag2) return false;
-               // Price safety net: more than 2x difference = separate cards
-               if (price1 > 0 && price2 > 0) {
-                 const ratio = Math.max(price1, price2) / Math.min(price1, price2);
-                 if (ratio > 2.0) return false;
-               }
-               return true;
-             };
-
-             // Robust normalization to combine identical dishes from Swiggy & Zomato into 1 card
-             const normalizeDish = (n: string) => {
-               return (n || '').toLowerCase()
-                 .replace(/[^a-z0-9]/g, ' ')
-                 .replace(/\s+/g, ' ')
-                 .trim();
-             };
-
-             const normalizeRest = (n: string) => {
-               return (n || '').toLowerCase()
-                 .replace(/\bh\s*m\b/g, 'hm')
-                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge|offline|eatsure)\b/g, '')
-                 .replace(/[^a-z0-9]/g, '')
-                 .trim();
-             };
-
-             const isRestMatch = (r1: string, r2: string) => {
-               if (!r1 || !r2) return false;
-               const clean1 = normalizeRest(r1);
-               const clean2 = normalizeRest(r2);
-               if (clean1 === clean2) return true;
-               if (clean1 && clean2 && (clean1.includes(clean2) || clean2.includes(clean1))) return true;
-               
-               // Compare significant restaurant name keywords (>=2 words must match for short names)
-               const stopWords = ['the', 'and', 'restaurant', 'restro', 'hotel', 'cafe', 'food', 'foods', 'pure', 'veg', 'kitchen'];
-               // Keep 'sweets', 'paratha', 'biryani' etc. as meaningful differentiators — do NOT add to stopWords
-               const raw1 = (r1 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
-               const raw2 = (r2 || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
-               if (raw1.length === 0 || raw2.length === 0) return false;
-               const overlap = raw1.filter(w => raw2.includes(w));
-               // If both sides have 2+ meaningful words, require 2+ overlap (prevents "Param Sweets" ↔ "Param Paratha")
-               // If either side has only 1 meaningful word (e.g. "Lajawab"), 1 word overlap is enough
-               const minRequired = (raw1.length >= 2 && raw2.length >= 2) ? 2 : 1;
-               return overlap.length >= minRequired;
-             };
-
-             const cleanDish = normalizeDish(dishName);
-             const cleanRest = normalizeRest(restName);
-             const variantTag = extractVariantTag(dishName);
-             const matchKey = cleanRest ? `${cleanDish}_${variantTag}__${cleanRest}` : `${cleanDish}_${variantTag}`;
-
-             const isDishMatch = (d1: string, d2: string) => {
-                 if (!d1 || !d2) return false;
-                 const c1 = normalizeDish(d1);
-                 const c2 = normalizeDish(d2);
-                 // Exact match
-                 if (c1 === c2) return true;
-                 // One fully contains the other (e.g. "Chicken Biryani" inside "Hyderabadi Chicken Biryani")
-                 // BUT: if the longer one is a combo/meal, block the merge
-                 const v1 = extractVariantTag(d1);
-                 const v2 = extractVariantTag(d2);
-                 if (v1 !== v2) return false; // Different variant types -> never merge
-                 
-                 const w1 = c1.split(/\s+/).filter(w => w.length > 2);
-                 const w2 = c2.split(/\s+/).filter(w => w.length > 2);
-                 if (w1.length === 0 || w2.length === 0) return false;
-                 const overlap = w1.filter(w => w2.includes(w));
-                 return overlap.length >= 2 && (overlap.length / Math.max(w1.length, w2.length) >= 0.5);
-              };
-
-             const existingGroup = updated.find(g => {
-               const isR = (g.matchKey === matchKey) || isRestMatch(g.rawRest || g.title, restName);
-               const isD = isDishMatch(g.rawDish || g.title, dishName);
-               const isVar = isDishVariantCompatible(g.rawDish || g.title, g.lowestPrice, dishName, effectiveFinalPrice);
-               return isR && isD && isVar;
-             });
-
-             if (existingGroup) {
-                 // Check if offer for this provider already exists, update or append
-                 const existingProviderIdx = existingGroup.offers.findIndex((o: any) => o.providerName.toLowerCase() === providerName.toLowerCase());
-                 if (existingProviderIdx >= 0) {
-                   existingGroup.offers[existingProviderIdx] = offerPayload;
-                 } else {
-                   existingGroup.offers.push(offerPayload);
-                 }
+             
+             if (!restGroup.platforms.includes(providerName)) {
+                 restGroup.platforms.push(providerName);
+             }
+             
+             const dishMatchKey = normalizeStr(dishName || 'Unknown Dish');
+             let dishGroup = restGroup.dishes.find((d: any) => normalizeStr(d.dishName) === dishMatchKey);
+             
+             if (!dishGroup) {
+                 dishGroup = {
+                     dishName: dishName || 'Unknown Dish',
+                     matchKey: dishMatchKey,
+                     offers: [],
+                     lowestPrice: 99999,
+                     bestProvider: '',
+                     isRestaurantSearchResult: !!item.isRestaurantSearchResult
+                 };
+                 restGroup.dishes.push(dishGroup);
+             }
+             
+             const existingProviderIdx = dishGroup.offers.findIndex((o: any) => o.providerName === providerName);
+             if (existingProviderIdx >= 0) {
+                 dishGroup.offers[existingProviderIdx] = offerPayload;
              } else {
-                 updated.push({ 
-                   title: displayTitle,
-                   rawDish: dishName,
-                   rawRest: restName,
-                   matchKey: matchKey,
-                   lowestPrice: effectiveFinalPrice, 
-                   savings: autoCouponSavings, 
-                   offers: [offerPayload] 
-                 });
+                 dishGroup.offers.push(offerPayload);
              }
           });
-          updated.forEach(g => {
-              // Sort offers inside the group so the cheapest rupee price is ALWAYS #1
-              g.offers.sort((a: any, b: any) => a.price.finalPayablePrice - b.price.finalPayablePrice);
-              const effectivePrices = g.offers.map((o: any) => o.price.finalPayablePrice);
-              const maxMenuPrices = g.offers.map((o: any) => o.price.basePrice || o.price.menuPrice);
-              g.lowestPrice = effectivePrices[0];
-              g.bestProvider = g.offers[0]?.providerName;
-              g.savings = Math.max(0, Math.max(...maxMenuPrices) - g.lowestPrice);
+          
+          updated.forEach(rest => {
+              rest.dishes.forEach((dish: any) => {
+                  dish.offers.sort((a: any, b: any) => (a.price?.finalPayablePrice || 9999) - (b.price?.finalPayablePrice || 9999));
+                  dish.lowestPrice = dish.offers[0]?.price?.finalPayablePrice || 0;
+                  dish.bestProvider = dish.offers[0]?.providerName;
+                  
+                  const maxMenuPrices = dish.offers.map((o: any) => o.price?.basePrice || o.price?.menuPrice || o.price?.finalPayablePrice || 0);
+                  dish.savings = Math.max(0, Math.max(...maxMenuPrices) - dish.lowestPrice);
+              });
+              rest.dishes.sort((a: any, b: any) => a.lowestPrice - b.lowestPrice);
           });
-          // Smart Relevance-First + Lowest Rupee Price Dual Ranking
-          const currentQuery = (apiSearchQuery || searchQuery || searchValues.query || '').toLowerCase().trim();
-          const queryTokens = currentQuery.split(/\s+/).filter((t: string) => t.length > 1);
-
-          const getRelevanceScore = (title: string) => {
-            const lowerTitle = title.toLowerCase();
-            if (queryTokens.length === 0) return 0;
-            if (lowerTitle.includes(currentQuery)) return 100;
-            const allWordsMatch = queryTokens.every((token: string) => lowerTitle.includes(token));
-            if (allWordsMatch) return 80;
-            const matchCount = queryTokens.filter((token: string) => lowerTitle.includes(token)).length;
-            if (matchCount > 0) return (matchCount / queryTokens.length) * 50;
-            return 0;
-          };
-
-          updated.sort((a, b) => {
-            const scoreA = getRelevanceScore(a.title);
-            const scoreB = getRelevanceScore(b.title);
-            
-            const isHighMatchA = scoreA >= 80;
-            const isHighMatchB = scoreB >= 80;
-            
-            // Prioritize dishes matching the user's search query words first
-            if (isHighMatchA && !isHighMatchB) return -1;
-            if (!isHighMatchA && isHighMatchB) return 1;
-            
-            if (scoreA !== scoreB && Math.abs(scoreA - scoreB) >= 30) {
-              return scoreB - scoreA;
-            }
-            
-            // Within the same match category, sort strictly by lowest rupee price!
-            return a.lowestPrice - b.lowestPrice;
-          });
+          
           return updated;
        });
     }
