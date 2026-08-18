@@ -42,6 +42,17 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         var lat = ${userLat};
         var lng = ${userLng};
         var locName = "${locationName.replace(/"/g, '\\"')}";
+
+        var needsReload = false;
+
+        function checkAndSetCookie(name, value, domain) {
+            var cookieStr = document.cookie;
+            var match = cookieStr.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            if (!match || match[2] !== String(value)) {
+                document.cookie = name + "=" + value + "; path=/; domain=" + domain;
+                needsReload = true;
+            }
+        }
         
         // 1. Override Geolocation API
         if (navigator.geolocation) {
@@ -64,40 +75,60 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         // 2. Inject Swiggy LocalStorage Location & Cookies
         try {
             if (window.location.hostname.includes('swiggy')) {
-                localStorage.setItem('userLocation', JSON.stringify({
-                    lat: lat,
-                    lng: lng,
-                    address: locName,
-                    area: locName,
-                    id: ""
-                }));
-                document.cookie = "_sw_lat=" + lat + "; path=/; domain=.swiggy.com";
-                document.cookie = "_sw_lng=" + lng + "; path=/; domain=.swiggy.com";
+                var lsLoc = localStorage.getItem('userLocation');
+                var parsedLs = lsLoc ? JSON.parse(lsLoc) : null;
+                if (!parsedLs || parsedLs.lat != lat) {
+                    localStorage.setItem('userLocation', JSON.stringify({
+                        lat: lat,
+                        lng: lng,
+                        address: locName,
+                        area: locName,
+                        id: ""
+                    }));
+                    needsReload = true;
+                }
+                checkAndSetCookie('_sw_lat', lat, '.swiggy.com');
+                checkAndSetCookie('_sw_lng', lng, '.swiggy.com');
             }
         } catch(e) {}
 
         // 3. Inject Zomato Cookies
         try {
             if (window.location.hostname.includes('zomato')) {
-                // Set basic location cookies that Zomato might use as fallback
-                document.cookie = "loc=" + encodeURIComponent(JSON.stringify({lat: lat, lon: lng})) + "; path=/; domain=.zomato.com; max-age=3600";
-                document.cookie = "z_loc=" + encodeURIComponent(JSON.stringify({lat: lat, lon: lng})) + "; path=/; domain=.zomato.com; max-age=3600";
-                localStorage.setItem('zomato_location', JSON.stringify({lat: lat, lon: lng}));
+                var zlocCookieVal = encodeURIComponent(JSON.stringify({lat: lat, lon: lng}));
+                checkAndSetCookie('loc', zlocCookieVal, '.zomato.com');
+                checkAndSetCookie('z_loc', zlocCookieVal, '.zomato.com');
+                var lsZloc = localStorage.getItem('zomato_location');
+                var parsedZls = lsZloc ? JSON.parse(lsZloc) : null;
+                if (!parsedZls || parsedZls.lat != lat) {
+                    localStorage.setItem('zomato_location', JSON.stringify({lat: lat, lon: lng}));
+                    needsReload = true;
+                }
             }
         } catch(e) {}
 
         // 4. Inject EatSure LocalStorage
         try {
             if (window.location.hostname.includes('eatsure')) {
-                localStorage.setItem('userLocation', JSON.stringify({
-                    lat: lat,
-                    lng: lng,
-                    address: locName
-                }));
-                document.cookie = "latitude=" + lat + "; path=/; domain=.eatsure.com";
-                document.cookie = "longitude=" + lng + "; path=/; domain=.eatsure.com";
+                var lsLoc = localStorage.getItem('userLocation');
+                var parsedLs = lsLoc ? JSON.parse(lsLoc) : null;
+                if (!parsedLs || parsedLs.lat != lat) {
+                    localStorage.setItem('userLocation', JSON.stringify({
+                        lat: lat,
+                        lng: lng,
+                        address: locName
+                    }));
+                    needsReload = true;
+                }
+                checkAndSetCookie('latitude', lat, '.eatsure.com');
+                checkAndSetCookie('longitude', lng, '.eatsure.com');
             }
         } catch(e) {}
+
+        if (needsReload) {
+            window.location.reload();
+            return; // Halt execution of original DOM script until reloaded
+        }
     })();
     true;
   `;
