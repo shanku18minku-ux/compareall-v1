@@ -777,7 +777,7 @@ export default function App() {
             
             {isSearching && (
               <View style={styles.loadingBox}>
-                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8 }}>Extracting live pricing & coupons...</Text>
+                <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8, textAlign: 'center' }}>Getting best options for you available in {location?.name || 'your area'}...</Text>
                 {(() => {
                    const categoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
                    const activeProviders = categoryProviders.length > 0 ? categoryProviders : (PROVIDERS.length > 0 ? [PROVIDERS[0]] : []);
