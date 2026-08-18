@@ -728,12 +728,12 @@ export default function App() {
           });
           return updated;
        });
+    }
 
-       const activeCategoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
-       const allDone = activeCategoryProviders.length > 0 && activeCategoryProviders.every(p => completedProvidersRef.current.has(p.id));
-       if (allDone) {
-         setIsSearching(false);
-       }
+    const activeCategoryProviders = getFilteredProviders().filter(p => p.category.toLowerCase() === searchCategory.toLowerCase());
+    const allDone = activeCategoryProviders.length > 0 && activeCategoryProviders.every(p => completedProvidersRef.current.has(p.id));
+    if (allDone) {
+      setIsSearching(false);
     }
   };
 
@@ -852,276 +852,123 @@ export default function App() {
             )}
 
             <ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
-              {results.map((group, index) => {
-                const k = group.matchKey || index;
-                const isExpanded = expandedPlatformGroups[k] !== undefined ? expandedPlatformGroups[k] : true;
-                const primaryOffer = group.offers[0];
-                const secondaryOffers = group.offers.slice(1);
-                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
-                const itemId = `${providerId}__${group.title}`;
-                const cartItem = cartItems.find(item => item.id === itemId);
-                const qty = cartItem ? cartItem.quantity : 0;
+              {results.map((restGroup, index) => {
+                const k = restGroup.matchKey || index.toString();
+                const isExpanded = expandedPlatformGroups[k] || false;
+                
+                // Filter dishes based on search query
+                const activeQuery = (apiSearchQuery || searchQuery || searchValues.query || '').toLowerCase().trim();
+                let displayDishes = restGroup.dishes;
+                
+                if (activeQuery) {
+                    const exactMatches = restGroup.dishes.filter((d: any) => d.dishName.toLowerCase().includes(activeQuery));
+                    if (exactMatches.length > 0) {
+                        displayDishes = exactMatches;
+                    }
+                }
 
                 return (
-                  <View key={index} style={styles.resultCard}>
-                    {/* Dish & Restaurant Title */}
-                    <Text style={styles.resultTitle}>{group.title}</Text>
-                    
-                    {/* Best Deal Winner Banner */}
-                    <View style={styles.resultBestPriceBox}>
-                      <Text style={styles.resultBestPrice}>
-                        🏆 Best Deal on {group.bestProvider || 'App'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
-                      </Text>
-                    </View>
-
-                    {/* Primary Winner Platform Row */}
-                    {primaryOffer && (
-                      <View style={[styles.offerItem, styles.offerItemWinner]}>
-                        <View style={styles.offerMainInfo}>
-                          <TouchableOpacity 
-                            style={styles.offerHeaderRow} 
-                            onPress={() => setDetailAnalysisModal({ dishTitle: group.title, offer: primaryOffer, group })}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.offerProvider}>{primaryOffer.providerName}</Text>
-                            <Text style={styles.detailInfoIcon}>ℹ️ Details</Text>
-                            <View style={styles.winnerBadge}>
-                              <Text style={styles.winnerBadgeText}>🌟 LOWEST PRICE</Text>
-                            </View>
-                            {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 && (
-                              <View style={styles.autoAppliedPill}>
-                                <Text style={styles.autoAppliedPillText}>🏷️ Connected Coupon</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-
-                          <View style={styles.priceRowBig}>
-                            {primaryOffer.isRestaurantSearchResult ? (
-                              <Text style={[styles.effectivePriceBig, { fontSize: 16 }]}>Cost for two: ₹{primaryOffer.price.finalPayablePrice}</Text>
-                            ) : (
-                              <Text style={styles.effectivePriceBig}>₹{primaryOffer.price.finalPayablePrice}</Text>
-                            )}
-                            {!primaryOffer.isRestaurantSearchResult && primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
-                              <Text style={styles.strikeMenuPrice}>₹{primaryOffer.menuPrice || primaryOffer.price.menuPrice || primaryOffer.price.basePrice}</Text>
-                            ) : null}
-                          </View>
-
-                          {primaryOffer.isAccountConnected && primaryOffer.autoCouponSavings > 0 ? (
-                            <Text style={styles.couponSavingsHighlight}>
-                              Save ₹{primaryOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{primaryOffer.couponCode}</Text>
-                            </Text>
-                          ) : (
-                            primaryOffer.couponCode ? (
-                              <TouchableOpacity
-                                style={styles.connectToUnlockBox}
-                                onPress={() => {
-                                  const prov = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer.providerName.toLowerCase());
-                                  if (prov) setLoginModal(prov);
-                                }}
-                                activeOpacity={0.8}
-                              >
-                                <Text style={styles.connectToUnlockText}>
-                                  🔗 Connect {primaryOffer.providerName} to unlock <Text style={{ fontWeight: 'bold' }}>₹{primaryOffer.potentialSavings || 100} OFF</Text> with {primaryOffer.couponCode}
-                                </Text>
-                              </TouchableOpacity>
-                            ) : null
-                          )}
-                        </View>
-
-                        {/* Add to Cart Stepper or Visit Restaurant */}
-                        <View style={styles.cartActionContainer}>
-                          {primaryOffer.isRestaurantSearchResult ? (
-                            <TouchableOpacity
-                              style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
-                              onPress={() => {
-                                const prov = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer.providerName.toLowerCase());
-                                if (prov) {
-                                  setCheckoutModal({
-                                    providerName: prov.name,
-                                    providerIcon: prov.icon,
-                                    providerCategory: prov.category,
-                                    brandColor: prov.color,
-                                    targetUrl: primaryOffer.restaurantUrl || prov.url,
-                                    checkoutUrl: prov.checkoutUrl,
-                                    cartItems: []
-                                  });
-                                }
-                              }}
-                            >
-                              <Text style={styles.addToCartBtnText}>VISIT</Text>
-                            </TouchableOpacity>
-                          ) : qty === 0 ? (
-                            <TouchableOpacity
-                              style={styles.addToCartBtn}
-                              onPress={() => handleAddToCart(primaryOffer, group.title)}
-                            >
-                              <Text style={styles.addToCartBtnText}>+ ADD</Text>
-                            </TouchableOpacity>
-                          ) : (
-                            <View style={styles.stepperContainer}>
-                              <TouchableOpacity
-                                style={styles.stepperBtn}
-                                onPress={() => handleUpdateCartQty(itemId, qty - 1)}
-                              >
-                                <Text style={styles.stepperBtnText}>−</Text>
-                              </TouchableOpacity>
-                              <Text style={styles.stepperQtyText}>{qty}</Text>
-                              <TouchableOpacity
-                                style={styles.stepperBtn}
-                                onPress={() => handleUpdateCartQty(itemId, qty + 1)}
-                              >
-                                <Text style={styles.stepperBtnText}>+</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Dropdown Toggle for other platforms (Zomato, etc.) */}
-                    {secondaryOffers.length > 0 && (
-                      <TouchableOpacity
-                        style={styles.platformDropdownToggle}
-                        onPress={() => {
-                          const k = group.matchKey || index;
-                          Vibration.vibrate(15);
-                          setExpandedPlatformGroups(prev => ({ ...prev, [k]: !prev[k] }));
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.platformDropdownToggleText}>
-                          {isExpanded 
-                            ? '▴ Hide other platforms' 
-                            : `▾ Compare on ${secondaryOffers.map((o: any) => o.providerName).join(', ')} (${secondaryOffers.length} more)`
-                          }
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Collapsible Secondary Platforms List */}
-                    {isExpanded && secondaryOffers.map((secOffer: any, secIdx: number) => {
-                      const secProviderId = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
-                      const secItemId = `${secProviderId}__${group.title}`;
-                      const secCartItem = cartItems.find(item => item.id === secItemId);
-                      const secQty = secCartItem ? secCartItem.quantity : 0;
-
-                      return (
-                        <View key={secIdx} style={styles.secondaryOfferItem}>
-                          <View style={styles.offerMainInfo}>
-                            <TouchableOpacity 
-                              style={styles.offerHeaderRow} 
-                              onPress={() => setDetailAnalysisModal({ dishTitle: group.title, offer: secOffer, group })}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={styles.offerProvider}>{secOffer.providerName}</Text>
-                              <Text style={styles.detailInfoIcon}>ℹ️ Details</Text>
-                              {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 && (
-                                <View style={styles.autoAppliedPill}>
-                                  <Text style={styles.autoAppliedPillText}>🏷️ Connected Coupon</Text>
+                  <View key={k} style={styles.premiumRestCard}>
+                    <View style={styles.restCardHeader}>
+                        <Text style={styles.restTitle}>{restGroup.restaurantName}</Text>
+                        <View style={styles.platformsRow}>
+                            {restGroup.platforms.map((plat: string) => (
+                                <View key={plat} style={styles.platformBadge}>
+                                    <Text style={styles.platformBadgeText}>{plat}</Text>
                                 </View>
-                              )}
-                            </TouchableOpacity>
-
-                            <View style={styles.priceRowBig}>
-                              {secOffer.isRestaurantSearchResult ? (
-                                <Text style={[styles.effectivePriceBig, { fontSize: 16 }]}>Cost for two: ₹{secOffer.price.finalPayablePrice}</Text>
-                              ) : (
-                                <Text style={styles.effectivePriceBig}>₹{secOffer.price.finalPayablePrice}</Text>
-                              )}
-                              {!secOffer.isRestaurantSearchResult && secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
-                                <Text style={styles.strikeMenuPrice}>₹{secOffer.menuPrice || secOffer.price.menuPrice || secOffer.price.basePrice}</Text>
-                              ) : null}
-                            </View>
-
-                            {secOffer.isAccountConnected && secOffer.autoCouponSavings > 0 ? (
-                              <Text style={styles.couponSavingsHighlight}>
-                                Save ₹{secOffer.autoCouponSavings} with code <Text style={{ fontWeight: 'bold' }}>{secOffer.couponCode}</Text>
-                              </Text>
-                            ) : (
-                              secOffer.couponCode ? (
-                                <TouchableOpacity
-                                  style={styles.connectToUnlockBox}
-                                  onPress={() => {
-                                    const prov = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase());
-                                    if (prov) setLoginModal(prov);
-                                  }}
-                                  activeOpacity={0.8}
-                                >
-                                  <Text style={styles.connectToUnlockText}>
-                                    🔗 Connect {secOffer.providerName} to unlock <Text style={{ fontWeight: 'bold' }}>₹{secOffer.potentialSavings || 100} OFF</Text> with {secOffer.couponCode}
-                                  </Text>
-                                </TouchableOpacity>
-                              ) : null
-                            )}
-                          </View>
-
-                          {/* Add to Cart Stepper or Visit */}
-                          <View style={styles.cartActionContainer}>
-                            {secOffer.isRestaurantSearchResult ? (
-                              <TouchableOpacity
-                                style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
-                                onPress={() => {
-                                  const prov = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase());
-                                  if (prov) {
-                                    setCheckoutModal({
-                                      providerName: prov.name,
-                                      providerIcon: prov.icon,
-                                      providerCategory: prov.category,
-                                      brandColor: prov.color,
-                                      targetUrl: secOffer.restaurantUrl || prov.url,
-                                      checkoutUrl: prov.checkoutUrl,
-                                      cartItems: []
-                                    });
-                                  }
-                                }}
-                              >
-                                <Text style={styles.addToCartBtnText}>VISIT</Text>
-                              </TouchableOpacity>
-                            ) : secQty === 0 ? (
-                              <TouchableOpacity
-                                style={styles.addToCartBtn}
-                                onPress={() => handleAddToCart(secOffer, group.title)}
-                              >
-                                <Text style={styles.addToCartBtnText}>+ ADD</Text>
-                              </TouchableOpacity>
-                            ) : (
-                              <View style={styles.stepperContainer}>
-                                <TouchableOpacity
-                                  style={styles.stepperBtn}
-                                  onPress={() => handleUpdateCartQty(secItemId, secQty - 1)}
-                                >
-                                  <Text style={styles.stepperBtnText}>−</Text>
-                                </TouchableOpacity>
-                                <Text style={styles.stepperQtyText}>{secQty}</Text>
-                                <TouchableOpacity
-                                  style={styles.stepperBtn}
-                                  onPress={() => handleUpdateCartQty(secItemId, secQty + 1)}
-                                >
-                                  <Text style={styles.stepperBtnText}>+</Text>
-                                </TouchableOpacity>
-                              </View>
-                            )}
-                          </View>
+                            ))}
                         </View>
-                      );
-                    })}
+                    </View>
+                    
+                    <TouchableOpacity 
+                        style={styles.openMenuBtn}
+                        onPress={() => setExpandedPlatformGroups(prev => ({ ...prev, [k]: !prev[k] }))}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.openMenuBtnText}>{isExpanded ? 'Hide Menu ▲' : 'Open Menu ▼'}</Text>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                        <View style={styles.dishesContainer}>
+                            {displayDishes.map((dish: any, dIdx: number) => {
+                                const primaryOffer = dish.offers[0];
+                                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
+                                const itemId = `${providerId}__${dish.dishName}`;
+                                const cartItem = cartItems.find(item => item.id === itemId);
+                                const qty = cartItem ? cartItem.quantity : 0;
+                                
+                                return (
+                                    <View key={dIdx} style={styles.dishCard}>
+                                        <Text style={styles.dishTitle}>{dish.dishName}</Text>
+                                        <View style={styles.dishBestPriceBox}>
+                                            <Text style={styles.dishBestPrice}>
+                                                🏆 Lowest on {dish.bestProvider}: ₹{dish.lowestPrice}
+                                            </Text>
+                                        </View>
+                                        
+                                        {dish.offers.map((offer: any, oIdx: number) => {
+                                            const offProvId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
+                                            const offItemId = `${offProvId}__${dish.dishName}`;
+                                            const offCartItem = cartItems.find(item => item.id === offItemId);
+                                            const offQty = offCartItem ? offCartItem.quantity : 0;
+                                            
+                                            return (
+                                                <View key={oIdx} style={[styles.offerItem, oIdx === 0 && styles.offerItemWinner]}>
+                                                    <View style={styles.offerMainInfo}>
+                                                        <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                                        <Text style={styles.effectivePriceBig}>₹{offer.price.finalPayablePrice}</Text>
+                                                    </View>
+                                                    <View style={styles.cartActionContainer}>
+                                                        {offer.isRestaurantSearchResult ? (
+                                                            <TouchableOpacity
+                                                                style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
+                                                                onPress={() => {
+                                                                    const prov = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
+                                                                    if (prov) {
+                                                                        setCheckoutModal({
+                                                                            providerName: prov.name,
+                                                                            providerIcon: prov.icon,
+                                                                            providerCategory: prov.category,
+                                                                            brandColor: prov.color,
+                                                                            targetUrl: offer.restaurantUrl || prov.url,
+                                                                            checkoutUrl: prov.checkoutUrl,
+                                                                            cartItems: []
+                                                                        });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Text style={styles.addToCartBtnText}>VISIT</Text>
+                                                            </TouchableOpacity>
+                                                        ) : offQty === 0 ? (
+                                                            <TouchableOpacity
+                                                                style={styles.addToCartBtn}
+                                                                onPress={() => handleAddToCart(offer, dish.dishName)}
+                                                            >
+                                                                <Text style={styles.addToCartBtnText}>+ ADD</Text>
+                                                            </TouchableOpacity>
+                                                        ) : (
+                                                            <View style={styles.stepperContainer}>
+                                                                <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty - 1)}>
+                                                                    <Text style={styles.stepperBtnText}>−</Text>
+                                                                </TouchableOpacity>
+                                                                <Text style={styles.stepperQtyText}>{offQty}</Text>
+                                                                <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty + 1)}>
+                                                                    <Text style={styles.stepperBtnText}>+</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
                   </View>
                 );
               })}
-
-              {results.length === 0 && !isSearching && Boolean(searchQuery) && (
-                <View style={{ alignItems: 'center', padding: 30 }}>
-                  <Text style={{ fontSize: 36, marginBottom: 10 }}>🔍</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e293b', textAlign: 'center' }}>
-                    No dishes found for "{searchQuery}"
-                  </Text>
-                  <Text style={styles.emptySubtext}>
-                    {location?.name 
-                      ? `Try searching for popular items like Paneer, Chicken Biryani, Pizza, or Thali in ${location.name}.`
-                      : 'Please set your location to start searching for food across apps.'}
-                  </Text>
-                </View>
-              )}
             </ScrollView>
           </View>
         ) : (
@@ -1515,6 +1362,93 @@ const styles = StyleSheet.create({
   resultsContainer: {
     flex: 1,
   },
+  
+  premiumRestCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  restCardHeader: {
+    padding: 20,
+    backgroundColor: '#111',
+  },
+  restTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  platformsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  platformBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  platformBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  openMenuBtn: {
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  openMenuBtnText: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dishesContainer: {
+    padding: 15,
+    backgroundColor: '#f8fafc',
+  },
+  dishCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dishTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  dishBestPriceBox: {
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  dishBestPrice: {
+    fontSize: 13,
+    color: '#15803d',
+    fontWeight: 'bold',
+  },
+
   resultCard: {
     backgroundColor: '#fff',
     padding: 15,

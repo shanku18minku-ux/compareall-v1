@@ -50,11 +50,9 @@ export const EatSurePacket: ProviderPacket = {
     },
 
     getSearchUrl: (query: string, location: any) => {
-        // EatSure uses lat/lng query params for location-based results
-        if (location && location.latitude && location.longitude) {
-            return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}&lat=${location.latitude}&lng=${location.longitude}`;
-        }
-        return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}`;
+        // We load the homepage first to set location cookies in the injected script,
+        // then the script itself redirects to the actual search URL.
+        return `https://www.eatsure.com/`;
     },
 
     getExtractorInjection: (url: string, query: string, location: any) => {
@@ -73,15 +71,12 @@ export const EatSurePacket: ProviderPacket = {
                 var locName = ${safeLocName};
 
                 // ── Step 1: Force EatSure to use our location ──────────────────
-                // EatSure reads from localStorage key "location" or similar
                 if (userLat && userLng) {
                     try {
-                        // Try multiple storage keys EatSure might use
                         var locPayload = JSON.stringify({ lat: userLat, lng: userLng, address: locName });
                         localStorage.setItem('es_location', locPayload);
                         localStorage.setItem('user_location', locPayload);
                         localStorage.setItem('location', locPayload);
-                        // Also set cookies EatSure checks
                         document.cookie = 'lat=' + userLat + '; path=/; max-age=86400';
                         document.cookie = 'lng=' + userLng + '; path=/; max-age=86400';
                         document.cookie = 'user_lat=' + userLat + '; path=/; max-age=86400';
@@ -100,6 +95,51 @@ export const EatSurePacket: ProviderPacket = {
                         }
                     } catch(e) {}
                 }
+
+                // If we are on the homepage, wait for location auto-redirect to city page.
+                // If we are on a city page, we try to click the Search icon and type the query!
+                let searchAttempts = 0;
+                function attemptSearchTrigger() {
+                    // Try to find the search button (contains SVG and text "Search" or "search")
+                    const allEls = document.querySelectorAll('div, button, a');
+                    let searchBtn = null;
+                    for (let i = 0; i < allEls.length; i++) {
+                        const el = allEls[i];
+                        if (el.textContent && el.textContent.trim().toLowerCase() === 'search' && el.querySelector('svg')) {
+                            searchBtn = el;
+                            break;
+                        }
+                    }
+
+                    if (searchBtn) {
+                        searchBtn.click();
+                        // Wait for search input to appear in modal
+                        setTimeout(() => {
+                            const input = document.querySelector('input[placeholder*="earch"], input[type="text"]');
+                            if (input) {
+                                let lastValue = input.value;
+                                input.value = q;
+                                let event = new Event('input', { bubbles: true });
+                                let tracker = input._valueTracker;
+                                if (tracker) {
+                                    tracker.setValue(lastValue);
+                                }
+                                input.dispatchEvent(event);
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }, 1000);
+                        return true;
+                    }
+                    return false;
+                }
+
+                // Try to trigger search once page is somewhat loaded
+                setTimeout(() => {
+                    if (!attemptSearchTrigger()) {
+                        // Retry once after 2 seconds if not found
+                        setTimeout(attemptSearchTrigger, 2000);
+                    }
+                }, 1500);
 
                 var isDispatched = false;
 
