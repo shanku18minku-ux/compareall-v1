@@ -23,8 +23,29 @@ export const EatSurePacket: ProviderPacket = {
                   'madurai', 'raipur', 'kota', 'guwahati', 'solapur', 'hubli', 'bareilly',
                   'moradabad', 'mysore', 'gurugram', 'jalandhar', 'tiruchirappalli', 'bhubaneswar',
                   'salem', 'warangal', 'thiruvananthapuram', 'kochi', 'udaipur', 'dehradun',
-                  'belgaum', 'rohtak']
+                  'belgaum', 'rohtak', 'all']
     },
+    
+    getLoginDetectionScript: () => {
+        return `
+            (function() {
+                var isLoggedIn = false;
+                try {
+                    var token = localStorage.getItem('token') || localStorage.getItem('access_token');
+                    if (token) isLoggedIn = true;
+                } catch(e) {}
+                
+                if (isLoggedIn) {
+                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'LOGIN_SUCCESS',
+                        provider: 'EatSure'
+                    }));
+                }
+            })();
+            true;
+        `;
+    },
+    successUrlPattern: 'eatsure.com',
 
     getSearchUrl: (query: string, location: any) => {
         // EatSure uses lat/lng query params for location-based results
@@ -37,14 +58,17 @@ export const EatSurePacket: ProviderPacket = {
     getExtractorInjection: (url: string, query: string, location: any) => {
         const lat = location?.latitude || 0;
         const lng = location?.longitude || 0;
-        const locName = (location?.name || '').replace(/"/g, '\\"');
+        const locName = location?.name || '';
+        
+        const safeQuery = JSON.stringify(query.toLowerCase());
+        const safeLocName = JSON.stringify(locName);
 
         return `
             (function() {
-                var q = "${query.toLowerCase().replace(/"/g, '\\"')}";
+                var q = ${safeQuery};
                 var userLat = ${lat};
                 var userLng = ${lng};
-                var locName = "${locName}";
+                var locName = ${safeLocName};
 
                 // ── Step 1: Force EatSure to use our location ──────────────────
                 // EatSure reads from localStorage key "location" or similar
@@ -89,11 +113,11 @@ export const EatSurePacket: ProviderPacket = {
                         return hasPrice && hasImg && h > 80 && h < 600 && w > 100;
                     });
 
-                    // Deduplicate: keep only the smallest (most specific) matching containers
+                    // Deduplicate: keep only the most specific inner containers
                     var deduped = cards.filter(function(el) {
                         return !cards.some(function(other) {
-                            return other !== el && other.contains(el) &&
-                                   (other.clientHeight - el.clientHeight) < 80;
+                            return other !== el && el.contains(other) &&
+                                   (el.clientHeight - other.clientHeight) < 80;
                         });
                     });
 
@@ -101,6 +125,7 @@ export const EatSurePacket: ProviderPacket = {
 
                     var items = [];
                     var seen = {};
+                    var isDispatched = false;
 
                     deduped.forEach(function(card) {
                         var text = card.innerText || card.textContent || '';
@@ -121,11 +146,12 @@ export const EatSurePacket: ProviderPacket = {
                         });
                         if (!isRelevant) return;
 
-                        // ── Extract price (FIXED regex — single backslash in runtime JS) ──
-                        var priceRegex = /₹\\s*(\\d+)/g;
+                        // ── Extract price (ignore 'OFF' or 'Cashback' numbers) ──
+                        var rawPriceText = text.replace(/₹\s*\d+\s*(?:OFF|Cashback|Discount)/gi, '');
+                        var priceRegex = /₹\s*(\d+)/g;
                         var priceMatches = [];
                         var m;
-                        while ((m = priceRegex.exec(text)) !== null) {
+                        while ((m = priceRegex.exec(rawPriceText)) !== null) {
                             var p = parseInt(m[1], 10);
                             if (p > 10 && p < 5000) priceMatches.push(p);
                         }
@@ -144,10 +170,10 @@ export const EatSurePacket: ProviderPacket = {
                         // ── Extract discount / coupon text ──
                         var offerText = '';
                         var couponCode = '';
-                        var discountMatch = text.match(/(\\d+\\s*%\\s*OFF)/i) ||
-                                           text.match(/(FLAT\\s*(?:₹|Rs\\.?)?\\s*\\d+\\s*OFF)/i) ||
-                                           text.match(/(Buy\\s*\\d+\\s*Get\\s*\\d+)/i);
-                        var couponMatch = text.match(/(?:USE|CODE)[:\\s]+([A-Z0-9]{3,15})/i);
+                        var discountMatch = text.match(/(\d+\s*%\s*OFF)/i) ||
+                                           text.match(/(FLAT\s*(?:₹|Rs\.?)?\s*\d+\s*OFF)/i) ||
+                                           text.match(/(Buy\s*\d+\s*Get\s*\d+)/i);
+                        var couponMatch = text.match(/(?:USE|CODE)[:\s]+([A-Z0-9]{3,15})/i);
 
                         if (discountMatch) offerText = discountMatch[1].toUpperCase();
                         if (couponMatch) {
@@ -156,9 +182,12 @@ export const EatSurePacket: ProviderPacket = {
                         }
 
                         // ── Extract dish name & restaurant ──
-                        var lines = text.split('\\n')
+                        var lines = text.split('\n')
                             .map(function(s) { return s.trim(); })
-                            .filter(function(s) { return s.length > 1; });
+                            .filter(function(s) { 
+                                return s.length > 2 && 
+                                       !/^(BESTSELLER|MUST TRY|NEW|VEG|NON-VEG|PREMIUM|OFF|₹)/i.test(s); 
+                            });
 
                         var dishName = lines[0] || q.toUpperCase();
                         var restaurantName = 'EatSure';
@@ -173,8 +202,8 @@ export const EatSurePacket: ProviderPacket = {
                                 break;
                             }
                         }
-                        // Fallback: second line might be restaurant
-                        if (restaurantName === 'EatSure' && lines.length > 1) {
+                        // Fallback: second line might be restaurant if it doesn't look like a price/desc
+                        if (restaurantName === 'EatSure' && lines.length > 1 && lines[1].indexOf('₹') === -1) {
                             restaurantName = lines[1] + ' (EatSure)';
                         }
 
@@ -193,13 +222,13 @@ export const EatSurePacket: ProviderPacket = {
                             restaurantName: restaurantName,
                             restaurantUrl: window.location.href,
                             menuPrice: originalPrice,
-                            autoCouponSavings: discount,
+                            autoCouponSavings: couponCode ? discount : 0,
                             effectivePrice: finalPrice,
                             price: {
                                 finalPayablePrice: finalPrice,
-                                menuPrice: originalPrice,
+                                menuPrice: finalPrice, // Keep selling price as menuPrice unless coupon exists
                                 basePrice: originalPrice,
-                                discount: discount
+                                discount: couponCode ? discount : 0
                             },
                             offerText: offerText || (discount > 0 ? discount + ' OFF' : 'Best Price'),
                             couponCode: couponCode,
@@ -215,27 +244,33 @@ export const EatSurePacket: ProviderPacket = {
                     });
 
                     if (items.length > 0) {
+                        isDispatched = true;
                         sendResults(items);
                         return true;
                     }
                     return false;
                 }
 
-                // ── Step 3: Poll every second for up to 15 seconds ────────────
+                // ── Step 3: Poll every 250ms for up to 15 seconds ────────────
                 var attempts = 0;
                 var timer = setInterval(function() {
+                    if (isDispatched) {
+                        clearInterval(timer);
+                        return;
+                    }
                     attempts++;
                     var found = extractData();
-                    if (found || attempts >= 15) {
+                    if (found || attempts >= 60) {
                         clearInterval(timer);
                         // Send empty only if truly no results (not just slow DOM)
                         if (!found) {
+                            isDispatched = true;
                             window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
                                 JSON.stringify({ type: 'SEARCH_RESULTS', success: true, data: [] })
                             );
                         }
                     }
-                }, 1000);
+                }, 250);
             })();
             true;
         `;

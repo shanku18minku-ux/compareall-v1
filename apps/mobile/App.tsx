@@ -78,7 +78,7 @@ export default function App() {
   // ── Cart Handlers ──────────────────────────────────────────────────────────
   const handleAddToCart = (offer: any, groupTitle: string) => {
     Vibration.vibrate(25);
-    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || 'food-a';
+    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
     const itemId = `${providerId}__${groupTitle}`;
     
     // Extract dish name and restaurant name
@@ -608,8 +608,7 @@ export default function App() {
              const normalizeRest = (n: string) => {
                return (n || '').toLowerCase()
                  .replace(/\bh\s*m\b/g, 'hm')
-                 // NOTE: 'sweets' NOT stripped — 'Param Sweets' must stay distinct from 'Param Paratha'
-                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge|offline)\b/g, '')
+                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge|offline|eatsure)\b/g, '')
                  .replace(/[^a-z0-9]/g, '')
                  .trim();
              };
@@ -858,7 +857,7 @@ export default function App() {
                 const isExpanded = expandedPlatformGroups[k] !== undefined ? expandedPlatformGroups[k] : true;
                 const primaryOffer = group.offers[0];
                 const secondaryOffers = group.offers.slice(1);
-                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || 'food-a';
+                const providerId = PROVIDERS.find(p => p.name.toLowerCase() === primaryOffer?.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
                 const itemId = `${providerId}__${group.title}`;
                 const cartItem = cartItems.find(item => item.id === itemId);
                 const qty = cartItem ? cartItem.quantity : 0;
@@ -871,7 +870,7 @@ export default function App() {
                     {/* Best Deal Winner Banner */}
                     <View style={styles.resultBestPriceBox}>
                       <Text style={styles.resultBestPrice}>
-                        🏆 Best Deal on {group.bestProvider || 'Swiggy'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
+                        🏆 Best Deal on {group.bestProvider || 'App'}: ₹{group.lowestPrice} {group.savings > 0 ? `(Save ₹${group.savings})` : ''}
                       </Text>
                     </View>
 
@@ -1001,7 +1000,7 @@ export default function App() {
 
                     {/* Collapsible Secondary Platforms List */}
                     {isExpanded && secondaryOffers.map((secOffer: any, secIdx: number) => {
-                      const secProviderId = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase())?.id || 'food-b';
+                      const secProviderId = PROVIDERS.find(p => p.name.toLowerCase() === secOffer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
                       const secItemId = `${secProviderId}__${group.title}`;
                       const secCartItem = cartItems.find(item => item.id === secItemId);
                       const secQty = secCartItem ? secCartItem.quantity : 0;
@@ -1402,7 +1401,7 @@ export default function App() {
                   style={styles.detailOrderDirectBtn}
                   onPress={() => {
                     const of = detailAnalysisModal.offer;
-                    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === of.providerName.toLowerCase())?.id || 'food-a';
+                    const providerId = PROVIDERS.find(p => p.name.toLowerCase() === of.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
                     handleCartCheckout(providerId, of.restaurantName, of.couponCode, of.restaurantUrl);
                     setDetailAnalysisModal(null);
                   }}

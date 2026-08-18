@@ -75,9 +75,9 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         onClose();
     };
 
-    const locName = location?.name || 'Medininagar, Jharkhand';
-    const userLat = location?.latitude || 24.0416;
-    const userLng = location?.longitude || 84.0706;
+    const locName = location?.name || '';
+    const userLat = location?.latitude || 0;
+    const userLng = location?.longitude || 0;
 
     // Inject geolocation, LocalStorage, SessionStorage & Cookies before page scripts load
     const beforeContentScript = `

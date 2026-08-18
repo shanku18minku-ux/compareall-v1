@@ -60,9 +60,9 @@ export const PlatformBrowserModal: React.FC<PlatformBrowserModalProps> = ({
     }
   }, [couponCode]);
 
-  const locName = location?.name || 'Medininagar, Jharkhand';
-  const userLat = location?.latitude || 24.0416;
-  const userLng = location?.longitude || 84.0706;
+  const locName = location?.name || '';
+  const userLat = location?.latitude || 0;
+  const userLng = location?.longitude || 0;
 
   const goToCheckout = () => {
     const finalCheckout = checkoutUrl || targetUrl;
