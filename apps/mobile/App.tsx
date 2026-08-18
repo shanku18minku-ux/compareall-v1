@@ -303,11 +303,26 @@ export default function App() {
     
     // Pattern 1: "[dish] from|in|at [restaurant]"
     const fromMatch = lQuery.match(/^(.*?)\s+(?:from|in|at)\s+(.+)$/i);
+    // Pattern 2: "[dish] karo [restaurant] se" OR "[dish] [restaurant] se"
+    const hindiSeMatch1 = lQuery.match(/^(.*?)\s+(?:karo\s+)?(.+?)\s+se$/i);
+    // Pattern 3: "[restaurant] se [dish]"
+    const hindiSeMatch2 = lQuery.match(/^(.+?)\s+se\s+(.+)$/i);
+
     if (fromMatch) {
        apiQ = fromMatch[1].trim();
        let rawRest = fromMatch[2].trim();
        rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\b/ig, '').trim();
        filters.restaurantKeyword = rawRest || fromMatch[2].trim();
+    } else if (hindiSeMatch1) {
+       apiQ = hindiSeMatch1[1].trim();
+       let rawRest = hindiSeMatch1[2].trim();
+       rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\b/ig, '').trim();
+       filters.restaurantKeyword = rawRest || hindiSeMatch1[2].trim();
+    } else if (hindiSeMatch2) {
+       apiQ = hindiSeMatch2[2].trim();
+       let rawRest = hindiSeMatch2[1].trim();
+       rawRest = rawRest.replace(/\b(restaurant|hotel|dhaba|cafe|sweets|bakers|kitchen|plaza|diner|food|foods|corner|point)\b/ig, '').trim();
+       filters.restaurantKeyword = rawRest || hindiSeMatch2[1].trim();
     } else {
        // Pattern 2: "[dish] under [price]" or "[dish] [price] se kam"
        const underMatch = lQuery.match(/^(.*?)\s+(?:under|below|<)\s+(\d+)/i);
