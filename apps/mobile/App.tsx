@@ -439,7 +439,11 @@ export default function App() {
              const effectiveFinalPrice = item.price?.finalPayablePrice || 9999;
              const restMatchKey = normalizeStr(restName || 'Unknown Restaurant');
              
-             let restGroup = updated.find(g => normalizeStr(g.restaurantName) === restMatchKey);
+             let restGroup = updated.find(g => {
+                 const existingKey = normalizeStr(g.restaurantName);
+                 return existingKey.includes(restMatchKey) || restMatchKey.includes(existingKey);
+             });
+             
              if (!restGroup) {
                  restGroup = {
                      restaurantName: restName || 'Unknown Restaurant',
@@ -455,7 +459,10 @@ export default function App() {
              }
              
              const dishMatchKey = normalizeStr(dishName || 'Unknown Dish');
-             let dishGroup = restGroup.dishes.find((d: any) => normalizeStr(d.dishName) === dishMatchKey);
+             let dishGroup = restGroup.dishes.find((d: any) => {
+                 const existingDishKey = normalizeStr(d.dishName);
+                 return existingDishKey.includes(dishMatchKey) || dishMatchKey.includes(existingDishKey);
+             });
              
              if (!dishGroup) {
                  dishGroup = {
