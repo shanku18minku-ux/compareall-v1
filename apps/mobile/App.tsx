@@ -251,6 +251,8 @@ export default function App() {
       if (latitude !== undefined && longitude !== undefined) {
         setLocation({ latitude, longitude, name });
         setResults([]); // Clear stale results from previous locations
+        completedProvidersRef.current.clear(); // Reset tracking for new WebViews
+        setIsSearching(true); // Show loader while new WebViews fetch
         setSearchNonce(Date.now()); // Ensure WebViews remount if needed
         setIsLocationModalVisible(false);
         setManualLocationInput('');
