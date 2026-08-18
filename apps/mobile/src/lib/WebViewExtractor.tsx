@@ -45,11 +45,11 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
 
         var needsReload = false;
 
-        function checkAndSetCookie(name, value, domain) {
+        function checkAndSetCookie(name, value) {
             var cookieStr = document.cookie;
             var match = cookieStr.match(new RegExp('(^| )' + name + '=([^;]+)'));
-            if (!match || match[2] !== String(value)) {
-                document.cookie = name + "=" + value + "; path=/; domain=" + domain;
+            if (!match || decodeURIComponent(match[2]) !== String(value)) {
+                document.cookie = name + "=" + encodeURIComponent(value) + "; path=/; max-age=31536000";
                 needsReload = true;
             }
         }
@@ -87,17 +87,17 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                     }));
                     needsReload = true;
                 }
-                checkAndSetCookie('_sw_lat', lat, '.swiggy.com');
-                checkAndSetCookie('_sw_lng', lng, '.swiggy.com');
+                checkAndSetCookie('_sw_lat', lat);
+                checkAndSetCookie('_sw_lng', lng);
             }
         } catch(e) {}
 
         // 3. Inject Zomato Cookies
         try {
             if (window.location.hostname.includes('zomato')) {
-                var zlocCookieVal = encodeURIComponent(JSON.stringify({lat: lat, lon: lng}));
-                checkAndSetCookie('loc', zlocCookieVal, '.zomato.com');
-                checkAndSetCookie('z_loc', zlocCookieVal, '.zomato.com');
+                var zlocCookieVal = JSON.stringify({lat: lat, lon: lng});
+                checkAndSetCookie('loc', zlocCookieVal);
+                checkAndSetCookie('z_loc', zlocCookieVal);
                 var lsZloc = localStorage.getItem('zomato_location');
                 var parsedZls = lsZloc ? JSON.parse(lsZloc) : null;
                 if (!parsedZls || parsedZls.lat != lat) {
@@ -116,16 +116,19 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                     localStorage.setItem('userLocation', JSON.stringify({
                         lat: lat,
                         lng: lng,
-                        address: locName
+                        address: locName,
+                        tag: 'Other'
                     }));
                     needsReload = true;
                 }
-                checkAndSetCookie('latitude', lat, '.eatsure.com');
-                checkAndSetCookie('longitude', lng, '.eatsure.com');
+                checkAndSetCookie('latitude', lat);
+                checkAndSetCookie('longitude', lng);
             }
         } catch(e) {}
 
-        if (needsReload) {
+        var reloadGuardKey = 'ca_reloaded_' + lat + '_' + lng;
+        if (needsReload && !sessionStorage.getItem(reloadGuardKey)) {
+            sessionStorage.setItem(reloadGuardKey, 'true');
             window.location.reload();
             return; // Halt execution of original DOM script until reloaded
         }
