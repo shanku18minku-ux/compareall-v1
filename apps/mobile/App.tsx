@@ -267,7 +267,10 @@ export default function App() {
   };
 
   const getFilteredProviders = () => {
-     if (!location || !location.name) return PROVIDERS;
+     if (!location || !location.name) {
+       // No location set — only show providers that work everywhere, not city-specific ones
+       return PROVIDERS.filter(p => p.regions.includes('all'));
+     }
 
      // Normalize location name: lowercase + map known aliases so region matching works reliably
      let locName = location.name.toLowerCase();
