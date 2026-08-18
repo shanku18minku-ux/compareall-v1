@@ -644,21 +644,14 @@ export default function App() {
                   <View key={k} style={styles.premiumRestCard}>
                     <View style={styles.restCardHeader}>
                         <Text style={styles.restTitle}>{restGroup.restaurantName}</Text>
-                        <View style={styles.platformsRow}>
-                            {restGroup.platforms.map((plat: string) => (
-                                <View key={plat} style={styles.platformBadge}>
-                                    <Text style={styles.platformBadgeText}>{plat}</Text>
-                                </View>
-                            ))}
                         </View>
-                    </View>
                     
                     <TouchableOpacity 
                         style={styles.openMenuBtn}
                         onPress={() => setSelectedMenuRest(restGroup)}
                         activeOpacity={0.8}
                     >
-                        <Text style={styles.openMenuBtnText}>View Menu / Prices</Text>
+                        <Text style={styles.openMenuBtnText}>Open</Text>
                     </TouchableOpacity>
                   </View>
                 );
