@@ -463,10 +463,10 @@ export const SwiggyPacket: ProviderPacket = {
                                     discount: totalSavings
                                 },
                                 offerText: promoBadge,
-                                couponCode: couponCode || 'FEASTMODE',
-                                couponDescription: descMeta || discountHeader || 'Promo Discount',
-                                couponPercent: couponPercent || 50,
-                                couponMaxCap: couponMaxCap || 100,
+                                couponCode: couponCode || '',
+                                couponDescription: descMeta || discountHeader || '',
+                                couponPercent: couponPercent || 0,
+                                couponMaxCap: couponMaxCap || 0,
                                 couponFlat: couponFlat,
                                 additionalOffers: platformOffers,
                                 metadata: {

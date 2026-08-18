@@ -198,7 +198,10 @@ export default function App() {
       setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
       setResults([]);
       completedProvidersRef.current.clear(); // Reset so new location fetches fresh data
-      setSearchNonce(Date.now());
+      // Only re-trigger WebViews if user already had an active search query
+      if (searchQuery || apiSearchQuery) {
+        setSearchNonce(Date.now());
+      }
       setIsLocationModalVisible(false);
     } catch (error) {
       console.log('Error fetching location:', error);
@@ -251,10 +254,13 @@ export default function App() {
 
       if (latitude !== undefined && longitude !== undefined) {
         setLocation({ latitude, longitude, name });
-        setResults([]); // Clear stale results from previous locations
+        setResults([]); // Clear stale results from previous location
         completedProvidersRef.current.clear(); // Reset tracking for new WebViews
-        setIsSearching(true); // Show loader while new WebViews fetch
-        setSearchNonce(Date.now()); // Ensure WebViews remount if needed
+        // Only re-trigger search if user already had an active query
+        if (searchQuery || apiSearchQuery) {
+          setIsSearching(true);
+          setSearchNonce(Date.now());
+        }
         setIsLocationModalVisible(false);
         setManualLocationInput('');
       } else {
@@ -808,7 +814,8 @@ export default function App() {
                    // Only use providers that match current location — never fall back to wrong-location provider
                    const activeProviders = categoryProviders;
 
-                   const activeQuery = apiSearchQuery || searchQuery || searchValues.query || 'paneer';
+                   const activeQuery = apiSearchQuery || searchQuery || searchValues.query || '';
+                   if (!activeQuery) return null; // No query — don't fire WebViews
 
                    return activeProviders.map(provider => {
                       if (!provider) return null;

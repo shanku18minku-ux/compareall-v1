@@ -430,11 +430,11 @@ export const ZomatoPacket: ProviderPacket = {
                                 basePrice: dishPrice,
                                 discount: autoCouponSavings
                             },
-                            offerText: couponDesc + ' | Use ' + couponCode,
+                            offerText: (couponDesc && couponCode) ? (couponDesc + ' | Use ' + couponCode) : (couponDesc || couponCode || ''),
                             couponCode: couponCode,
                             couponDescription: couponDesc,
-                            couponPercent: bestCoupon ? bestCoupon.percent : 50,
-                            couponMaxCap: bestCoupon ? bestCoupon.maxCap : 100,
+                            couponPercent: bestCoupon ? bestCoupon.percent : 0,
+                            couponMaxCap: bestCoupon ? bestCoupon.maxCap : 0,
                             couponFlat: bestCoupon ? bestCoupon.flat : 0,
                             additionalOffers: platformOffers,
                             metadata: {
