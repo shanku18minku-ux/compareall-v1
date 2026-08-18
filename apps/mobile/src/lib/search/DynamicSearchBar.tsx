@@ -83,34 +83,6 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
         }} 
       />
 
-      {/* Category Pills Header */}
-      <View style={styles.categoryScrollBox}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {categoriesList.map(cat => {
-            const isActive = (cat === category) || (cat === 'Commute' && category === 'Services');
-            return (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.catChip, isActive && styles.catChipActive]}
-                onPress={() => {
-                  Vibration.vibrate(15);
-                  onSelectCategory(cat);
-                }}
-              >
-                <Text style={[styles.catChipText, isActive && styles.catChipTextActive]}>
-                  {cat === 'Food' ? '🍔 Food' :
-                   cat === 'Commute' ? '🚕 Commute/Cabs' :
-                   cat === 'Groceries' ? '🥦 Groceries' :
-                   cat === 'Travel' ? '✈️ Travel' :
-                   cat === 'Medicine' ? '💊 Medicine' :
-                   cat === 'Shopping' ? '🛍️ Shopping' : '🔧 ' + cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
       {/* Dynamic Search Layout */}
       {schema.searchType === 'commute_route' ? (
         /* Commute Dual Input Layout (Ola, Rapido, Uber style) */
@@ -228,23 +200,33 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
         </View>
       )}
 
-      {/* Quick Suggestion Chips */}
-      {schema.quickSuggestions && schema.quickSuggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsScroll}>
-            <Text style={styles.suggestionsLabel}>Popular:</Text>
-            {schema.quickSuggestions.map((item, idx) => (
+      {/* Category Pills below search bar */}
+      <View style={[styles.categoryScrollBox, { marginTop: 15 }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {categoriesList.map(cat => {
+            const isActive = (cat === category) || (cat === 'Commute' && category === 'Services');
+            return (
               <TouchableOpacity
-                key={idx}
-                style={styles.suggestionChip}
-                onPress={() => handleSuggestionPress(item)}
+                key={cat}
+                style={[styles.catChip, isActive && styles.catChipActive]}
+                onPress={() => {
+                  Vibration.vibrate(15);
+                  onSelectCategory(cat);
+                }}
               >
-                <Text style={styles.suggestionChipText}>{item}</Text>
+                <Text style={[styles.catChipText, isActive && styles.catChipTextActive]}>
+                  {cat === 'Food' ? '🍔 Food' :
+                   cat === 'Commute' ? '🚕 Commute/Cabs' :
+                   cat === 'Groceries' ? '🛒 Groceries' :
+                   cat === 'Travel' ? '✈️ Travel' :
+                   cat === 'Medicine' ? '💊 Medicine' :
+                   cat === 'Shopping' ? '🛍️ Shopping' : '✨ ' + cat}
+                </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 };
