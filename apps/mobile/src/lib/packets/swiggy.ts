@@ -417,28 +417,6 @@ export const SwiggyPacket: ProviderPacket = {
                                     description: couponDesc
                                 });
                             }
-                            platformOffers.push({
-                                id: 'bank-hdfc-icici',
-                                type: 'bank',
-                                icon: '💳',
-                                title: 'Bank Offer: Flat ₹100 Instant Discount',
-                                description: 'On HDFC & ICICI Bank Credit Cards on orders above ₹499'
-                            });
-                            platformOffers.push({
-                                id: 'wallet-cred-amazon',
-                                type: 'wallet',
-                                icon: '⚡',
-                                title: 'UPI Cashback: Up to ₹50 Cashback',
-                                description: 'Pay via Cred UPI, Amazon Pay or Paytm'
-                            });
-                            platformOffers.push({
-                                id: 'member-swiggy-one',
-                                type: 'membership',
-                                icon: '👑',
-                                title: 'Swiggy One Perk: Free Delivery',
-                                description: 'Unlimited Free Delivery on orders above ₹149'
-                            });
-
                             var restSlug = (restInfo && restInfo.slugs && restInfo.slugs.restaurant) ? restInfo.slugs.restaurant : '';
                             var restId = (restInfo && restInfo.id) ? restInfo.id : '';
                             var restaurantUrl = (restSlug && restId) ? ('https://www.swiggy.com/restaurants/' + restSlug + '-' + restId) : 'https://www.swiggy.com';

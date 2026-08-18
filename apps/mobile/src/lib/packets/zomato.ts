@@ -516,10 +516,10 @@ export const ZomatoPacket: ProviderPacket = {
                             var ratingElem = card.querySelector('span[class*="rating-value"], div[class*="rating"], span[class*="rating"]');
                             var rating = ratingElem ? ratingElem.textContent.trim() : '3.9';
                             
-                            var offerText = '50% OFF up to ₹100 | Use ZOMATO50';
-                            var couponCode = 'ZOMATO50';
-                            var autoCouponSavings = Math.min(Math.round(finalPrice * 0.5), 100);
-                            var effectiveFinalPrice = Math.max(50, finalPrice - autoCouponSavings);
+                            var offerText = '';
+                            var couponCode = '';
+                            var autoCouponSavings = 0;
+                            var effectiveFinalPrice = finalPrice;
 
                             var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
                             var rawHref = linkElem && linkElem.href ? linkElem.href : '';
@@ -546,19 +546,10 @@ export const ZomatoPacket: ProviderPacket = {
                                 offerText: offerText,
                                 couponCode: couponCode,
                                 couponDescription: offerText,
-                                couponPercent: 50,
-                                couponMaxCap: 100,
+                                couponPercent: 0,
+                                couponMaxCap: 0,
                                 couponFlat: 0,
-                                additionalOffers: [
-                                    {
-                                        id: 'promo-' + couponCode,
-                                        type: 'coupon',
-                                        icon: '🏷️',
-                                        title: 'Promo Code: ' + couponCode,
-                                        code: couponCode,
-                                        description: offerText
-                                    }
-                                ],
+                                additionalOffers: [],
                                 metadata: {
                                     dishName: dishTitle,
                                     restaurantName: restName,

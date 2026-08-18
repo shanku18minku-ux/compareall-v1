@@ -48,6 +48,11 @@ export default function App() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [apiSearchQuery, setApiSearchQuery] = useState('');
+  // Refs to avoid stale closure in async callbacks (fetchCurrentLocation, handleManualLocation)
+  const searchQueryRef = useRef('');
+  const apiSearchQueryRef = useRef('');
+  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
+  useEffect(() => { apiSearchQueryRef.current = apiSearchQuery; }, [apiSearchQuery]);
   const activeFiltersRef = useRef<{ restaurantKeyword?: string, maxPrice?: number }>({});
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -199,7 +204,7 @@ export default function App() {
       setResults([]);
       completedProvidersRef.current.clear(); // Reset so new location fetches fresh data
       // Only re-trigger WebViews if user already had an active search query
-      if (searchQuery || apiSearchQuery) {
+      if (searchQueryRef.current || apiSearchQueryRef.current) {
         setSearchNonce(Date.now());
       }
       setIsLocationModalVisible(false);
@@ -257,7 +262,7 @@ export default function App() {
         setResults([]); // Clear stale results from previous location
         completedProvidersRef.current.clear(); // Reset tracking for new WebViews
         // Only re-trigger search if user already had an active query
-        if (searchQuery || apiSearchQuery) {
+        if (searchQueryRef.current || apiSearchQueryRef.current) {
           setIsSearching(true);
           setSearchNonce(Date.now());
         }
