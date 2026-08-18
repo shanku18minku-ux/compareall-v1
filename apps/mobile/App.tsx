@@ -896,6 +896,9 @@ export default function App() {
                                                                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                                                                     <Text style={{fontSize: 16}}>{offProvIcon}</Text>
                                                                     <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                                                    <TouchableOpacity onPress={() => setDetailAnalysisModal({ dishTitle: dish.dishName, offer: offer, group: null })}>
+                                                                        <Text style={{fontSize: 14, color: '#3b82f6', marginLeft: 4}}>ℹ️ Details</Text>
+                                                                    </TouchableOpacity>
                                                                 </View>
                                                                 
                                                                 {/* Price logic handling based on connections */}

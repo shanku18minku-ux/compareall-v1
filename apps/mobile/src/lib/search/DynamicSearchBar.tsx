@@ -227,6 +227,21 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
           })}
         </ScrollView>
       </View>
+
+      {/* Quick Filters (Veg/Non-Veg/Rating) */}
+      {category === 'Food' && (
+        <View style={styles.quickFiltersContainer}>
+          <TouchableOpacity style={styles.quickFilterBtn} onPress={() => { Vibration.vibrate(15); onChangeValue('query', (searchValues.query || '') + ' veg'); handleActionSubmit(); }}>
+            <Text style={styles.quickFilterText}>🟢 Pure Veg</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickFilterBtn} onPress={() => { Vibration.vibrate(15); onChangeValue('query', (searchValues.query || '') + ' non-veg'); handleActionSubmit(); }}>
+            <Text style={styles.quickFilterText}>🔴 Non-Veg</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickFilterBtn} onPress={() => { Vibration.vibrate(15); onChangeValue('query', (searchValues.query || '') + ' 4+ rating'); handleActionSubmit(); }}>
+            <Text style={styles.quickFilterText}>⭐ 4.0+</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -431,5 +446,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#334155',
     fontWeight: '500',
+  },
+  quickFiltersContainer: {
+    flexDirection: 'row',
+    marginBottom: 4,
+    paddingLeft: 4,
+  },
+  quickFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  quickFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
   },
 });
