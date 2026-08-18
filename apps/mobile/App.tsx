@@ -237,7 +237,7 @@ export default function App() {
             if (data && data.length > 0) {
                 latitude = parseFloat(data[0].lat);
                 longitude = parseFloat(data[0].lon);
-                name = manualLocationInput.charAt(0).toUpperCase() + manualLocationInput.slice(1);
+                name = data[0].name || data[0].display_name.split(',')[0] || manualLocationInput.charAt(0).toUpperCase() + manualLocationInput.slice(1);
             } else {
                 throw new Error("Not found via fallback");
             }
