@@ -99,6 +99,8 @@ export const EatSurePacket: ProviderPacket = {
                     } catch(e) {}
                 }
 
+                var isDispatched = false;
+
                 // ── Step 2: Extract real dish cards from DOM ───────────────────
                 function extractData() {
                     // EatSure renders dish cards with price using rupee symbol
@@ -125,7 +127,6 @@ export const EatSurePacket: ProviderPacket = {
 
                     var items = [];
                     var seen = {};
-                    var isDispatched = false;
 
                     deduped.forEach(function(card) {
                         var text = card.innerText || card.textContent || '';
