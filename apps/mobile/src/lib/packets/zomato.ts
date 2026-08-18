@@ -694,6 +694,13 @@ export const ZomatoPacket: ProviderPacket = {
     },
 
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
+        if (location && location.name) {
+            let cityName = location.name.split(',')[0].toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+            if (cityName === 'bengaluru') cityName = 'bangalore';
+            if (cityName) {
+                return `https://www.zomato.com/${cityName}/restaurants?search_text=${encodeURIComponent(query)}`;
+            }
+        }
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };

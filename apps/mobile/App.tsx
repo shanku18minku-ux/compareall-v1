@@ -261,7 +261,11 @@ export default function App() {
 
   const getFilteredProviders = () => {
      if (!location || !location.name) return PROVIDERS;
-     const locName = location.name.toLowerCase();
+     let locName = location.name.toLowerCase();
+     if (locName.includes('bengaluru')) {
+         locName += ' bangalore';
+     }
+
      const isRailwayStation = locName.includes('station') || locName.includes('railway') || locName.includes('junction') || locName.includes('cantt') || locName.includes('terminal');
 
      return PROVIDERS.filter(p => {
@@ -542,7 +546,7 @@ export default function App() {
                return (n || '').toLowerCase()
                  .replace(/\bh\s*m\b/g, 'hm')
                  // NOTE: 'sweets' NOT stripped — 'Param Sweets' must stay distinct from 'Param Paratha'
-                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge)\b/g, '')
+                 .replace(/\b(?:the|and|&|restaurant|restro|hotel|resort|dhaba|cafe|bhojnalaya|kitchen|food|foods|corner|point|express|house|junction|bar|inn|palace|plaza|lounge|offline)\b/g, '')
                  .replace(/[^a-z0-9]/g, '')
                  .trim();
              };

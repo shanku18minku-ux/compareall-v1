@@ -61,7 +61,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
             };
         }
 
-        // 2. Inject Swiggy LocalStorage Location
+        // 2. Inject Swiggy LocalStorage Location & Cookies
         try {
             if (window.location.hostname.includes('swiggy')) {
                 localStorage.setItem('userLocation', JSON.stringify({
@@ -71,6 +71,8 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                     area: locName,
                     id: ""
                 }));
+                document.cookie = "_sw_lat=" + lat + "; path=/; domain=.swiggy.com";
+                document.cookie = "_sw_lng=" + lng + "; path=/; domain=.swiggy.com";
             }
         } catch(e) {}
 
@@ -79,6 +81,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
             if (window.location.hostname.includes('zomato')) {
                 // Set basic location cookies that Zomato might use as fallback
                 document.cookie = "loc=" + encodeURIComponent(JSON.stringify({lat: lat, lon: lng})) + "; path=/; domain=.zomato.com; max-age=3600";
+                document.cookie = "z_loc=" + encodeURIComponent(JSON.stringify({lat: lat, lon: lng})) + "; path=/; domain=.zomato.com; max-age=3600";
                 localStorage.setItem('zomato_location', JSON.stringify({lat: lat, lon: lng}));
             }
         } catch(e) {}
