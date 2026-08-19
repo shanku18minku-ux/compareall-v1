@@ -35,48 +35,13 @@ export const ToingPacket: ProviderPacket = {
     getExtractorInjection: (url: string, searchQuery: string) => {
         return `
         (function() {
-            // Simulated Data Extraction for Toing (since no real web DOM exists)
-            console.log("[Toing Extractor] Starting simulation...");
-            
+            // No live website available for Toing, returning empty array as per strict instructions (No Mock Data)
             setTimeout(() => {
-                const results = [];
-                
-                // If user searched for pizza, return some mock Toing pizzas
-                if ('${searchQuery}'.toLowerCase().includes('pizza')) {
-                    results.push({
-                        dishName: 'Farmhouse Pizza',
-                        restaurantName: 'Oven Story Pizza',
-                        price: {
-                            finalPayablePrice: 285,
-                            basePrice: 350,
-                            discount: 65
-                        },
-                        deliveryTime: "40 mins",
-                        rating: "4.0",
-                        couponCode: "TOING_NEW",
-                        autoCouponSavings: 65
-                    });
-                    
-                    results.push({
-                        dishName: 'Margherita Pizza',
-                        restaurantName: 'Domino\\'s Pizza',
-                        price: {
-                            finalPayablePrice: 199,
-                            basePrice: 249,
-                            discount: 50
-                        },
-                        deliveryTime: "30 mins",
-                        rating: "4.1",
-                        couponCode: "TOING50",
-                        autoCouponSavings: 50
-                    });
-                }
-                
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'EXTRACTION_COMPLETE',
-                    data: results
+                    data: []
                 }));
-            }, 3000);
+            }, 1000);
         })();
         `;
     },
