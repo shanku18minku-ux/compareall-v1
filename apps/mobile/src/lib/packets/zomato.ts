@@ -43,8 +43,7 @@ export const ZomatoPacket: ProviderPacket = {
                         (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1 || document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('logged_in') !== -1)) ||
                         localStorage.getItem('user') ||
                         localStorage.getItem('user_id') ||
-                        sessionStorage.getItem('user') ||
-                        (currentUrl.indexOf('/login') === -1 && currentUrl.indexOf('zomato.com') !== -1 && !hasPhoneOrOtpInput)
+                        sessionStorage.getItem('user')
                     );
 
                     if (isUserLoggedIn && !hasPhoneOrOtpInput) {
@@ -592,5 +591,7 @@ export const ZomatoPacket: ProviderPacket = {
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
+
+
 
 
