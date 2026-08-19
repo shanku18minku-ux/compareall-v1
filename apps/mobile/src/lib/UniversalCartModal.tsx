@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Linking } from 'react-native';
 
 export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuantity, onCheckout, connectedProviders }) => {
-    const [detailBreakdown, setDetailBreakdown] = useState(null);
+    const [detailBreakdown, setDetailBreakdown] = useState<string | null>(null);
 
     // Get all unique providers that have an offer for any item in the cart
     const availableProviders = useMemo(() => {
