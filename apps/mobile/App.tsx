@@ -47,7 +47,7 @@ export default function App() {
             if (status !== 'granted') {
                 setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
             } else {
-                let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest, maximumAge: 0 });
+                let loc = await Location.getCurrentPositionAsync({ accuracy: 5 });
                 let geo = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
                 let name = geo.length > 0 ? `${geo[0].city || geo[0].name}, ${geo[0].region}` : 'Current Location';
                 setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });

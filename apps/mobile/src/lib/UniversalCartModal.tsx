@@ -125,7 +125,7 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                           const finalToPay = data.total + data.deliveryFee + data.taxes;
                           let providerEta = "30 mins";
                           for (let i=0; i<cartItems.length; i++) {
-                              let off = cartItems[i].offers.find(o => o.providerName === providerName);
+                              let off = (cartItems[i].offers || []).find(o => String(o.providerName) === String(providerName));
                               if (off && off.deliveryTime) { providerEta = off.deliveryTime; break; }
                           }
                         
