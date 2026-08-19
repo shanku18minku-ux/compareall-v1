@@ -833,8 +833,63 @@ export default function App() {
                                   displayDishes = exactMatches;
                               }
                           }
+
+                          // Calculate Available Coupons
+                          const uniqueCoupons: any[] = [];
+                          const seenCodes = new Set();
+                          selectedMenuRest.dishes.forEach((dish: any) => {
+                              dish.offers.forEach((offer: any) => {
+                                  if (offer.couponCode && !seenCodes.has(offer.couponCode)) {
+                                      const providerData = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
+                                      if (providerData && connectedProviders.includes(providerData.id)) {
+                                          seenCodes.add(offer.couponCode);
+                                          uniqueCoupons.push({
+                                              code: offer.couponCode,
+                                              desc: offer.couponDescription || `Save with ${offer.couponCode}`,
+                                              providerName: offer.providerName,
+                                              providerIcon: providerData.icon || '🍽️'
+                                          });
+                                      }
+                                  }
+                              });
+                          });
+
                           return (
                              <View style={styles.dishesContainer}>
+                                {uniqueCoupons.length > 0 && (
+                                    <View style={{ marginBottom: 20 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111' }}>Available coupons</Text>
+                                            <Text style={{ fontSize: 13, color: '#64748b' }}>{uniqueCoupons.length} found</Text>
+                                        </View>
+                                        <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Best coupon auto-applies in cart</Text>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ overflow: 'visible' }}>
+                                            {uniqueCoupons.map((coupon, idx) => (
+                                                <View key={idx} style={{ 
+                                                    width: 220, 
+                                                    marginRight: 12, 
+                                                    backgroundColor: '#fff', 
+                                                    borderRadius: 12, 
+                                                    padding: 12, 
+                                                    borderWidth: 1, 
+                                                    borderColor: '#e2e8f0',
+                                                    shadowColor: '#000',
+                                                    shadowOffset: { width: 0, height: 1 },
+                                                    shadowOpacity: 0.05,
+                                                    shadowRadius: 2,
+                                                    elevation: 2
+                                                }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                        <Text style={{ fontSize: 14, marginRight: 6 }}>{coupon.providerIcon}</Text>
+                                                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155' }}>{coupon.providerName} • Coupon</Text>
+                                                    </View>
+                                                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 }}>{coupon.code}</Text>
+                                                    <Text style={{ fontSize: 12, color: '#64748b' }} numberOfLines={2}>{coupon.desc}</Text>
+                                                </View>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
                              {displayDishes.map((dish: any, dIdx: number) => {
                                 return (
                                     <View key={dIdx} style={[styles.dishCard, { padding: 0, overflow: 'hidden' }]}>
