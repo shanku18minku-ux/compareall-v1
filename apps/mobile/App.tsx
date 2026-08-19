@@ -687,7 +687,7 @@ export default function App() {
                       
                       return (
                         <WebViewExtractor 
-                           key={id + '__' + fetchQuery + '__' + searchNonce} 
+                           key={id} 
                            url={searchUrl}
                            providerId={id}
                            location={location}
