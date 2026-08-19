@@ -98,7 +98,11 @@ export default function App() {
              const norm = (s: string) => (s||'').toLowerCase().replace(/[^a-z0-9]/g, '');
              const restKey = norm(restName);
              
-             let group = updated.find(g => norm(g.restaurantName).includes(restKey) || restKey.includes(norm(g.restaurantName)));
+             let group = updated.find(g => {
+        const gName = norm(g.restaurantName);
+        if (!restKey || !gName) return false;
+        return gName.includes(restKey) || restKey.includes(gName);
+    });
              if (!group) {
                  group = {
                      id: `rest_${Date.now()}_${Math.random()}`,
@@ -168,7 +172,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.headerLogo}>CompareAll</Text>
         <TouchableOpacity style={styles.locationPill}>
-           <Text style={styles.locationIcon}>??</Text>
+           <Text style={styles.locationIcon}>📍</Text>
            <Text style={styles.locationText} numberOfLines={1}>{location?.name || 'Locating...'}</Text>
         </TouchableOpacity>
       </View>
@@ -193,7 +197,7 @@ export default function App() {
           {activeTab === 'Search' && activeCategory === 'Food' && !selectedRest && (
              <View style={{flex: 1}}>
                  <View style={styles.searchContainer}>
-                     <Text style={styles.searchIcon}>??</Text>
+                     <Text style={styles.searchIcon}>🔍</Text>
                      <TextInput 
                          style={styles.searchInput}
                          placeholder="Search restaurants or dishes..."
@@ -225,7 +229,7 @@ export default function App() {
                                      ))}
                                  </View>
                                  <View style={styles.openMenuBtn}>
-                                     <Text style={styles.openMenuText}>Open Menu ?</Text>
+                                     <Text style={styles.openMenuText}>Open Menu ➔</Text>
                                  </View>
                              </TouchableOpacity>
                          ))}
@@ -237,7 +241,7 @@ export default function App() {
           {activeTab === 'Search' && activeCategory === 'Food' && selectedRest && (
              <View style={{flex: 1}}>
                  <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedRest(null)}>
-                     <Text style={{fontSize: 16}}>? Back to {searchQuery ? 'search' : 'restaurants'}</Text>
+                     <Text style={{fontSize: 16}}>← Back to {searchQuery ? 'search' : 'restaurants'}</Text>
                  </TouchableOpacity>
                  <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 100}}>
                      <Text style={styles.menuTitle}>{selectedRest.restaurantName}</Text>
@@ -248,7 +252,7 @@ export default function App() {
                              {dish.offers.map((offer: any, oIdx: number) => (
                                  <View key={oIdx} style={styles.offerRow}>
                                      <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                     <Text style={styles.offerPrice}>?{offer.price?.finalPayablePrice || offer.price?.basePrice || 0}</Text>
+                                     <Text style={styles.offerPrice}>₹{offer.price?.finalPayablePrice || offer.price?.basePrice || 0}</Text>
                                  </View>
                              ))}
                              <TouchableOpacity 
@@ -314,12 +318,12 @@ export default function App() {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
-              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}>??</Text>
-              <Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
+              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}>🔍</Text>
+<Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Connections')}>
-              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}>??</Text>
-              <Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
+              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}>🔗</Text>
+<Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
           </TouchableOpacity>
       </View>
 
@@ -327,7 +331,7 @@ export default function App() {
       {cartItems.length > 0 && activeTab === 'Search' && (
           <TouchableOpacity style={styles.floatingCart} onPress={() => setIsCartVisible(true)}>
               <Text style={styles.floatingCartText}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} Items</Text>
-              <Text style={styles.floatingCartText}>View Cart ??</Text>
+              <Text style={styles.floatingCartText}>View Cart ?</Text>
           </TouchableOpacity>
       )}
 

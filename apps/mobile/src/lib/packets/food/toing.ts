@@ -5,7 +5,7 @@ export const toingMetadata: ProviderMetadata = {
     name: 'Toing',
     category: 'Food',
     subcategory: 'Food Delivery',
-    icon: '??',
+    icon: '🛵',
     url: 'https://toing.in/',
     loginUrl: 'https://toing.in/login',
     regions: ['all'],

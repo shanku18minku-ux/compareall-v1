@@ -291,7 +291,7 @@ export const ZomatoPacket: ProviderPacket = {
                         if (dishPrice <= 0) dishPrice = 180;
                         dishPrice = getAccurateDishPrice(q, rName, dishPrice);
 
-                        var dishTitle = q.toUpperCase();
+                        var dishTitle = (q && q.toLowerCase() !== 'food') ? (q.charAt(0).toUpperCase() + q.slice(1)) : 'Menu Item';
                         var displayTitle = dishTitle + ' - ' + rName;
                         var rOrderUrl = buildRestaurantOrderUrl(info);
 
@@ -496,6 +496,11 @@ export const ZomatoPacket: ProviderPacket = {
                     try {
                         var titleElem = card.querySelector('a.result-title, [class*="result-title"], h4, h5, div[class*="title"], div[class*="name"]');
                         var restName = titleElem ? titleElem.textContent.replace(/\s+/g, ' ').trim() : '';
+                          if (!restName) {
+                              var altElem = card.querySelector('p[class*="title"], p[class*="name"], .sc-1hp8d8a-0');
+                              if (altElem) restName = altElem.textContent.trim();
+                          }
+                          if (!restName) return;
                         
                         var subzoneElem = card.querySelector('a[class*="search_result_subzone"], span[class*="locality"], div[class*="locality"]');
                         var locality = subzoneElem ? subzoneElem.textContent.trim() : '';
@@ -506,7 +511,7 @@ export const ZomatoPacket: ProviderPacket = {
                         var rawCost = costMatch ? parseInt(costMatch[1], 10) : 320;
                         var finalPrice = getAccurateDishPrice(q, restName, Math.round(rawCost / 2) || 160);
 
-                        var dishTitle = q.toUpperCase();
+                        var dishTitle = (q && q.toLowerCase() !== 'food') ? (q.charAt(0).toUpperCase() + q.slice(1)) : 'Menu Item';
 
                         if (restName) {
                             var ratingElem = card.querySelector('span[class*="rating-value"], div[class*="rating"], span[class*="rating"]');

@@ -5,7 +5,7 @@ export const ownlyMetadata: ProviderMetadata = {
     name: 'Ownly',
     category: 'Food',
     subcategory: 'Food Delivery',
-    icon: '??',
+    icon: '🍕',
     url: 'https://ownly.in/',
     loginUrl: 'https://ownly.in/login',
     regions: ['all'],

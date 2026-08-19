@@ -57,30 +57,30 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                         <View style={styles.detailHeader}>
                             <Text style={styles.detailTitle}>{detailBreakdown} Price Breakdown</Text>
                             <TouchableOpacity onPress={() => setDetailBreakdown(null)}>
-                                <Text style={{fontSize: 20}}>?</Text>
+                                <Text style={{fontSize: 20}}>✕</Text>
                             </TouchableOpacity>
                         </View>
                         
                         <View style={styles.detailRow}>
                             <Text>Item Total (Base)</Text>
-                            <Text>?{data.baseTotal}</Text>
+                            <Text>₹{data.baseTotal}</Text>
                         </View>
                         <View style={styles.detailRow}>
                             <Text>Delivery Fee</Text>
-                            <Text>?{data.deliveryFee}</Text>
+                            <Text>₹{data.deliveryFee}</Text>
                         </View>
                         <View style={styles.detailRow}>
                             <Text style={{color: '#16a34a', fontWeight: '500'}}>Extra Discount</Text>
-                            <Text style={{color: '#16a34a', fontWeight: '500'}}>-?{data.discount}</Text>
+                            <Text style={{color: '#16a34a', fontWeight: '500'}}>-₹{data.discount}</Text>
                         </View>
                         <View style={styles.detailRow}>
                             <Text>GST & Charges</Text>
-                            <Text>?{data.taxes}</Text>
+                            <Text>₹{data.taxes}</Text>
                         </View>
                         
                         <View style={[styles.detailRow, {borderTopWidth: 1, borderColor: '#e2e8f0', paddingTop: 10, marginTop: 10}]}>
                             <Text style={{fontWeight: 'bold'}}>To Pay</Text>
-                            <Text style={{fontWeight: 'bold'}}>?{finalToPay}</Text>
+                            <Text style={{fontWeight: 'bold'}}>₹{finalToPay}</Text>
                         </View>
                     </View>
                 </View>
@@ -94,7 +94,7 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                 <View style={styles.header}>
                     <Text style={styles.title}>Cart comparison</Text>
                     <TouchableOpacity onPress={onClose}>
-                        <Text style={styles.close}>?</Text>
+                        <Text style={styles.close}>✕</Text>
                     </TouchableOpacity>
                 </View>
                 
@@ -129,10 +129,10 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                             <View key={String(providerName)} style={styles.priceCard}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.providerName}>{String(providerName)}</Text>
-                                    <Text style={styles.timeTag}>?? 30-40 MINS</Text>
+                                    <Text style={styles.timeTag}>???🕒 30-40 MINS</Text>
                                 </View>
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.finalPrice}>?{finalToPay}</Text>
+                                    <Text style={styles.finalPrice}>₹{finalToPay}</Text>
                                     <TouchableOpacity style={styles.detailBtn} onPress={() => setDetailBreakdown(String(providerName))}>
                                         <Text style={styles.detailBtnText}>Detail</Text>
                                     </TouchableOpacity>
