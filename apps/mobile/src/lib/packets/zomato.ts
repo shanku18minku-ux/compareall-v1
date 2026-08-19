@@ -453,30 +453,7 @@ export const ZomatoPacket: ProviderPacket = {
                 return items;
             }
 
-            // 1. Direct Webroutes JSON Fetch (Immediate ~150ms)
-            try {
-                fetch('/webroutes/getPage?page_type=DELIVERY&q=' + encodeURIComponent(q))
-                    .then(function(r) { return r.json(); })
-                    .then(function(json) {
-                        var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
-                        var apiItems = processZomatoSections(sections);
-                        if (apiItems.length > 0) {
-                            sendZomatoResults(apiItems);
-                        }
-                    })
-                    .catch(function(e) {});
-
-                fetch('/webroutes/getPage?page_type=SEARCH&q=' + encodeURIComponent(q))
-                    .then(function(r) { return r.json(); })
-                    .then(function(json) {
-                        var sections = (json && json.page_data && json.page_data.sections && json.page_data.sections.SECTION_SEARCH_RESULT) || [];
-                        var apiItems = processZomatoSections(sections);
-                        if (apiItems.length > 0) {
-                            sendZomatoResults(apiItems);
-                        }
-                    })
-                    .catch(function(e) {});
-            } catch(e) {}
+            // 1. Webroutes JSON Fetch disabled to prevent generic results preempting DOM scraping.
 
             function parseZomatoDom() {
                 var items = [];
@@ -615,3 +592,5 @@ export const ZomatoPacket: ProviderPacket = {
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
+
+
