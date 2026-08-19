@@ -980,16 +980,12 @@ export default function App() {
                                               })()}
                                           </View>
                                       </View>
-                              })}
-                                            </View>
-                                        )}
-                                    </View>
-                                );
-                            })}
-                        </View>
-                          );
-                      })()}
-                  </ScrollView>
+                                  );
+                               })}
+                               </View>
+                            );
+                        })()}
+                    </ScrollView>
               </View>
           </View>
       </Modal>
