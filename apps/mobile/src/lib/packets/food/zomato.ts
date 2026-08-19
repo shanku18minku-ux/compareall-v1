@@ -520,9 +520,33 @@ export const ZomatoPacket: ProviderPacket = {
                             var rating = ratingElem ? ratingElem.textContent.trim() : '3.9';
                             
                             var offerText = '';
-                            var couponCode = '';
-                            var autoCouponSavings = 0;
-                            var effectiveFinalPrice = finalPrice;
+                              var couponCode = '';
+                              var autoCouponSavings = 0;
+                              
+                              var offerElem = card.querySelector('div[class*="offer"], div[color="#256fef"], p[color="#256fef"]');
+                              if (offerElem) {
+                                  var txt = offerElem.textContent.toUpperCase();
+                                  var flatMatch = txt.match(/(?:?|RS.?|INR)\s*(\d+)\s*(?:OFF)?/i) || txt.match(/(\d+)\s*(?:?|RS.?|INR)\s*OFF/i);
+                                  var percMatch = txt.match(/(\d+)\s*%/);
+                                  var uptoMatch = txt.match(/UP\s*TO\s*(?:?|RS.?)?(\d+)/i);
+                                  
+                                  var pFlat = flatMatch ? parseInt(flatMatch[1], 10) : 0;
+                                  var pPerc = percMatch ? parseInt(percMatch[1], 10) : 0;
+                                  var pUpto = uptoMatch ? parseInt(uptoMatch[1], 10) : 100;
+                                  
+                                  if (pFlat > 0) {
+                                      autoCouponSavings = pFlat;
+                                      couponCode = 'ZOMATO' + pFlat;
+                                  } else if (pPerc > 0) {
+                                      var rawDisc = Math.round((finalPrice * pPerc) / 100);
+                                      autoCouponSavings = Math.min(rawDisc, pUpto);
+                                      couponCode = 'ZOMATO' + pPerc;
+                                  }
+                                  if (autoCouponSavings > 0) {
+                                      offerText = txt;
+                                  }
+                              }
+                              var effectiveFinalPrice = Math.max(20, finalPrice - autoCouponSavings);
 
                             var linkElem = card.querySelector('a.result-title, a[href*="/order"], a[href*="/restaurant"]');
                             var rawHref = linkElem && linkElem.href ? linkElem.href : '';

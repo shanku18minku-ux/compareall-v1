@@ -200,10 +200,23 @@ export const SwiggyPacket: ProviderPacket = {
                                             restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
                                               imageUrl: rInfo.cloudinaryImageId ? ('https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto,w_208,h_208,c_fit/' + rInfo.cloudinaryImageId) : '',
                                             menuPrice: accurateDishPrice,
-                                            autoCouponSavings: 0,
-                                            effectivePrice: accurateDishPrice,
-                                            price: {
-                                                finalPayablePrice: accurateDishPrice,
+                                            autoCouponSavings: (() => {
+                                                  if (!rInfo.aggregatedDiscountInfoV3) return 0;
+                                                  let hdr = rInfo.aggregatedDiscountInfoV3.header || '';
+                                                  let pctM = hdr.match(/(\d+)\s*%/);
+                                                  let flatM = hdr.match(/(?:?|RS.?)\s*(\d+)/i) || hdr.match(/(\d+)\s*(?:?|RS.?)/i);
+                                                  let capM = hdr.match(/UPTO\s*(?:?|RS.?)\s*(\d+)/i);
+                                                  
+                                                  if (flatM) return parseInt(flatM[1], 10);
+                                                  if (pctM) {
+                                                      let raw = Math.round((accurateDishPrice * parseInt(pctM[1], 10)) / 100);
+                                                      return capM ? Math.min(raw, parseInt(capM[1], 10)) : raw;
+                                                  }
+                                                  return 0;
+                                              })(),
+                                              effectivePrice: accurateDishPrice, // We'll recalculate this dynamically in cart
+                                              price: {
+                                                  finalPayablePrice: accurateDishPrice,
                                                 menuPrice: accurateDishPrice,
                                                 basePrice: accurateDishPrice,
                                                 discount: 0
