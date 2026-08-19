@@ -113,18 +113,14 @@ export default function App() {
                    // Require at least first two words to match if they are multi-word, or exact match if single word
                    if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
                    
-                   let matchCount = 0;
-                   let minLen = Math.min(rWords.length, gWords.length);
-                   for(let i=0; i < minLen; i++) {
-                       if (rWords[i] === gWords[i]) matchCount++;
-                   }
+                   const n1 = rWords.join('');
+                   const n2 = gWords.join('');
                    
-                   // Must match the first word EXACTLY, and if there are more words, at least 50% match
-                   if (rWords[0] === gWords[0] && (matchCount / Math.max(rWords.length, gWords.length)) > 0.4) return true;
-                   
-                   // Special exact substring check only if it's very long (e.g. "KFC" vs "KFC (Kentucky Fried Chicken)")
-                   if (gName.length > 5 && restKey.length > 5) {
-                       if (gName.startsWith(restKey) || restKey.startsWith(gName)) return true;
+                   // Perfect merge: If they share the exact same first word, AND one's full name is inside the other's
+                   // (e.g. "Jain Shree" in "Jain Shree Sweets" -> MERGES)
+                   // (e.g. "Burger King" vs "Burger Singh" -> BLOCKS, because neither contains the other)
+                   if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) {
+                       return true;
                    }
                    
                    return false;
