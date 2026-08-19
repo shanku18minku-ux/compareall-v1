@@ -390,6 +390,7 @@ export default function App() {
              onSuccess={() => {
                  setConnectedProviders(prev => [...prev, loginModal.id]);
                  setLoginModal(null);
+                 setActiveTab('Search');
              }}
              onClose={() => setLoginModal(null)}
           />
