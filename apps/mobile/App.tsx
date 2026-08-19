@@ -83,6 +83,7 @@ export default function App() {
   // ── Cart Handlers ──────────────────────────────────────────────────────────
   const handleAddToCart = (offer: any, groupTitle: string) => {
     Vibration.vibrate(25);
+    setIsCartModalVisible(true);
     const providerId = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase())?.id || PROVIDERS[0]?.id;
     const itemId = `${providerId}__${groupTitle}`;
     
@@ -659,21 +660,32 @@ export default function App() {
                     }
                 }
 
-                return (
-                  <View key={k} style={styles.premiumRestCard}>
-                    <View style={styles.restCardHeader}>
-                        <Text style={styles.restTitle}>{restGroup.restaurantName}</Text>
-                        </View>
-                    
-                    <TouchableOpacity 
-                        style={styles.openMenuBtn}
-                        onPress={() => setSelectedMenuRest(restGroup)}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.openMenuBtnText}>Open</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
+                                  const providersInRest = Array.from(new Set(restGroup.dishes.flatMap((d: any) => d.offers.map((o: any) => o.providerName))));
+                  return (
+                    <View key={k} style={styles.premiumRestCard}>
+                      <View style={styles.restCardHeader}>
+                          <Text style={styles.restTitle}>{restGroup.restaurantName}</Text>
+                          <Text style={{color: '#64748b', fontSize: 13, marginTop: 4}}>Multiple Cuisines � Fast Food</Text>
+                      </View>
+                      
+                      <View style={{paddingHorizontal: 15, paddingBottom: 15}}>
+                          {providersInRest.map((provName: any) => (
+                              <View key={provName} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
+                                  <Text style={{fontWeight: 'bold', color: '#334155'}}>{provName}</Text>
+                                  <Text style={{color: '#16a34a', fontSize: 12, fontWeight: '600'}}>Open now</Text>
+                              </View>
+                          ))}
+                      </View>
+                      
+                      <TouchableOpacity 
+                          style={styles.openMenuBtn}
+                          onPress={() => setSelectedMenuRest(restGroup)}
+                          activeOpacity={0.8}
+                      >
+                          <Text style={styles.openMenuBtnText}>Open Menu ?</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
               })}
             </ScrollView>
           </View>
@@ -911,138 +923,64 @@ export default function App() {
                              {displayDishes.map((dish: any, dIdx: number) => {
                                 return (
                                     <View key={dIdx} style={[styles.dishCard, { padding: 0, overflow: 'hidden' }]}>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15}}>
-                                            <Text style={[styles.dishTitle, {flex: 1}]} numberOfLines={2}>{dish.dishName && dish.dishName.toLowerCase().includes('triple spice') ? dish.dishName.split(/triple spice/i)[0].trim() || 'American Nashville Pizza' : dish.dishName}</Text>
-                                            {(() => {
-                                                let maxDiscountPercent = 0;
-                                                dish.offers.forEach((o: any) => {
-                                                    const raw = o.price?.basePrice || o.price?.menuPrice || o.price?.finalPayablePrice || 0;
-                                                    const final = o.price?.finalPayablePrice || raw;
-                                                    if (raw > final) {
-                                                        const p = Math.round(((raw - final) / raw) * 100);
-                                                        if (p > maxDiscountPercent) maxDiscountPercent = p;
-                                                    }
-                                                });
-                                                if (maxDiscountPercent >= 50) {
-                                                    return (
-                                                        <View style={{backgroundColor: '#ef4444', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, marginLeft: 8}}>
-                                                            <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold'}}>MINIMUM {maxDiscountPercent}% OFF</Text>
-                                                        </View>
-                                                    );
-                                                }
-                                                return null;
-                                            })()}
-                                        </View>
-                                        <View style={[styles.dishBestPriceBox, { marginHorizontal: 15, marginBottom: 15 }]}>
-                                            <Text style={styles.dishBestPrice}>
-                                                🔥 Best Price: ₹{dish.lowestPrice}
-                                            </Text>
-                                        </View>
-                                        
-                                        <TouchableOpacity 
-                                            style={{paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9', backgroundColor: '#f8fafc', flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}
-                                            onPress={() => setExpandedDishIndex(expandedDishIndex === dIdx ? null : dIdx)}
-                                        >
-                                            <Text style={{color: '#64748b', fontWeight: '600', fontSize: 13}}>
-                                                {expandedDishIndex === dIdx ? 'Hide Options ▲' : `Compare ${dish.offers.length} Options ▼`}
-                                            </Text>
-                                        </TouchableOpacity>
-                                        
-                                        {expandedDishIndex === dIdx && (
-                                            <View style={{ paddingHorizontal: 15, paddingBottom: 15, paddingTop: 8 }}>
-                                                {dish.offers.map((offer: any, oIdx: number) => {
-                                                    const providerData = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
-                                                    const offProvId = providerData?.id || PROVIDERS[0]?.id;
-                                                    const offProvIcon = providerData?.icon || '🍽️';
-                                                    const offItemId = `${offProvId}__${dish.dishName}`;
-                                                    const offCartItem = cartItems.find(item => item.id === offItemId);
-                                                    const offQty = offCartItem ? offCartItem.quantity : 0;
-                                                    const isConnected = connectedProviders.includes(offProvId);
-                                                    
-                                                    // The final payable price might be lower if connected.
-                                                    const rawPrice = offer.menuPrice || offer.price?.basePrice || offer.price?.finalPayablePrice || 0;
-                                                    const finalPrice = offer.price?.finalPayablePrice || rawPrice;
-                                                    
-                                                    return (
-                                                        <View key={oIdx} style={[styles.offerItem, oIdx === 0 && styles.offerItemWinner, {marginTop: oIdx === 0 ? 8 : 0}]}>
-                                                            <View style={styles.offerMainInfo}>
-                                                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                                                                    <Text style={{fontSize: 16}}>{offProvIcon}</Text>
-                                                                    <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                                                    <TouchableOpacity onPress={() => setDetailAnalysisModal({ dishTitle: dish.dishName, offer: offer, group: null })}>
-                                                                        <Text style={{fontSize: 14, color: '#3b82f6', marginLeft: 4}}>ℹ️ Details</Text>
-                                                                    </TouchableOpacity>
-                                                                </View>
-                                                                
-                                                                {/* Price logic handling based on connections */}
-                                                                {isConnected ? (
-                                                                    <View>
-                                                                        {rawPrice > finalPrice ? (
-                                                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                                                                                <Text style={{textDecorationLine: 'line-through', color: '#94a3b8', fontSize: 13}}>₹{rawPrice}</Text>
-                                                                                <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
-                                                                            </View>
-                                                                        ) : (
-                                                                            <Text style={styles.effectivePriceBig}>₹{finalPrice}</Text>
-                                                                        )}
-                                                                        {offer.couponCode ? (
-                                                                            <Text style={{color: '#16a34a', fontSize: 11, fontWeight: 'bold'}}>
-                                                                                ✔ {offer.couponCode} Applied
-                                                                            </Text>
-                                                                        ) : null}
-                                                                    </View>
-                                                                ) : (
-                                                                    <View>
-                                                                        <Text style={styles.effectivePriceBig}>₹{rawPrice}</Text>
-                                                                        <Text style={{color: '#eab308', fontSize: 11, fontStyle: 'italic', maxWidth: 160}}>
-                                                                            🔗 Connect {offer.providerName} for coupon discounts!
-                                                                        </Text>
-                                                                    </View>
-                                                                )}
-                                                            </View>
-                                                            <View style={styles.cartActionContainer}>
-                                                                {offer.isRestaurantSearchResult ? (
-                                                                    <TouchableOpacity
-                                                                        style={[styles.addToCartBtn, { backgroundColor: '#4f46e5' }]}
-                                                                        onPress={() => {
-                                                                            const prov = PROVIDERS.find(p => p.name.toLowerCase() === offer.providerName.toLowerCase());
-                                                                            if (prov) {
-                                                                                setCheckoutModal({
-                                                                                    providerName: prov.name,
-                                                                                    providerIcon: prov.icon,
-                                                                                    providerCategory: prov.category,
-                                                                                    brandColor: prov.color,
-                                                                                    targetUrl: offer.restaurantUrl || prov.url,
-                                                                                    checkoutUrl: prov.checkoutUrl,
-                                                                                    cartItems: []
-                                                                                });
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <Text style={styles.addToCartBtnText}>VISIT</Text>
-                                                                    </TouchableOpacity>
-                                                                ) : offQty === 0 ? (
-                                                                    <TouchableOpacity
-                                                                        style={styles.addToCartBtn}
-                                                                        onPress={() => handleAddToCart(offer, dish.dishName)}
-                                                                    >
-                                                                        <Text style={styles.addToCartBtnText}>+ ADD</Text>
-                                                                    </TouchableOpacity>
-                                                                ) : (
-                                                                    <View style={styles.stepperContainer}>
-                                                                        <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty - 1)}>
-                                                                            <Text style={styles.stepperBtnText}>-</Text>
-                                                                        </TouchableOpacity>
-                                                                        <Text style={styles.stepperQtyText}>{offQty}</Text>
-                                                                        <TouchableOpacity style={styles.stepperBtn} onPress={() => handleUpdateCartQty(offItemId, offQty + 1)}>
-                                                                            <Text style={styles.stepperBtnText}>+</Text>
-                                                                        </TouchableOpacity>
-                                                                    </View>
-                                                                )}
-                                                            </View>
-                                                        </View>
-                                                    );
-                                                })}
+                                          <View style={{padding: 15}}>
+                                              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
+                                                  <View style={{width: 12, height: 12, borderWidth: 1, borderColor: '#16a34a', alignItems: 'center', justifyContent: 'center', marginRight: 6}}>
+                                                      <View style={{width: 6, height: 6, backgroundColor: '#16a34a', borderRadius: 3}} />
+                                                  </View>
+                                                  <Text style={{fontSize: 12, color: '#16a34a', fontWeight: 'bold'}}>Same price on available apps</Text>
+                                              </View>
+
+                                              <Text style={[styles.dishTitle, {flex: 1}]} numberOfLines={2}>{dish.dishName}</Text>
+                                              
+                                              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 8}}>
+                                                  <View style={{backgroundColor: '#fef08a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8}}>
+                                                      <Text style={{fontSize: 10, fontWeight: 'bold', color: '#ca8a04'}}>RECOMMENDED</Text>
+                                                  </View>
+                                              </View>
+
+                                              {dish.offers.map((offer: any, oIdx: number) => {
+                                                  const raw = offer.price?.basePrice || offer.price?.menuPrice || offer.price?.finalPayablePrice || 0;
+                                                  return (
+                                                      <View key={oIdx} style={{flexDirection: 'row', alignItems: 'center', marginTop: 6}}>
+                                                          <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: '#cbd5e1', marginRight: 6}} />
+                                                          <Text style={{fontSize: 14, color: '#334155', width: 80}}>{offer.providerName}</Text>
+                                                          <Text style={{fontSize: 14, fontWeight: 'bold', color: '#1e293b'}}>Rs {raw}</Text>
+                                                      </View>
+                                                  );
+                                              })}
+                                          </View>
+
+                                          <View style={{padding: 15, borderTopWidth: 1, borderTopColor: '#f1f5f9', alignItems: 'center'}}>
+                                              {(() => {
+                                                  const inCartItem = cartItems.find(i => i.id === dish.dishName);
+                                                  const qty = inCartItem ? inCartItem.quantity : 0;
+                                                  
+                                                  if (qty > 0) {
+                                                      return (
+                                                          <View style={styles.stepperContainer}>
+                                                              <TouchableOpacity onPress={() => handleUpdateCartQuantity(dish.dishName, qty - 1)} style={styles.stepperBtn}><Text style={styles.stepperBtnText}>-</Text></TouchableOpacity>
+                                                              <Text style={styles.stepperVal}>{qty}</Text>
+                                                              <TouchableOpacity onPress={() => handleUpdateCartQuantity(dish.dishName, qty + 1)} style={styles.stepperBtn}><Text style={styles.stepperBtnText}>+</Text></TouchableOpacity>
+                                                          </View>
+                                                      );
+                                                  } else {
+                                                      return (
+                                                          <TouchableOpacity 
+                                                              style={{backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', paddingHorizontal: 32, paddingVertical: 8, borderRadius: 8}}
+                                                              onPress={() => {
+                                                                  const bestOffer = dish.offers.sort((a: any, b: any) => (a.price?.finalPayablePrice||0) - (b.price?.finalPayablePrice||0))[0];
+                                                                  if (bestOffer) handleAddToCart(bestOffer, dish.dishName);
+                                                              }}
+                                                          >
+                                                              <Text style={{color: '#16a34a', fontWeight: 'bold', fontSize: 16}}>ADD</Text>
+                                                          </TouchableOpacity>
+                                                      );
+                                                  }
+                                              })()}
+                                          </View>
+                                      </View>
+                              })}
                                             </View>
                                         )}
                                     </View>

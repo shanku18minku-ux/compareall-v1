@@ -34,124 +34,8 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
   onClose,
   connectedProviders,
 }) => {
-  // Group cart items by Provider + Restaurant & Calculate Best Applied Coupon
-  const cartGroups: CartGroup[] = React.useMemo(() => {
-    const groupMap: { [key: string]: CartGroup } = {};
-
-    cartItems.forEach(item => {
-      const groupKey = `${item.providerId}__${item.restaurantName || 'General'}`;
-      if (!groupMap[groupKey]) {
-        groupMap[groupKey] = {
-          providerId: item.providerId,
-          providerName: item.providerName,
-          restaurantName: item.restaurantName || 'Restaurant Order',
-          restaurantUrl: item.restaurantUrl,
-          items: [],
-          subtotal: 0,
-          itemDiscounts: 0,
-          couponCode: item.couponCode,
-          couponDescription: item.couponDescription,
-          couponSavings: 0,
-          additionalOffers: item.additionalOffers || [],
-          finalTotal: 0,
-          promoText: item.offerText,
-        };
-      }
-
-      groupMap[groupKey].items.push(item);
-      const itemSubtotal = (item.basePrice || item.price) * item.quantity;
-      const itemFinal = item.price * item.quantity;
-      groupMap[groupKey].subtotal += itemFinal;
-      groupMap[groupKey].itemDiscounts += Math.max(0, itemSubtotal - itemFinal);
-      if (item.restaurantUrl && !groupMap[groupKey].restaurantUrl) {
-        groupMap[groupKey].restaurantUrl = item.restaurantUrl;
-      }
-      if (item.couponCode && !groupMap[groupKey].couponCode) {
-        groupMap[groupKey].couponCode = item.couponCode;
-        groupMap[groupKey].couponDescription = item.couponDescription;
-      }
-      if (item.additionalOffers && item.additionalOffers.length > 0 && (!groupMap[groupKey].additionalOffers || groupMap[groupKey].additionalOffers.length === 0)) {
-        groupMap[groupKey].additionalOffers = item.additionalOffers;
-      }
-    });
-
-    // Calculate Best Coupon Savings and Smart Deal Upsells for each Group
-    Object.values(groupMap).forEach(group => {
-      let maxCouponDiscount = 0;
-      let bestCode = group.couponCode || '';
-      let bestDesc = group.couponDescription || '';
-      let upsell: { missingAmount: number; nextCode: string; nextSavings: number; minOrder: number } | null = null;
-
-      // Extract all platform offers across all items in this group
-      const allOffers: any[] = [];
-      group.items.forEach(it => {
-        if (it.additionalOffers) allOffers.push(...it.additionalOffers);
-        allOffers.push({
-          code: it.couponCode,
-          description: it.couponDescription,
-          percent: it.couponPercent,
-          maxCap: it.couponMaxCap,
-          flat: it.couponFlat,
-        });
-      });
-
-      // Removed hardcoded synthetic FLAT coupons and upsells. We only use real coupons found during extraction.
-
-      allOffers.forEach(of => {
-        if (!of) return;
-        let itDiscount = 0;
-        let effectiveCap = of.maxCap;
-        if (!effectiveCap || effectiveCap === 0) {
-          if (of.percent && of.percent >= 70) effectiveCap = 140;
-          else if (of.percent && of.percent >= 60) effectiveCap = 120;
-          else if (of.percent && of.percent >= 50) effectiveCap = 100;
-          else if (of.percent && of.percent >= 40) effectiveCap = 80;
-        }
-
-        if (of.percent && of.percent > 0) {
-          const raw = Math.round((group.subtotal * of.percent) / 100);
-          itDiscount = effectiveCap && effectiveCap > 0 ? Math.min(raw, effectiveCap) : raw;
-        } else if (of.flat && of.flat > 0) {
-          itDiscount = of.flat;
-        }
-
-        if (itDiscount > maxCouponDiscount) {
-          maxCouponDiscount = itDiscount;
-          if (of.code) bestCode = of.code;
-          if (of.description) bestDesc = of.description;
-        }
-      });
-
-      const isConnected = connectedProviders.some(id => 
-        id === group.providerId || 
-        group.providerName.toLowerCase().includes(id.toLowerCase())
-      );
-
-      if (isConnected) {
-        group.couponSavings = maxCouponDiscount;
-        group.couponCode = bestCode || group.couponCode;
-        group.couponDescription = bestDesc || group.couponDescription;
-        group.finalTotal = Math.max(0, group.subtotal - maxCouponDiscount);
-      } else {
-        group.couponSavings = 0;
-        group.potentialSavings = maxCouponDiscount;
-        group.potentialCode = bestCode || group.couponCode;
-        group.finalTotal = group.subtotal;
-      }
-      
-      (group as any).upsell = upsell;
-    });
-
-    return Object.values(groupMap);
-  }, [cartItems]);
-
-  const grandSubtotal = cartGroups.reduce((sum, g) => sum + g.subtotal, 0);
-  const grandCouponSavings = cartGroups.reduce((sum, g) => sum + g.couponSavings, 0);
-  const grandPayable = cartGroups.reduce((sum, g) => sum + g.finalTotal, 0);
-  const totalItemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
   const handleQtyChange = (id: string, delta: number, currentQty: number) => {
-    Vibration.vibrate(20);
+    Vibration.vibrate(10);
     const newQty = currentQty + delta;
     if (newQty <= 0) {
       onRemoveItem(id);
@@ -160,15 +44,29 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
     }
   };
 
-  const handleCheckoutPress = async (group: CartGroup) => {
-    Vibration.vibrate(30);
-    if (group.couponCode) {
-      try {
-        await Clipboard.setStringAsync(group.couponCode);
-      } catch (_) {}
-    }
-    onCheckout(group.providerId, group.restaurantName, group.couponCode, group.restaurantUrl, group.items);
+  const handleCheckoutPress = async (providerId: string, finalPrice: number, items: any[]) => {
+    Vibration.vibrate(20);
+    // Use first item's restaurantName/Url for the checkout fallback
+    const firstItem = items[0];
+    onCheckout(providerId, firstItem?.providerItemDetails?.[providerId]?.restaurantName || 'Unknown', '', firstItem?.providerItemDetails?.[providerId]?.restaurantUrl || '', items);
   };
+
+  // Compile unique providers that have prices for the items in cart
+  const providerStats = {};
+  cartItems.forEach(item => {
+    if(item.offers) {
+      item.offers.forEach(o => {
+          if (!providerStats[o.providerName]) providerStats[o.providerName] = { total: 0, itemsCount: 0, id: o.providerId || (o.providerName.toLowerCase() === 'swiggy' ? 'food-a' : 'food-b') };
+          providerStats[o.providerName].total += (o.price?.finalPayablePrice || 0) * item.quantity;
+          providerStats[o.providerName].itemsCount += item.quantity;
+      });
+    }
+  });
+
+  const providers = Object.keys(providerStats).map(k => ({name: k, ...providerStats[k]}));
+  
+  // Sort providers by total price asc
+  providers.sort((a, b) => a.total - b.total);
 
   return (
     <Modal
@@ -178,182 +76,79 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Universal Cart</Text>
-            <Text style={styles.headerSub}>
-              {totalItemsCount > 0 ? `${totalItemsCount} items across connected apps` : 'Your basket is empty'}
-            </Text>
-          </View>
+          <Text style={styles.headerTitle}>Cart comparison</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={styles.closeText}>✕</Text>
+            <Text style={styles.closeText}>X</Text>
           </TouchableOpacity>
         </View>
 
         {cartItems.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🛒</Text>
-            <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
-            <Text style={styles.emptySub}>
-              Search for dishes or products and tap "+ ADD" to compare and build your universal basket.
-            </Text>
-            <TouchableOpacity style={styles.startShoppingBtn} onPress={onClose}>
-              <Text style={styles.startShoppingText}>Start Searching</Text>
-            </TouchableOpacity>
+            <Text style={{fontSize: 16, color: '#64748b', textAlign: 'center'}}>Your Cart is Empty</Text>
           </View>
         ) : (
-          <View style={{ flex: 1 }}>
-            <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 120 }}>
-              {cartGroups.map((group, gIdx) => (
-                <View key={gIdx} style={styles.groupCard}>
-                  {/* Group Header */}
-                  <View style={styles.groupHeader}>
-                    <View style={styles.groupHeaderTitleBox}>
-                      <Text style={styles.groupProviderBadge}>{group.providerName}</Text>
-                      <Text style={styles.groupRestaurantName}>{group.restaurantName}</Text>
+          <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 120 }}>
+            {/* Selected Items Section */}
+            <View style={{padding: 16}}>
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+                    <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a', marginRight: 8}} />
+                    <Text style={{fontSize: 16, fontWeight: 'bold', color: '#334155'}}>Selected items</Text>
+                </View>
+
+                {cartItems.map((item, idx) => (
+                    <View key={idx} style={{marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 16}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                            <Text style={{fontSize: 16, fontWeight: 'bold', color: '#1e293b', flex: 1}}>{item.dishName}</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity onPress={() => handleQtyChange(item.id, -1, item.quantity)} style={styles.stepperBtn}><Text style={styles.stepperBtnText}>-</Text></TouchableOpacity>
+                                <Text style={styles.stepperQtyText}>{item.quantity}</Text>
+                                <TouchableOpacity onPress={() => handleQtyChange(item.id, 1, item.quantity)} style={styles.stepperBtn}><Text style={styles.stepperBtnText}>+</Text></TouchableOpacity>
+                            </View>
+                        </View>
+                        <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 12, gap: 12}}>
+                            {item.offers && item.offers.map((o: any, oIdx: number) => (
+                                <View key={oIdx} style={{flexDirection: 'row', alignItems: 'center'}}>
+                                    <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: '#cbd5e1', marginRight: 6}} />
+                                    <Text style={{fontSize: 13, color: '#475569'}}>{o.providerName} <Text style={{fontWeight: 'bold', color: '#1e293b'}}>Rs {o.price?.finalPayablePrice}</Text></Text>
+                                </View>
+                            ))}
+                        </View>
+                        <View style={{backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', padding: 10, borderRadius: 8, marginTop: 12}}>
+                            <Text style={{fontSize: 12, color: '#b45309'}}>This item may not be eligible for all platform coupons or discounts.</Text>
+                        </View>
                     </View>
-                    {group.couponCode && group.couponSavings > 0 ? (
-                      <View style={styles.couponBadgeBox}>
-                        <Text style={styles.groupPromoBadge}>
-                          🏷️ Best Coupon: <Text style={{ fontWeight: 'bold' }}>{group.couponCode}</Text>
-                        </Text>
-                        {group.couponDescription ? (
-                          <Text style={styles.couponDescText}>{group.couponDescription}</Text>
-                        ) : null}
-                      </View>
-                    ) : null}
-                  </View>
+                ))}
+            </View>
 
-                  {/* Items List */}
-                  <View style={styles.itemsList}>
-                    {group.items.map(item => (
-                      <View key={item.id} style={styles.itemRow}>
-                        <View style={styles.itemInfo}>
-                          <Text style={styles.itemDishName} numberOfLines={2}>{item.dishName}</Text>
-                          <Text style={styles.itemPriceText}>
-                            ₹{item.price * item.quantity}
-                            {item.quantity > 1 && (
-                              <Text style={styles.itemUnitPrice}> (₹{item.price} each)</Text>
-                            )}
-                          </Text>
-                        </View>
+            {/* Price Comparison Section */}
+            <View style={{paddingHorizontal: 16, paddingBottom: 16}}>
+                <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 12}}>Price comparison</Text>
 
-                        {/* Quantity Stepper */}
-                        <View style={styles.stepperContainer}>
-                          <TouchableOpacity
-                            style={styles.stepperBtn}
-                            onPress={() => handleQtyChange(item.id, -1, item.quantity)}
-                          >
-                            <Text style={styles.stepperBtnText}>−</Text>
-                          </TouchableOpacity>
-                          <Text style={styles.stepperQtyText}>{item.quantity}</Text>
-                          <TouchableOpacity
-                            style={styles.stepperBtn}
-                            onPress={() => handleQtyChange(item.id, 1, item.quantity)}
-                          >
-                            <Text style={styles.stepperBtnText}>+</Text>
-                          </TouchableOpacity>
+                {providers.map((prov, pIdx) => (
+                    <View key={pIdx} style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0'}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                            <Text style={{fontSize: 16, fontWeight: 'bold', color: '#334155'}}>{prov.name}</Text>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                <View style={{backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8}}>
+                                    <Text style={{fontSize: 12, color: '#16a34a', fontWeight: 'bold'}}>Final price</Text>
+                                </View>
+                                <Text style={{fontSize: 12, color: '#64748b'}}>15-20 mins</Text>
+                            </View>
                         </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Extra Bank & Payment Offers */}
-                  {group.additionalOffers && group.additionalOffers.length > 0 && (
-                    <View style={styles.groupOffersContainer}>
-                      <Text style={styles.groupOffersHeading}>🎁 Platform & Bank Offers Available</Text>
-                      {group.additionalOffers.map((offer, oIdx) => (
-                        <View key={oIdx} style={styles.groupOfferRow}>
-                          <Text style={styles.groupOfferIcon}>{offer.icon}</Text>
-                          <View style={styles.groupOfferContent}>
-                            <Text style={styles.groupOfferTitle}>{offer.title}</Text>
-                            <Text style={styles.groupOfferDesc}>{offer.description}</Text>
-                          </View>
-                        </View>
-                      ))}
+                        <Text style={{fontSize: 28, fontWeight: 'bold', color: '#1e293b', marginBottom: 8}}>Rs {prov.total}</Text>
+                        <Text style={{fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 20}}>This total already includes delivery, taxes, fees, and any active savings. {prov.itemsCount} item{prov.itemsCount > 1 ? "s" : ""} can be moved to your {prov.name} cart.</Text>
+                        
+                        <TouchableOpacity 
+                            style={{backgroundColor: prov.name.toLowerCase() === 'swiggy' ? '#1e293b' : prov.name.toLowerCase() === 'zomato' ? '#ef4444' : '#1e293b', paddingVertical: 14, borderRadius: 8, alignItems: 'center'}}
+                            onPress={() => handleCheckoutPress(prov.id, prov.total, cartItems)}
+                        >
+                            <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>Transfer to {prov.name} cart</Text>
+                        </TouchableOpacity>
                     </View>
-                  )}
-
-                  {/* Group Subtotal & Applied Coupon Savings */}
-                  <View style={styles.groupFooter}>
-                    <View style={styles.groupPricingBreakdown}>
-                      <View style={styles.groupPricingRow}>
-                        <Text style={styles.groupTotalLabel}>Item Total</Text>
-                        <Text style={styles.groupPricingVal}>₹{group.subtotal}</Text>
-                      </View>
-                      {group.couponSavings > 0 && (
-                        <View style={styles.groupPricingRow}>
-                          <Text style={styles.couponSavingsText}>
-                            🏷️ Discount ({group.couponCode})
-                          </Text>
-                          <Text style={styles.couponSavingsAmount}>-₹{group.couponSavings}</Text>
-                        </View>
-                      )}
-                      {(group as any).potentialSavings && (group as any).potentialSavings > 0 && group.couponSavings === 0 ? (
-                        <View style={[styles.groupPricingRow, { backgroundColor: '#fef2f2', padding: 8, borderRadius: 6, marginTop: 4 }]}>
-                          <Text style={[styles.couponSavingsText, { color: '#ef4444' }]}>
-                            🔗 Link {group.providerName} to save
-                          </Text>
-                          <Text style={[styles.couponSavingsAmount, { color: '#ef4444' }]}>-₹{(group as any).potentialSavings}</Text>
-                        </View>
-                      ) : null}
-                      <View style={[styles.groupPricingRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f1f5f9' }]}>
-                        <Text style={styles.groupFinalLabel}>Final Payable</Text>
-                        <Text style={styles.groupTotalValue}>₹{group.finalTotal}</Text>
-                      </View>
-                    </View>
-
-                    {(group as any).upsell && (
-                      <View style={styles.upsellBadgeBox}>
-                        <Text style={styles.upsellBadgeText}>
-                          🔥 Add ₹{(group as any).upsell.missingAmount} more to unlock <Text style={{ fontWeight: 'bold', color: '#b45309' }}>{(group as any).upsell.nextCode}</Text> (Save ₹{(group as any).upsell.nextSavings})!
-                        </Text>
-                      </View>
-                    )}
-
-                    <TouchableOpacity
-                      style={styles.orderOnProviderBtn}
-                      onPress={() => handleCheckoutPress(group)}
-                    >
-                      <Text style={styles.orderOnProviderText}>
-                        Order on {group.providerName} (Pay ₹{group.finalTotal}) →
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-
-              {/* Bill Details Card */}
-              <View style={styles.billCard}>
-                <Text style={styles.billTitle}>Bill Summary</Text>
-                <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Item Total</Text>
-                  <Text style={styles.billValue}>₹{grandSubtotal}</Text>
-                </View>
-                {grandCouponSavings > 0 && (
-                  <View style={styles.billRow}>
-                    <Text style={[styles.billLabel, { color: '#16a34a', fontWeight: '600' }]}>🏷️ Best Coupon Savings</Text>
-                    <Text style={[styles.billValue, { color: '#16a34a', fontWeight: 'bold' }]}>-₹{grandCouponSavings}</Text>
-                  </View>
-                )}
-                <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Platform Comparison Fee</Text>
-                  <Text style={[styles.billValue, { color: '#00875A', fontWeight: 'bold' }]}>FREE</Text>
-                </View>
-                <View style={styles.billDivider} />
-                <View style={styles.billRow}>
-                  <Text style={styles.billGrandTotalLabel}>Total To Pay</Text>
-                  <Text style={styles.billGrandTotalValue}>₹{grandPayable}</Text>
-                </View>
-              </View>
-
-              {/* Clear Cart Button */}
-              <TouchableOpacity style={styles.clearCartBtn} onPress={onClearCart}>
-                <Text style={styles.clearCartText}>🗑️ Clear Entire Basket</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
+                ))}
+            </View>
+          </ScrollView>
         )}
       </SafeAreaView>
     </Modal>
@@ -363,370 +158,65 @@ export const UniversalCartModal: React.FC<UniversalCartModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    alignItems: 'center',
+    padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerLeft: {
-    flex: 1,
+    borderBottomColor: '#f1f5f9',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111',
-  },
-  headerSub: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
+    color: '#1e293b',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   closeText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
+    color: '#64748b',
+    fontWeight: 'bold',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 8,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: '#777',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  startShoppingBtn: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  startShoppingText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
+    padding: 24,
   },
   scrollArea: {
     flex: 1,
-    padding: 16,
-  },
-  groupCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  groupHeader: {
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
-    marginBottom: 12,
-  },
-  groupHeaderTitleBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  groupProviderBadge: {
-    backgroundColor: '#ff6d00',
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginRight: 8,
-    overflow: 'hidden',
-  },
-  groupRestaurantName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111',
-    flex: 1,
-  },
-  couponBadgeBox: {
-    marginTop: 6,
-  },
-  groupPromoBadge: {
-    fontSize: 12,
-    color: '#15803d',
-    fontWeight: '600',
-    backgroundColor: '#f0fdf4',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-    alignSelf: 'flex-start',
-  },
-  couponDescText: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  couponSavingsText: {
-    fontSize: 12,
-    color: '#16a34a',
-    fontWeight: 'bold',
-    marginVertical: 2,
-  },
-  itemsList: {
-    marginBottom: 12,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f9f9f9',
-  },
-  itemInfo: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  itemDishName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#222',
-    lineHeight: 18,
-  },
-  itemPriceText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111',
-    marginTop: 4,
-  },
-  itemUnitPrice: {
-    fontSize: 12,
-    fontWeight: 'normal',
-    color: '#888',
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
+    backgroundColor: '#fff',
     borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   stepperBtn: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   stepperBtnText: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: '#16a34a',
+    fontWeight: 'bold',
   },
   stepperQtyText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#16a34a',
-    paddingHorizontal: 8,
-  },
-  groupOffersContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  groupOffersHeading: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 6,
-  },
-  groupOfferRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 4,
-  },
-  groupOfferIcon: {
-    fontSize: 14,
-    marginRight: 6,
-    marginTop: 1,
-  },
-  groupOfferContent: {
-    flex: 1,
-  },
-  groupOfferTitle: {
-    fontSize: 12,
-    fontWeight: '600',
     color: '#1e293b',
-  },
-  groupOfferDesc: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
-  },
-  groupFooter: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    marginTop: 6,
-  },
-  groupPricingBreakdown: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-  },
-  groupPricingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  groupTotalLabel: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  groupPricingVal: {
-    fontSize: 13,
-    color: '#334155',
-    fontWeight: '600',
-  },
-  couponSavingsAmount: {
-    fontSize: 13,
-    color: '#16a34a',
-    fontWeight: 'bold',
-  },
-  groupFinalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  groupTotalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  orderOnProviderBtn: {
-    backgroundColor: '#0f172a',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  orderOnProviderText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  upsellBadgeBox: {
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  upsellBadgeText: {
-    fontSize: 12,
-    color: '#92400e',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  billCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  billTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111',
-    marginBottom: 12,
-  },
-  billRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  billLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  billValue: {
-    fontSize: 14,
-    color: '#222',
-    fontWeight: '600',
-  },
-  billDivider: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 10,
-  },
-  billGrandTotalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111',
-  },
-  billGrandTotalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#16a34a',
-  },
-  clearCartBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginBottom: 30,
-  },
-  clearCartText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '600',
+    paddingHorizontal: 4,
   },
 });
