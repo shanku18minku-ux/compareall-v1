@@ -61,7 +61,7 @@ export const EatSurePacket: ProviderPacket = {
             (function() {
                 try {
                     
-        var q = `${safeQuery}`;
+        var q = ${safeQuery};
         
         // Since we mapped the URL directly to the brand menu, we just wait for the menu to load!
         var scrapeAttempts = 0;
