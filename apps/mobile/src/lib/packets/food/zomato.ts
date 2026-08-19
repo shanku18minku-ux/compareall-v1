@@ -1,4 +1,4 @@
-﻿import { ProviderPacket, ProviderMetadata } from './types';
+﻿import { ProviderPacket, ProviderMetadata } from '../types';
 
 export const zomatoMetadata: ProviderMetadata = {
     id: 'food-b',

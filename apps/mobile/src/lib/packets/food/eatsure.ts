@@ -1,4 +1,4 @@
-﻿import { ProviderPacket } from './types';
+﻿import { ProviderPacket } from '../types';
 
 export const EatSurePacket: ProviderPacket = {
     metadata: {
@@ -55,7 +55,8 @@ export const EatSurePacket: ProviderPacket = {
         return `https://www.eatsure.com/`;
     },
 
-    getExtractorInjection: (query: string, location?: any) => {
+    getExtractorInjection: (searchUrl: string, query?: string, location?: any) => {
+        query = query || "";
         const safeQuery = JSON.stringify(query.toLowerCase());
         return `
             (function() {
