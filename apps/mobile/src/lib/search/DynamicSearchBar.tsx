@@ -191,7 +191,12 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
             </TouchableOpacity>
           </View>
           <TouchableOpacity
-            style={styles.singleSearchBtn}
+            style={[
+              styles.singleSearchBtn,
+              category === 'Food' && { backgroundColor: '#f97316' }, // Vibrant Orange for Food
+              category === 'Commute' && { backgroundColor: '#eab308' },
+              category === 'Groceries' && { backgroundColor: '#10b981' },
+            ]}
             onPress={handleActionSubmit}
             disabled={isSearching}
           >
@@ -205,10 +210,22 @@ export const DynamicSearchBar: React.FC<DynamicSearchBarProps> = ({
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {categoriesList.map(cat => {
             const isActive = (cat === category) || (cat === 'Commute' && category === 'Services');
+            
+            let activeColor = '#0f172a'; // default black
+            if (cat === 'Food') activeColor = '#f97316'; // Orange
+            if (cat === 'Commute') activeColor = '#eab308'; // Yellow
+            if (cat === 'Groceries') activeColor = '#10b981'; // Green
+            if (cat === 'Travel') activeColor = '#3b82f6'; // Blue
+            if (cat === 'Medicine') activeColor = '#ec4899'; // Pink
+            if (cat === 'Shopping') activeColor = '#8b5cf6'; // Purple
+
             return (
               <TouchableOpacity
                 key={cat}
-                style={[styles.catChip, isActive && styles.catChipActive]}
+                style={[
+                  styles.catChip, 
+                  isActive && { backgroundColor: activeColor, borderColor: activeColor }
+                ]}
                 onPress={() => {
                   Vibration.vibrate(15);
                   onSelectCategory(cat);
