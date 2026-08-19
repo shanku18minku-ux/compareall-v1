@@ -24,8 +24,8 @@ export const ZomatoPacket: ProviderPacket = {
 
     // Backup DOM-based detection: runs on every page load inside the WebView.
     // Checks for UI elements visible to logged-in users on Zomato.
-    getLoginDetectionScript: () => `
-        (function() {
+        getLoginDetectionScript: () => `(function() {
+            var hasSeenPhoneInput = false;
             var checkLoginInterval = setInterval(function() {
                 try {
                     var currentUrl = window.location.href || '';
@@ -33,8 +33,8 @@ export const ZomatoPacket: ProviderPacket = {
                         document.querySelector('input[type="tel"], input[placeholder*="Phone" i], input[placeholder*="Mobile" i], input[name="phone"], input[name="mobile"], input[placeholder*="OTP" i], input[type="number"], [class*="otp" i]')
                     );
 
-                    // If user is still typing phone number or entering OTP, keep waiting
-                    if (hasPhoneOrOtpInput || currentUrl.indexOf('/auth') !== -1) {
+                    if (hasPhoneOrOtpInput) {
+                        hasSeenPhoneInput = true;
                         return;
                     }
 
@@ -43,10 +43,11 @@ export const ZomatoPacket: ProviderPacket = {
                         (document.cookie && (document.cookie.indexOf('auth_token') !== -1 || document.cookie.indexOf('session_id') !== -1 || document.cookie.indexOf('zomatouser') !== -1 || document.cookie.indexOf('user_id') !== -1 || document.cookie.indexOf('logged_in') !== -1)) ||
                         localStorage.getItem('user') ||
                         localStorage.getItem('user_id') ||
-                        sessionStorage.getItem('user')
+                        sessionStorage.getItem('user') ||
+                        (hasSeenPhoneInput && !hasPhoneOrOtpInput)
                     );
 
-                    if (isUserLoggedIn && !hasPhoneOrOtpInput) {
+                    if (isUserLoggedIn) {
                         clearInterval(checkLoginInterval);
                         if (window.ReactNativeWebView) {
                             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
@@ -55,8 +56,7 @@ export const ZomatoPacket: ProviderPacket = {
                 } catch(e) {}
             }, 800);
         })();
-        true;
-    `,
+        true;`,
 
     // ── Extractor (for search results) ─────────────────────────────────────
     getExtractorInjection: (searchUrl: string, query?: string, location?: { latitude: number; longitude: number; name: string } | null) => {
@@ -591,6 +591,8 @@ export const ZomatoPacket: ProviderPacket = {
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
+
+
 
 
 
