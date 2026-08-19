@@ -205,8 +205,8 @@ export const SwiggyPacket: ProviderPacket = {
                                                   if (!rInfo.aggregatedDiscountInfoV3) return 0;
                                                   let hdr = rInfo.aggregatedDiscountInfoV3.header || '';
                                                   let pctM = hdr.match(/(\d+)\s*%/);
-                                                  let flatM = hdr.match(/(?:?|RS.?)\s*(\d+)/i) || hdr.match(/(\d+)\s*(?:?|RS.?)/i);
-                                                  let capM = hdr.match(/UPTO\s*(?:?|RS.?)\s*(\d+)/i);
+                                                  let flatM = hdr.match(/(?:\u20B9|RS.?)\s*(\d+)/i) || hdr.match(/(\d+)\s*(?:\u20B9|RS.?)/i);
+                                                  let capM = hdr.match(/UPTO\s*(?:\u20B9|RS.?)\s*(\d+)/i);
                                                   
                                                   if (flatM) return parseInt(flatM[1], 10);
                                                   if (pctM) {

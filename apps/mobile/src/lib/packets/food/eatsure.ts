@@ -102,7 +102,7 @@ export const EatSurePacket: ProviderPacket = {
                       if (offerEl && autoCouponSavings === 0) {
                           var oTxt = offerEl.innerText.trim().toUpperCase();
                           var pMatch = oTxt.match(/(\d+)\s*%/);
-                          var fMatch = oTxt.match(/(\d+)\s*(?:OFF|?|RS)/i) || oTxt.match(/(?:?|RS.?)\s*(\d+)/i);
+                          var fMatch = oTxt.match(/(\d+)\s*(?:OFF|\u20B9|RS)/i) || oTxt.match(/(?:\u20B9|RS.?)\s*(\d+)/i);
                           if (pMatch) {
                               var p = parseInt(pMatch[1], 10);
                               autoCouponSavings = Math.round((price * p) / 100);

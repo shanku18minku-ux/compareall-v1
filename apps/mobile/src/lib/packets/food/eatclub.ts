@@ -85,7 +85,7 @@ export const EatClubPacket: ProviderPacket = {
                             appliedCoupon = "OFFER" + percMatch[1];
                         }
                     } else if (offerText.includes('?') || offerText.includes('Rs')) {
-                        let flatMatch = offerText.match(/(?:?|Rs\\.?\\s*)(\\d+)/i);
+                        let flatMatch = offerText.match(/(?:\u20B9|Rs\\.?\\s*)(\\d+)/i);
                         if (flatMatch) {
                             couponSavings = parseInt(flatMatch[1], 10);
                             appliedCoupon = "FLAT" + couponSavings;

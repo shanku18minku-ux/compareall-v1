@@ -511,7 +511,7 @@ export const ZomatoPacket: ProviderPacket = {
                         
                         var priceElem = card.querySelector('div[class*="res-cost"], span[class*="price"], div[class*="price"], p[class*="cost"]');
                         var priceText = priceElem ? priceElem.textContent.trim() : (card.textContent || '');
-                        var costMatch = priceText.match(/(?:₹|rs\.?|cost for two:?\s*(?:₹|rs\.?)?)\s*(\d+)/i);
+                        var costMatch = priceText.match(/(?:₹|rs\.\u20B9|cost for two:?\s*(?:₹|rs\.?)?)\s*(\d+)/i);
                         var rawCost = costMatch ? parseInt(costMatch[1], 10) : 320;
                         var finalPrice = getAccurateDishPrice(q, restName, Math.round(rawCost / 2) || 160);
 
@@ -528,9 +528,9 @@ export const ZomatoPacket: ProviderPacket = {
                               var offerElem = card.querySelector('div[class*="offer"], div[color="#256fef"], p[color="#256fef"]');
                               if (offerElem) {
                                   var txt = offerElem.textContent.toUpperCase();
-                                  var flatMatch = txt.match(/(?:?|RS.?|INR)\s*(\d+)\s*(?:OFF)?/i) || txt.match(/(\d+)\s*(?:?|RS.?|INR)\s*OFF/i);
+                                  var flatMatch = txt.match(/(?:\u20B9|RS.\u20B9|INR)\s*(\d+)\s*(?:OFF)?/i) || txt.match(/(\d+)\s*(?:\u20B9|RS.\u20B9|INR)\s*OFF/i);
                                   var percMatch = txt.match(/(\d+)\s*%/);
-                                  var uptoMatch = txt.match(/UP\s*TO\s*(?:?|RS.?)?(\d+)/i);
+                                  var uptoMatch = txt.match(/UP\s*TO\s*(?:\u20B9|RS.?)?(\d+)/i);
                                   
                                   var pFlat = flatMatch ? parseInt(flatMatch[1], 10) : 0;
                                   var pPerc = percMatch ? parseInt(percMatch[1], 10) : 0;
