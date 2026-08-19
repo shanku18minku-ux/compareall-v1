@@ -5,7 +5,7 @@ export const zomatoMetadata: ProviderMetadata = {
     name: 'Zomato',
     category: 'Food',
     subcategory: 'Food Delivery',
-    icon: '🔴',
+    icon: '',
     brandColor: '#cb202d',
     authType: 'otp',
     url: 'https://www.zomato.com',
@@ -399,7 +399,7 @@ export const ZomatoPacket: ProviderPacket = {
                             platformOffers.push({
                                 id: 'promo-' + cp.code,
                                 type: 'coupon',
-                                icon: '🏷️',
+                                icon: '️',
                                 title: 'Promo Code: ' + cp.code,
                                 code: cp.code,
                                 description: cp.description
@@ -408,7 +408,7 @@ export const ZomatoPacket: ProviderPacket = {
                         platformOffers.push({
                             id: 'zomato-gold-delivery',
                             type: 'membership',
-                            icon: '👑',
+                            icon: '',
                             title: 'Zomato Gold: Free Delivery',
                             description: 'Unlimited Free Delivery on orders above ₹199'
                         });

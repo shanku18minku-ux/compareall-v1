@@ -208,7 +208,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.headerLogo}>CompareAll</Text>
         <TouchableOpacity style={styles.locationPill}>
-           <Text style={styles.locationIcon}>📍</Text>
+           <Text style={styles.locationIcon}></Text>
            <Text style={styles.locationText} numberOfLines={1}>{location?.name || 'Locating...'}</Text>
         </TouchableOpacity>
       </View>
@@ -370,11 +370,11 @@ export default function App() {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
-              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}>🔍</Text>
+              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}></Text>
 <Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Connections')}>
-              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}>🔗</Text>
+              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}></Text>
 <Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
           </TouchableOpacity>
       </View>

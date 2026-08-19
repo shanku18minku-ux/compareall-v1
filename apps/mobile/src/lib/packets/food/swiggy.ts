@@ -5,7 +5,7 @@ export const swiggyMetadata: ProviderMetadata = {
     category: 'Food',
     subcategory: 'Food Delivery',
     name: 'Swiggy',
-    icon: '🍔',
+    icon: '',
     brandColor: '#ff5200',
     authType: 'otp',
     url: 'https://www.swiggy.com',
@@ -416,7 +416,7 @@ export const SwiggyPacket: ProviderPacket = {
                                 platformOffers.push({
                                     id: 'promo-' + cp.code,
                                     type: 'coupon',
-                                    icon: '🏷️',
+                                    icon: '️',
                                     title: 'Promo Code: ' + cp.code,
                                     code: cp.code,
                                     description: cp.description
@@ -426,7 +426,7 @@ export const SwiggyPacket: ProviderPacket = {
                                 platformOffers.push({
                                     id: 'promo-' + couponCode,
                                     type: 'coupon',
-                                    icon: '🏷️',
+                                    icon: '️',
                                     title: 'Promo Code: ' + couponCode,
                                     code: couponCode,
                                     description: couponDesc

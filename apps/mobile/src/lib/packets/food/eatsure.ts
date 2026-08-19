@@ -6,7 +6,7 @@ export const EatSurePacket: ProviderPacket = {
         name: 'EatSure',
         category: 'Food',
         subcategory: 'Food Delivery',
-        icon: '🍱',
+        icon: '',
         brandColor: '#4945be',
         authType: 'otp',
         url: 'https://www.eatsure.com',

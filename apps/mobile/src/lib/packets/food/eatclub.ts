@@ -5,7 +5,7 @@ export const eatclubMetadata: ProviderMetadata = {
     name: 'EatClub',
     category: 'Food',
     subcategory: 'Food Delivery',
-    icon: '🍔',
+    icon: '',
     url: 'https://eatclub.in/',
     loginUrl: 'https://eatclub.in/login',
     regions: ['all'],
