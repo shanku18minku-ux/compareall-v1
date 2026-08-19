@@ -60,7 +60,7 @@ export default function App() {
 
   // Fetch default data silently if Food is active and no search query
   useEffect(() => {
-      if (activeTab === 'Search' && activeCategory === 'Food' && isAllConnected && !searchQuery && results.length === 0 && !isSearching) {
+      if (activeTab === 'Search' && activeCategory === 'Food' && !searchQuery && results.length === 0 && !isSearching) {
           setIsSearching(true);
           completedProvidersRef.current = new Set();
           if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -163,7 +163,7 @@ export default function App() {
   
   // Render Background Extractors
   const renderExtractors = () => {
-      if (!isAllConnected) return null;
+      
       if (!isSearching || activeCategory !== 'Food') return null;
       
       const fetchQuery = searchQuery || 'food'; // Default fallback
@@ -221,23 +221,9 @@ export default function App() {
 
       {/* Main Content Area */}
       <View style={styles.content}>
-          {activeTab === 'Search' && activeCategory === 'Food' && !isAllConnected && (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
-            <Text style={{fontSize: 50, marginBottom: 20}}>??</Text>
-            <Text style={{fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, color: '#0f172a'}}>Connect All Apps</Text>
-            <Text style={{fontSize: 16, textAlign: 'center', color: '#64748b', marginBottom: 30}}>
-                To compare the lowest prices, you must login to all {activeProviders.length} food platforms first.
-            </Text>
-            <TouchableOpacity 
-                style={{backgroundColor: '#ea580c', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 12, elevation: 3}}
-                onPress={() => setActiveTab('Connections')}
-            >
-                <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>Go to Connections</Text>
-            </TouchableOpacity>
-        </View>
-    )}
+          
     
-    {activeTab === 'Search' && activeCategory === 'Food' && isAllConnected && !selectedRest && (
+    {activeTab === 'Search' && activeCategory === 'Food' && !selectedRest && (
              <View style={{flex: 1}}>
                  <View style={[styles.searchContainer, {flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent', elevation: 0, padding: 0}]}>
           <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 16, elevation: 2}}>
@@ -292,7 +278,7 @@ export default function App() {
              </View>
           )}
 
-          {activeTab === 'Search' && activeCategory === 'Food' && isAllConnected && selectedRest && (
+          {activeTab === 'Search' && activeCategory === 'Food' && selectedRest && (
              <View style={{flex: 1}}>
                  <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedRest(null)}>
                      <Text style={{fontSize: 16}}>← Back to {searchQuery ? 'search' : 'restaurants'}</Text>
