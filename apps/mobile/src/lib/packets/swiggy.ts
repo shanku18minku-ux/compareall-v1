@@ -1,4 +1,4 @@
-import { ProviderPacket, ProviderMetadata } from './types';
+﻿import { ProviderPacket, ProviderMetadata } from './types';
 
 export const swiggyMetadata: ProviderMetadata = {
     id: 'food-a',
@@ -567,3 +567,4 @@ export const SwiggyPacket: ProviderPacket = {
 
     getSearchUrl: (query: string) => `https://www.swiggy.com/search?query=${encodeURIComponent(query)}`
 };
+

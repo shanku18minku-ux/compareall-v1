@@ -1,4 +1,4 @@
-import { ProviderPacket, ProviderMetadata } from './types';
+﻿import { ProviderPacket, ProviderMetadata } from './types';
 
 export const zomatoMetadata: ProviderMetadata = {
     id: 'food-b',
@@ -471,6 +471,26 @@ export const ZomatoPacket: ProviderPacket = {
 
                 // 3. Search Result Cards on DOM
                 var cards = document.querySelectorAll('div[class*="search-snippet-card"], div[class*="search-card"], div[class*="js-search-result-li"], article[class*="search-result"], div[class*="RestaurantCard"], div[class*="card"]');
+                  // Robust fallback if classes are obfuscated
+                  if (!cards || cards.length === 0) {
+                      var all = Array.from(document.querySelectorAll('div, a, article, section, li'));
+                      var possible = all.filter(function(el) {
+                          if (el.clientHeight < 50 || el.clientHeight > 600 || el.clientWidth < 100) return false;
+                          var txt = el.innerText || '';
+                          if (!txt.includes('?') && !txt.toLowerCase().includes('cost for two') && !txt.toLowerCase().includes('rs')) return false;
+                          if (el.querySelector('img') === null) return false;
+                          if (el.querySelectorAll('*').length > 50) return false;
+                          return true;
+                      });
+                      if (possible.length > 0) {
+                          // Deduplicate parents
+                          var deduped = possible.filter(function(el) {
+                              var hasParent = possible.some(function(p) { return p !== el && p.contains(el); });
+                              return !hasParent;
+                          });
+                          cards = deduped;
+                      }
+                  }
                 
                 cards.forEach(function(card) {
                     try {
@@ -591,6 +611,7 @@ export const ZomatoPacket: ProviderPacket = {
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
+
 
 
 

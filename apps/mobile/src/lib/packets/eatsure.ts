@@ -1,4 +1,4 @@
-import { ProviderPacket } from './types';
+﻿import { ProviderPacket } from './types';
 
 export const EatSurePacket: ProviderPacket = {
     metadata: {
@@ -210,7 +210,7 @@ export const EatSurePacket: ProviderPacket = {
                         var discountMatch = text.match(/(\d+\s*%\s*OFF)/i) ||
                                            text.match(/(FLAT\s*(?:₹|Rs\.?)?\s*\d+\s*OFF)/i) ||
                                            text.match(/(Buy\s*\d+\s*Get\s*\d+)/i);
-                        var couponMatch = text.match(/(?:USE|CODE)[:\s]+([A-Z0-9]{3,15})/i);
+                        var couponMatch = text.match(/(?:USE|CODE)[:\s]+([A-Z0-9]{3₹5})/i);
 
                         if (discountMatch) offerText = discountMatch[1].toUpperCase();
                         if (couponMatch) {
@@ -313,6 +313,7 @@ export const EatSurePacket: ProviderPacket = {
         `;
     }
 };
+
 
 
 
