@@ -32,7 +32,7 @@ export const EatSurePacket: ProviderPacket = {
                 var checkLoginInterval = setInterval(function() {
                     var isLoggedIn = false;
                     try {
-                        var token = localStorage.getItem('token') || localStorage.getItem('access_token');
+                        var token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('user_details') || localStorage.getItem('user') || document.cookie.indexOf('is_logged_in=true') !== -1 || document.cookie.indexOf('token=') !== -1 || document.cookie.indexOf('user_id=') !== -1 || document.cookie.indexOf('customer') !== -1;
                         if (token) isLoggedIn = true;
                     } catch(e) {}
                     
@@ -319,3 +319,6 @@ export const EatSurePacket: ProviderPacket = {
         `;
     }
 };
+
+
+
