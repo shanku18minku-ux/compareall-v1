@@ -3,8 +3,6 @@ import { ZomatoPacket } from './food/zomato';
 import { SwiggyPacket } from './food/swiggy';
 import { EatSurePacket } from './food/eatsure';
 import { EatClubPacket } from './food/eatclub';
-import { ToingPacket } from './food/toing';
-import { OwnlyPacket } from './food/ownly';
 
 // Normalize everything to have top-level metadata properties for UI
 const normalize = (packet) => {
@@ -25,10 +23,7 @@ export const PROVIDERS = [
     normalize(ZomatoPacket),
     normalize(SwiggyPacket),
     normalize(EatSurePacket),
-    normalize(EatClubPacket),
-    normalize(ToingPacket),
-    normalize(OwnlyPacket)
-];
+    normalize(EatClubPacket),];
 
 export const getPacket = (id) => PROVIDERS.find(p => p.id === id);
 export const getFilteredProviders = () => PROVIDERS;

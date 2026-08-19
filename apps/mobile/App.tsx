@@ -41,7 +41,7 @@ export default function App() {
 
   // Default fetch on load
   useEffect(() => {
-    (async () => {
+    const timer = setTimeout(async () => {
         try {
             try {
         let { status } = await Location.requestForegroundPermissionsAsync();
@@ -63,18 +63,19 @@ export default function App() {
         } catch(e) {
             setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
         }
-    })();
+    }, 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Fetch default data silently if Food is active and no search query
   useEffect(() => {
-      if (activeTab === 'Search' && activeCategory === 'Food' && !searchQuery && results.length === 0 && !isSearching) {
+      if (activeTab === 'Search' && activeCategory === 'Food' && !searchQuery && results.length === 0 && !isSearching && location !== null) {
           setIsSearching(true);
           completedProvidersRef.current = new Set();
           if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
           searchTimerRef.current = setTimeout(() => setIsSearching(false), 15000);
       }
-  }, [activeTab, activeCategory]);
+  }, [activeTab, activeCategory, location]);
 
   const handleSearch = (q: string) => {
       Keyboard.dismiss();
