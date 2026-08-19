@@ -104,20 +104,20 @@ export default function App() {
         return gName.includes(restKey) || restKey.includes(gName);
     });
              if (!group) {
-                 group = {
-                     id: `rest_${Date.now()}_${Math.random()}`,
-                     restaurantName: restName || 'Unknown',
-                     dishes: []
-                 };
+                 group = { id: `rest_${Date.now()}_${Math.random()}`, restaurantName: restName || 'Unknown', imageUrl: item.restaurantImage || item.imageUrl || '', dishes: [] };
                  updated.push(group);
-             }
+               } else if (!group.imageUrl && (item.restaurantImage || item.imageUrl)) {
+                   group.imageUrl = item.restaurantImage || item.imageUrl;
+               }
 
              const dishKey = norm(dishName);
              let dishEntry = group.dishes.find((d: any) => norm(d.dishName) === dishKey);
              if (!dishEntry) {
-                 dishEntry = { dishName, offers: [] };
+                 dishEntry = { dishName, imageUrl: item.dishImage || item.imageUrl || '', offers: [] };
                  group.dishes.push(dishEntry);
-             }
+               } else if (!dishEntry.imageUrl && (item.dishImage || item.imageUrl)) {
+                   dishEntry.imageUrl = item.dishImage || item.imageUrl;
+               }
 
              // Auto coupon extraction is handled inside the packet injection
              dishEntry.offers.push({
@@ -218,9 +218,12 @@ export default function App() {
                          {results.map((group, idx) => (
                              <TouchableOpacity key={idx} style={styles.restCard} onPress={() => setSelectedRest(group)}>
                                  <View style={styles.restCardHeader}>
-                                     <Text style={styles.restName}>{group.restaurantName}</Text>
-                                     <Text style={styles.openText}>Open Now</Text>
-                                 </View>
+                                       {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={{width: 50, height: 50, borderRadius: 8, marginRight: 12}} /> : null}
+                                       <View style={{flex: 1}}>
+                                           <Text style={styles.restName}>{group.restaurantName}</Text>
+                                           <Text style={styles.openText}>Open Now</Text>
+                                       </View>
+                                   </View>
                                  <View style={styles.restProviders}>
                                      {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
                                          <View key={p} style={styles.restProviderChip}>
@@ -248,7 +251,10 @@ export default function App() {
                      
                      {selectedRest.dishes.map((dish: any, dIdx: number) => (
                          <View key={dIdx} style={styles.dishCard}>
-                             <Text style={styles.dishName}>{dish.dishName}</Text>
+                               <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                   <Text style={[styles.dishName, {flex: 1}]}>{dish.dishName}</Text>
+                                   {dish.imageUrl ? <Image source={{uri: dish.imageUrl}} style={{width: 70, height: 70, borderRadius: 8, marginLeft: 12}} /> : null}
+                               </View>
                              {dish.offers.map((offer: any, oIdx: number) => (
                                  <View key={oIdx} style={styles.offerRow}>
                                      <Text style={styles.offerProvider}>{offer.providerName}</Text>
