@@ -585,12 +585,14 @@ export const ZomatoPacket: ProviderPacket = {
             let cityName = location.name.split(',')[0].toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
             if (cityName === 'bengaluru') cityName = 'bangalore';
             if (cityName) {
-                return `https://www.zomato.com/${cityName}/restaurants?search_text=${encodeURIComponent(query)}`;
+                return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
             }
         }
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
+
+
 
 
 

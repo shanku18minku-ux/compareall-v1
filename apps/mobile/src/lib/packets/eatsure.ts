@@ -98,27 +98,40 @@ export const EatSurePacket: ProviderPacket = {
 
                 // If we are on the homepage, wait for location auto-redirect to city page.
                 // If we are on a city page, we try to click the Search icon and type the query!
-                function attemptSearchTrigger() {
-                    const input = document.querySelector('input');
+                                function attemptSearchTrigger() {
+                    var input = document.querySelector('input');
                     if (input) {
-                        let lastValue = input.value;
+                        var lastValue = input.value;
                         input.value = q;
-                        let event = new Event('input', { bubbles: true });
-                        let tracker = input._valueTracker;
+                        var event = new Event('input', { bubbles: true });
+                        var tracker = input._valueTracker;
                         if (tracker) tracker.setValue(lastValue);
                         input.dispatchEvent(event);
                         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
                         input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
                         return true;
                     }
+                    
+                    // Click search icon to open input
+                    var buttons = Array.from(document.querySelectorAll('button, a, div, span'));
+                    for (var i = 0; i < buttons.length; i++) {
+                        var el = buttons[i];
+                        if (el.clientHeight > 15 && el.clientHeight < 80) {
+                            var html = el.innerHTML.toLowerCase();
+                            var cls = (el.className || '').toLowerCase();
+                            if (html.indexOf('search') !== -1 || cls.indexOf('search') !== -1 || html.indexOf('magnifying-glass') !== -1) {
+                                el.click();
+                                return false; // Found button, clicked it, try again for input
+                            }
+                        }
+                    }
                     return false;
                 }
-
                 // Try to trigger search once page is somewhat loaded
                 setTimeout(() => {
                     if (!attemptSearchTrigger()) {
                         // Retry once after 2 seconds if not found
-                        setTimeout(attemptSearchTrigger, 2000);
+                        setTimeout(() => { if (!attemptSearchTrigger()) { setTimeout(attemptSearchTrigger, 2000); } }, 2000);
                     }
                 }, 1500);
 
@@ -300,6 +313,8 @@ export const EatSurePacket: ProviderPacket = {
         `;
     }
 };
+
+
 
 
 
