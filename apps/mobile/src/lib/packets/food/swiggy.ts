@@ -195,7 +195,7 @@ export const SwiggyPacket: ProviderPacket = {
                                             title: rInfo.name + ' - ' + (rInfo.locality || rInfo.areaName || ''),
                                             providerName: 'Swiggy',
                                             dishId: rInfo.id || '',
-                                            dishName: q.toUpperCase(),
+                                            dishName: (q && q.toLowerCase() !== 'food') ? (q.charAt(0).toUpperCase() + q.slice(1)) : 'Menu Item',
                                             restaurantName: rInfo.name,
                                             restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
                                             menuPrice: accurateDishPrice,
