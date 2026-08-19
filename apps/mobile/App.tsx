@@ -357,7 +357,20 @@ export default function App() {
                  if (qty <= 0) setCartItems(prev => prev.filter(i => i.id !== id));
                  else setCartItems(prev => prev.map(i => i.id === id ? {...i, quantity: qty} : i));
              }}
-             onCheckout={(prov) => console.log('Checkout', prov)}
+             onCheckout={(provName) => {
+                 const packet = PROVIDERS.find(p => p.name === provName);
+                 if (packet) {
+                     const url = packet.checkoutUrl || packet.url || packet.loginUrl;
+                     if (url) {
+                         import('react-native').then(({ Linking, Alert }) => {
+                             Linking.openURL(url).catch(err => {
+                                 console.error("Failed to open URL", err);
+                                 Alert.alert("Error", "Could not open " + provName + " app.");
+                             });
+                         });
+                     }
+                 }
+             }}
              connectedProviders={connectedProviders}
           />
       )}
