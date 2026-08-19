@@ -101,6 +101,8 @@ export const EatSurePacket: ProviderPacket = {
                     var brand = "EatSure";
                     var brandEl = card.querySelector('div[class*="brand"], span[class*="brand"]');
                     if (brandEl) brand = brandEl.innerText.trim();
+                    var imgEl = card.querySelector('img');
+                    var extractedImageUrl = imgEl ? imgEl.src : '';
                     
                     items.push({
                         title: title + ' - ' + brand,
@@ -110,7 +112,7 @@ export const EatSurePacket: ProviderPacket = {
                         },
                         menuPrice: price,
                         restaurantName: brand,
-                            imageUrl: '', // EatSure images can be complex to extract consistently from DOM without API, so we leave it empty to fallback gracefully
+                            imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
                         dishName: title,
                         inStock: true
                     });

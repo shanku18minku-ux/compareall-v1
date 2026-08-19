@@ -529,6 +529,8 @@ export const ZomatoPacket: ProviderPacket = {
                             var restUrl = rawHref ? (rawHref.indexOf('/order') !== -1 ? rawHref : rawHref + '/order') : ('https://www.zomato.com/' + citySlug + '/delivery');
 
                             var displayTitle = dishTitle + ' - ' + restName;
+                              var imgElem = card.querySelector('img');
+                              var extractedImageUrl = imgElem ? imgElem.src : '';
 
                             items.push({
                                 title: displayTitle,
@@ -537,7 +539,7 @@ export const ZomatoPacket: ProviderPacket = {
                                 dishName: dishTitle,
                                 restaurantName: restName,
                                 restaurantUrl: restUrl,
-                                  imageUrl: '',
+                                  imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
                                 menuPrice: finalPrice,
                                 autoCouponSavings: autoCouponSavings,
                                 effectivePrice: effectiveFinalPrice,
@@ -558,7 +560,7 @@ export const ZomatoPacket: ProviderPacket = {
                                     dishName: dishTitle,
                                     restaurantName: restName,
                                     restaurantUrl: restUrl,
-                                  imageUrl: '',
+                                  imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
                                     rating: rating,
                                     locality: locality,
                                     citySlug: citySlug,

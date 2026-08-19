@@ -105,6 +105,7 @@ export const EatClubPacket: ProviderPacket = {
                         results.push({
                             dishName: dishName,
                             restaurantName: restaurantName,
+                          imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
                             price: {
                                 finalPayablePrice: finalPayable > 0 ? finalPayable : basePrice,
                                 basePrice: basePrice,

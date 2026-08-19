@@ -198,6 +198,7 @@ export const SwiggyPacket: ProviderPacket = {
                                             dishName: (q && q.toLowerCase() !== 'food') ? (q.charAt(0).toUpperCase() + q.slice(1)) : 'Menu Item',
                                             restaurantName: rInfo.name,
                                             restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
+                                              imageUrl: rInfo.cloudinaryImageId ? ('https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto,w_208,h_208,c_fit/' + rInfo.cloudinaryImageId) : '',
                                             menuPrice: accurateDishPrice,
                                             autoCouponSavings: 0,
                                             effectivePrice: accurateDishPrice,
@@ -528,6 +529,7 @@ export const SwiggyPacket: ProviderPacket = {
                                             providerName: 'Swiggy',
                                             dishName: titleText,
                                             restaurantName: restText || 'Unknown Restaurant',
+                                              imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
                                             price: {
                                                 finalPayablePrice: price,
                                                 basePrice: Math.round(price * 1.15),
