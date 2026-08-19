@@ -98,36 +98,17 @@ export const EatSurePacket: ProviderPacket = {
 
                 // If we are on the homepage, wait for location auto-redirect to city page.
                 // If we are on a city page, we try to click the Search icon and type the query!
-                let searchAttempts = 0;
                 function attemptSearchTrigger() {
-                    // Try to find the search button (contains SVG and text "Search" or "search")
-                    const allEls = document.querySelectorAll('div, button, a');
-                    let searchBtn = null;
-                    for (let i = 0; i < allEls.length; i++) {
-                        const el = allEls[i];
-                        if (el.textContent && el.textContent.trim().toLowerCase() === 'search' && el.querySelector('svg')) {
-                            searchBtn = el;
-                            break;
-                        }
-                    }
-
-                    if (searchBtn) {
-                        searchBtn.click();
-                        // Wait for search input to appear in modal
-                        setTimeout(() => {
-                            const input = document.querySelector('input[placeholder*="earch"], input[type="text"]');
-                            if (input) {
-                                let lastValue = input.value;
-                                input.value = q;
-                                let event = new Event('input', { bubbles: true });
-                                let tracker = input._valueTracker;
-                                if (tracker) {
-                                    tracker.setValue(lastValue);
-                                }
-                                input.dispatchEvent(event);
-                                input.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        }, 1000);
+                    const input = document.querySelector('input');
+                    if (input) {
+                        let lastValue = input.value;
+                        input.value = q;
+                        let event = new Event('input', { bubbles: true });
+                        let tracker = input._valueTracker;
+                        if (tracker) tracker.setValue(lastValue);
+                        input.dispatchEvent(event);
+                        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                        input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
                         return true;
                     }
                     return false;
