@@ -108,6 +108,18 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
 
+    useEffect(() => {
+        if (activeTab === 'Search' && searchCategory.toLowerCase() === 'food' && results.length === 0 && !isSearching && !apiSearchQuery && !searchQuery) {
+            setIsSearching(true);
+            setSearchNonce(Date.now().toString());
+            completedProvidersRef.current = new Set();
+            if ((window as any).searchTimeoutTimer) clearTimeout((window as any).searchTimeoutTimer);
+            (window as any).searchTimeoutTimer = setTimeout(() => {
+                setIsSearching(false);
+            }, 18000);
+        }
+    }, [activeTab, searchCategory]);
+
   // Universal Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartModalVisible, setIsCartModalVisible] = useState(false);
@@ -670,12 +682,12 @@ export default function App() {
                       if (!provider) return null;
                       const id = provider.id;
                       const packet = getPacket(id);
-                      const searchUrl = packet ? packet.getSearchUrl(activeQuery, location) : provider.url;
-                      const injectionScript = packet ? packet.getExtractorInjection(searchUrl, activeQuery, location) : undefined;
+                      const searchUrl = packet ? packet.getSearchUrl(fetchQuery, location) : provider.url;
+                      const injectionScript = packet ? packet.getExtractorInjection(searchUrl, fetchQuery, location) : undefined;
                       
                       return (
                         <WebViewExtractor 
-                           key={id + '__' + activeQuery + '__' + searchNonce} 
+                           key={id + '__' + fetchQuery + '__' + searchNonce} 
                            url={searchUrl}
                            providerId={id}
                            location={location}
@@ -694,42 +706,7 @@ export default function App() {
             )}
 
             
-            {!isSearching && results.length === 0 && searchCategory.toLowerCase() === 'food' && (
-              <View style={{padding: 16}}>
-                  <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 16}}>Restaurants near you</Text>
-                  {MOCK_RESTAURANTS.map((restGroup: any, index: number) => {
-                      const k = restGroup.matchKey || index.toString();
-                      const providersInRest = Array.from(new Set(restGroup.dishes.flatMap((d: any) => d.offers.map((o: any) => o.providerName))));
-                      return (
-                        <View key={k} style={styles.premiumRestCard}>
-                          <View style={styles.restCardHeader}>
-                              <Text style={styles.restTitle}>{restGroup.restaurantName}</Text>
-                              <Text style={{color: '#64748b', fontSize: 13, marginTop: 4}}>{restGroup.cuisines}</Text>
-                          </View>
-                          
-                          <View style={{paddingHorizontal: 15, paddingBottom: 15}}>
-                              {providersInRest.map((provName: any) => (
-                                  <View key={provName} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12}}>
-                                      <Text style={{fontWeight: 'bold', color: '#334155'}}>{provName}</Text>
-                                      <Text style={{color: '#16a34a', fontSize: 12, fontWeight: '600'}}>Open now</Text>
-                                  </View>
-                              ))}
-                          </View>
-                          
-                          <TouchableOpacity 
-                              style={styles.openMenuBtn}
-                              onPress={() => setSelectedMenuRest(restGroup)}
-                              activeOpacity={0.8}
-                          >
-                              <Text style={styles.openMenuBtnText}>Open Menu ?</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                  })}
-              </View>
-            )}
-
-<ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
+            <ScrollView style={styles.resultsContainer} contentContainerStyle={{ paddingBottom: totalCartCount > 0 ? 100 : 20 }}>
               {results.map((restGroup, index) => {
                 const k = restGroup.matchKey || index.toString();
                 // Filter dishes based on search query
