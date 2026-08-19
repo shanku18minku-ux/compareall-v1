@@ -121,15 +121,19 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                     
                     {availableProviders.map((providerName) => {
                         const data = providerTotals[String(providerName)];
-                        if (!data) return null;
-                        
-                        const finalToPay = data.total + data.deliveryFee + data.taxes;
+                          if (!data) return null;
+                          const finalToPay = data.total + data.deliveryFee + data.taxes;
+                          let providerEta = "30 mins";
+                          for (let i=0; i<cartItems.length; i++) {
+                              let off = cartItems[i].offers.find(o => o.providerName === providerName);
+                              if (off && off.deliveryTime) { providerEta = off.deliveryTime; break; }
+                          }
                         
                         return (
                             <View key={String(providerName)} style={styles.priceCard}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.providerName}>{String(providerName)}</Text>
-                                    <Text style={styles.timeTag}>???🕒 30-40 MINS</Text>
+                                    <Text style={styles.timeTag}>?? {providerEta}</Text>
                                 </View>
                                 <View style={styles.priceRow}>
                                     <Text style={styles.finalPrice}>₹{finalToPay}</Text>

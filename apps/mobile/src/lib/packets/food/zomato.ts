@@ -421,6 +421,7 @@ export const ZomatoPacket: ProviderPacket = {
                             restaurantName: rName,
                             restaurantUrl: rOrderUrl,
                             imageUrl: (info.image && info.image.url) ? info.image.url.split('?')[0] : '',
+                              deliveryTime: (info.o2t && info.o2t.time && info.o2t.type) ? (info.o2t.time + ' ' + info.o2t.type) : (info.order && info.order.deliveryTime ? info.order.deliveryTime : '40 min'),
                             menuPrice: dishPrice,
                             autoCouponSavings: autoCouponSavings,
                             effectivePrice: finalPayable,
@@ -442,6 +443,7 @@ export const ZomatoPacket: ProviderPacket = {
                                 restaurantName: rName,
                                 restaurantUrl: rOrderUrl,
                             imageUrl: (info.image && info.image.url) ? info.image.url.split('?')[0] : '',
+                              deliveryTime: (info.o2t && info.o2t.time && info.o2t.type) ? (info.o2t.time + ' ' + info.o2t.type) : (info.order && info.order.deliveryTime ? info.order.deliveryTime : '40 min'),
                                 rating: rating,
                                 locality: locality,
                                 citySlug: citySlug,
@@ -564,6 +566,11 @@ export const ZomatoPacket: ProviderPacket = {
                                 restaurantName: restName,
                                 restaurantUrl: restUrl,
                                   imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
+                                    deliveryTime: (() => {
+                                        var timeEl = card.querySelector('div[color="#1C1C1C"], p[color="#1C1C1C"], p[class*="delivery-time"]');
+                                        if (timeEl && timeEl.textContent.toLowerCase().includes('min')) return timeEl.textContent.trim();
+                                        return '40 min';
+                                    })(),
                                 menuPrice: finalPrice,
                                 autoCouponSavings: autoCouponSavings,
                                 effectivePrice: effectiveFinalPrice,
@@ -585,6 +592,11 @@ export const ZomatoPacket: ProviderPacket = {
                                     restaurantName: restName,
                                     restaurantUrl: restUrl,
                                   imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
+                                    deliveryTime: (() => {
+                                        var timeEl = card.querySelector('div[color="#1C1C1C"], p[color="#1C1C1C"], p[class*="delivery-time"]');
+                                        if (timeEl && timeEl.textContent.toLowerCase().includes('min')) return timeEl.textContent.trim();
+                                        return '40 min';
+                                    })(),
                                     rating: rating,
                                     locality: locality,
                                     citySlug: citySlug,

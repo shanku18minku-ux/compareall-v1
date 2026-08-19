@@ -26,6 +26,7 @@ export default function App() {
 
   // Search & Extraction State
   const [searchQuery, setSearchQuery] = useState('');
+  const [isVegOnly, setIsVegOnly] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const completedProvidersRef = useRef<Set<string>>(new Set());
@@ -218,16 +219,24 @@ export default function App() {
       <View style={styles.content}>
           {activeTab === 'Search' && activeCategory === 'Food' && !selectedRest && (
              <View style={{flex: 1}}>
-                 <View style={styles.searchContainer}>
-                     <Text style={styles.searchIcon}>🔍</Text>
-                     <TextInput 
-                         style={styles.searchInput}
-                         placeholder="Search restaurants or dishes..."
-                         defaultValue={searchQuery}
-                         onSubmitEditing={(e) => handleSearch(e.nativeEvent.text)}
-                         returnKeyType="search"
-                     />
-                 </View>
+                 <View style={[styles.searchContainer, {flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent', elevation: 0, padding: 0}]}>
+          <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 16, elevation: 2}}>
+              <Text style={styles.searchIcon}>??</Text>
+              <TextInput 
+                  style={[styles.searchInput, {flex: 1, marginBottom: 0, elevation: 0, backgroundColor: 'transparent'}]}
+                  placeholder="Search restaurants or dishes..."
+                  defaultValue={searchQuery}
+                  onSubmitEditing={(e) => { setSearchQuery(e.nativeEvent.text); handleSearch(e.nativeEvent.text); }}
+                  returnKeyType="search"
+              />
+          </View>
+          <TouchableOpacity 
+              style={{marginLeft: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: isVegOnly ? '#16a34a' : '#fff', elevation: 2, borderWidth: 1, borderColor: isVegOnly ? '#16a34a' : '#e2e8f0'}}
+              onPress={() => setIsVegOnly(!isVegOnly)}
+          >
+              <Text style={{color: isVegOnly ? '#fff' : '#16a34a', fontWeight: '900', fontSize: 14}}>VEG</Text>
+          </TouchableOpacity>
+      </View>
                  
                  {isSearching && results.length === 0 ? (
                      <View style={styles.centerMsg}>
@@ -237,7 +246,7 @@ export default function App() {
                  ) : (
                      <ScrollView contentContainerStyle={{padding: 16}}>
                          <Text style={styles.sectionTitle}>{searchQuery ? `Results for "${searchQuery}"` : 'Restaurants near you'}</Text>
-                         {results.map((group, idx) => (
+                         {displayedResults.map((group, idx) => (
                              <TouchableOpacity key={idx} style={styles.restCard} onPress={() => setSelectedRest(group)}>
                                  <View style={styles.restCardHeader}>
                                        {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={{width: 50, height: 50, borderRadius: 8, marginRight: 12}} /> : null}

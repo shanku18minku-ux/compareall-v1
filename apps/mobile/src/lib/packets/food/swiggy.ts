@@ -197,7 +197,8 @@ export const SwiggyPacket: ProviderPacket = {
                                             dishId: rInfo.id || '',
                                             dishName: (q && q.toLowerCase() !== 'food') ? (q.charAt(0).toUpperCase() + q.slice(1)) : 'Menu Item',
                                             restaurantName: rInfo.name,
-                                            restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
+                                              deliveryTime: (rInfo.sla && rInfo.sla.slaString) ? rInfo.sla.slaString : '',
+                                              restaurantUrl: 'https://www.swiggy.com/restaurants/' + rSlug + '-' + (rInfo.id || ''),
                                               imageUrl: rInfo.cloudinaryImageId ? ('https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto,w_208,h_208,c_fit/' + rInfo.cloudinaryImageId) : '',
                                             menuPrice: accurateDishPrice,
                                             autoCouponSavings: (() => {
@@ -444,7 +445,8 @@ export const SwiggyPacket: ProviderPacket = {
                                 dishId: info.id || '',
                                 dishName: info.name || '',
                                 restaurantName: restName,
-                                restaurantUrl: restaurantUrl,
+                                  deliveryTime: (restInfo && restInfo.sla && restInfo.sla.slaString) ? restInfo.sla.slaString : '',
+                                  restaurantUrl: restaurantUrl,
                                 menuPrice: finalPrice,
                                 autoCouponSavings: autoCouponSavings,
                                 effectivePrice: effectiveFinalPrice,
@@ -465,7 +467,8 @@ export const SwiggyPacket: ProviderPacket = {
                                     dishId: info.id || '',
                                     dishName: info.name || '',
                                     restaurantName: restName,
-                                    restaurantUrl: restaurantUrl,
+                                  deliveryTime: (restInfo && restInfo.sla && restInfo.sla.slaString) ? restInfo.sla.slaString : '',
+                                  restaurantUrl: restaurantUrl,
                                     additionalOffers: platformOffers
                                 }
                             });
@@ -543,6 +546,10 @@ export const SwiggyPacket: ProviderPacket = {
                                             dishName: titleText,
                                             restaurantName: restText || 'Unknown Restaurant',
                                               imageUrl: typeof extractedImageUrl !== 'undefined' ? extractedImageUrl : '',
+                                              deliveryTime: (() => {
+                                                  var slaEl = card.querySelector('[class*="styles_slaText"], [class*="sla"]');
+                                                  return slaEl ? slaEl.textContent.trim() : '35 mins';
+                                              })(),
                                             price: {
                                                 finalPayablePrice: price,
                                                 basePrice: Math.round(price * 1.15),
