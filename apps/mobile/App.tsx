@@ -417,7 +417,7 @@ export default function App() {
        setResults(prev => {
           const updated = [...prev];
           
-          const normalizeStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          const normalizeStr = (s: string) => (s || '').toLowerCase().replace(/\\(eatsure\\)/g, '').replace(/eatsure/g, '').replace(/[^a-z0-9]/g, '').trim();
           
           items.forEach((item: any) => {
              const dishName = item.dishName || item.name || item.title;
@@ -592,7 +592,13 @@ export default function App() {
             {/* Dynamic Contextual Search Bar */}
             <DynamicSearchBar
               category={searchCategory}
-              onSelectCategory={setSearchCategory}
+              onSelectCategory={(cat) => {
+                setSearchCategory(cat);
+                setResults([]);
+                setApiSearchQuery('');
+                setSearchQuery('');
+                setSearchValues({});
+              }}
               categoriesList={['Food', 'Commute', 'Groceries', 'Travel', 'Medicine', 'Shopping', 'Services']}
               location={location}
               searchValues={searchValues}
