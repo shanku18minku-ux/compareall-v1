@@ -420,8 +420,8 @@ export default function App() {
           const normalizeStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
           
           items.forEach((item: any) => {
-             const dishName = item.name || item.title || item.dishName;
-             const restName = item.restaurant || item.restaurantName;
+             const dishName = item.dishName || item.name || item.title;
+             const restName = item.restaurantName || item.restaurant;
              if (!dishName && !restName) return;
              
              // Base payload
@@ -469,10 +469,14 @@ export default function App() {
                  const isFuzzyMatch = existingDishKey.includes(dishMatchKey) || dishMatchKey.includes(existingDishKey);
                  if (!isFuzzyMatch) return false;
                  
-                 // Prevent swallowing distinct variants (like Half vs Full) from the SAME provider.
-                 // If this provider already has an offer in this group, they must be different dishes.
-                 const hasProvider = d.offers.some((o: any) => o.providerName === providerName);
-                 return !hasProvider;
+                 const existingOffer = d.offers.find((o: any) => o.providerName === providerName);
+                 if (existingOffer) {
+                     const existingPrice = existingOffer.price?.finalPayablePrice || existingOffer.menuPrice;
+                     const newPrice = offerPayload.price?.finalPayablePrice || offerPayload.menuPrice;
+                     if (existingPrice === newPrice) return true; // It's an exact duplicate, match it so we can skip pushing
+                     return false; // It's a variant (Half vs Full), separate it
+                 }
+                 return true; // Different provider, merge it!
              });
              
              if (!dishGroup) {
@@ -487,7 +491,15 @@ export default function App() {
                  restGroup.dishes.push(dishGroup);
              }
              
-             dishGroup.offers.push(offerPayload);
+             const isDuplicate = dishGroup.offers.some((o: any) => {
+                 const p1 = o.price?.finalPayablePrice || o.menuPrice;
+                 const p2 = offerPayload.price?.finalPayablePrice || offerPayload.menuPrice;
+                 return o.providerName === providerName && p1 === p2;
+             });
+             
+             if (!isDuplicate) {
+                 dishGroup.offers.push(offerPayload);
+             }
           });
           
           updated.forEach(rest => {
