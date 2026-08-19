@@ -53,6 +53,7 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
         var isSwiggy = currentUrl.includes('swiggy');
         var isZomato = currentUrl.includes('zomato');
         var isEatSure = currentUrl.includes('eatsure');
+        var isEatClub = currentUrl.includes('eatclub');
 
 
         var needsReload = false;
@@ -141,6 +142,20 @@ export const WebViewExtractor: React.FC<WebViewExtractorProps> = ({
                 }
                 checkAndSetCookie('latitude', lat);
                 checkAndSetCookie('longitude', lng);
+            }
+        } catch(e) {}
+
+        // 5. Inject EatClub LocalStorage
+        try {
+            if (isEatClub) {
+                var ecLoc = localStorage.getItem('user_location') || localStorage.getItem('location');
+                if (!ecLoc || !ecLoc.includes(String(lat))) {
+                    localStorage.setItem('user_location', JSON.stringify({lat: lat, lng: lng, address: locName}));
+                    localStorage.setItem('location', JSON.stringify({lat: lat, lng: lng, address: locName}));
+                    needsReload = true;
+                }
+                checkAndSetCookie('lat', lat);
+                checkAndSetCookie('lng', lng);
             }
         } catch(e) {}
 

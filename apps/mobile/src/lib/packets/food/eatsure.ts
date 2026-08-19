@@ -52,7 +52,7 @@ export const EatSurePacket: ProviderPacket = {
     getSearchUrl: (query: string, location: any) => {
         // We load the homepage first to set location cookies in the injected script,
         // then the script itself redirects to the actual search URL.
-        return `https://www.eatsure.com/`;
+        return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}`;
     },
 
     getExtractorInjection: (searchUrl: string, query?: string, location?: any) => {
@@ -98,11 +98,9 @@ export const EatSurePacket: ProviderPacket = {
                     }
                     
                     // Get brand name from URL
-                    var brand = "EatSure Brand";
-                    if (window.location.href.includes('ovenstory')) brand = "Oven Story Pizza";
-                    if (window.location.href.includes('behrouz')) brand = "Behrouz Biryani";
-                    if (window.location.href.includes('faasos')) brand = "Faasos";
-                    if (window.location.href.includes('wendys')) brand = "Wendy's";
+                    var brand = "EatSure";
+                    var brandEl = card.querySelector('div[class*="brand"], span[class*="brand"]');
+                    if (brandEl) brand = brandEl.innerText.trim();
                     
                     items.push({
                         title: title + ' - ' + brand,
@@ -112,6 +110,7 @@ export const EatSurePacket: ProviderPacket = {
                         },
                         menuPrice: price,
                         restaurantName: brand,
+                            imageUrl: '', // EatSure images can be complex to extract consistently from DOM without API, so we leave it empty to fallback gracefully
                         dishName: title,
                         inStock: true
                     });
