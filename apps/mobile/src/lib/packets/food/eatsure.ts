@@ -50,8 +50,12 @@ export const EatSurePacket: ProviderPacket = {
     },
 
     getSearchUrl: (query: string, location: any) => {
-        // We load the homepage first to set location cookies in the injected script,
-        // then the script itself redirects to the actual search URL.
+        const lat = location?.latitude || 0;
+        const lng = location?.longitude || 0;
+        // Pass lat/lng so EatSure serves the right city's restaurants
+        if (lat && lng) {
+            return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}&lat=${lat}&lng=${lng}`;
+        }
         return `https://www.eatsure.com/search?q=${encodeURIComponent(query)}`;
     },
 

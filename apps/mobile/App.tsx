@@ -575,7 +575,11 @@ export default function App() {
                           isActive={true}
                           location={location}
                           onDataExtracted={(d) => handleDataExtracted(d, provider.id)}
-                          onError={(e) => console.log('Extractor err', e)}
+                          onError={(e) => {
+                              console.log('Extractor err', provider.id, e);
+                              // Mark as done with empty data so loading doesn't hang on error
+                              handleDataExtracted({ type: 'SEARCH_RESULTS', success: true, data: [] }, provider.id);
+                          }}
                           injectionScript={packet.getExtractorInjection ? packet.getExtractorInjection(searchUrl, fetchQuery, location) : undefined}
                       />
                   );
