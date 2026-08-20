@@ -1,102 +1,66 @@
 // @ts-nocheck
-import { ProviderPacket, ProviderMetadata } from '../types';
-
-function makeDirectOrderPacket(meta: ProviderMetadata, publicOffers: any[]): ProviderPacket {
-    return {
-        metadata: meta,
-        connectionType: 'OFFICIAL_WEB',
-        // Pure JS function — called from App.tsx handleSearch without WebView
-        getPublicOffers: (query: string) => {
-            const q = (query || '').toLowerCase().trim();
-            if (!q || q === 'food') return publicOffers.map(o => ({
-                dishName: o.dishName,
-                restaurantName: o.brandName,
-                price: { finalPayablePrice: o.finalPrice, basePrice: o.basePrice, discount: o.discount || 0 },
-                deliveryTime: o.deliveryTime || '~30-45 mins',
-                rating: o.rating || '4.0',
-                couponCode: o.couponCode || '',
-                autoCouponSavings: o.discount || 0,
-                offerStatus: 'PUBLIC',
-                offerLabel: o.offerLabel || 'Public Offer',
-            }));
-            return publicOffers
-                .filter(o => {
-                    const title = (o.dishName || '').toLowerCase();
-                    const cat = (o.category || '').toLowerCase();
-                    const brand = (o.brandName || '').toLowerCase();
-                    return title.includes(q) || cat.includes(q) || brand.includes(q);
-                })
-                .map(o => ({
-                    dishName: o.dishName,
-                    restaurantName: o.brandName,
-                    price: { finalPayablePrice: o.finalPrice, basePrice: o.basePrice, discount: o.discount || 0 },
-                    deliveryTime: o.deliveryTime || '~30-45 mins',
-                    rating: o.rating || '4.0',
-                    couponCode: o.couponCode || '',
-                    autoCouponSavings: o.discount || 0,
-                    offerStatus: 'PUBLIC',
-                    offerLabel: o.offerLabel || 'Public Offer',
-                }));
-        },
-        getLoginDetectionScript: () => `(function(){ if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:'OPEN_OFFICIAL'}));} })();`,
-        getSearchUrl: (query: string, location?: any) => meta.loginUrl,
-        getExtractorInjection: (url: string, searchQuery: string, location?: any) => {
-            const offersJson = JSON.stringify(publicOffers);
-            const q = JSON.stringify(searchQuery);
-            return `(function(){var q=${q};var publicOffers=${offersJson};var results=publicOffers.filter(function(o){if(!q||q==='food')return true;var t=(o.dishName||'').toLowerCase();return t.indexOf(q.toLowerCase())!==-1||(o.category||'').toLowerCase().indexOf(q.toLowerCase())!==-1;}).map(function(o){return{dishName:o.dishName,restaurantName:o.brandName,price:{finalPayablePrice:o.finalPrice,basePrice:o.basePrice,discount:o.discount||0},deliveryTime:o.deliveryTime||'~30-45 mins',rating:o.rating||'4.0',couponCode:o.couponCode||'',autoCouponSavings:o.discount||0,offerStatus:'PUBLIC',offerLabel:o.offerLabel||'Public Offer',offerVerified:true,lastVerifiedAt:o.lastVerifiedAt||'2025-08-01'};});if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:'SEARCH_RESULTS',success:true,data:results}));}})();`;
-        },
-        parseExtraction: (data: any) => data
-    };
-}
+import { makeWebViewBrandPacket } from './brand_webview_helper';
 
 // ─── Chaayos ──────────────────────────────────────────────────────────────────
-export const ChaayosPacket: ProviderPacket = makeDirectOrderPacket({
-    id: 'chaayos',
-    name: 'Chaayos',
-    category: 'Food',
-    subcategory: 'Cafe',
-    icon: 'Ch',
-    brandColor: '#6d4c41',
+export const ChaayosPacket = makeWebViewBrandPacket({
+    id: 'chaayos', name: 'Chaayos', category: 'Food', subcategory: 'Cafe',
+    icon: 'Ch', brandColor: '#6d4c41',
     url: 'https://www.chaayos.com',
     loginUrl: 'https://www.chaayos.com/order',
-    regions: ['all'],
-    description: 'Chaayos official ordering'
+    regions: ['all'], description: 'Chaayos official ordering',
 }, [
-    { dishName: 'Masala Chai (Regular)', brandName: 'Chaayos', basePrice: 80, finalPrice: 80, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'chai tea', deliveryTime: '20-30 mins', rating: '4.4' },
-    { dishName: 'Doodh Patti Chai', brandName: 'Chaayos', basePrice: 90, finalPrice: 90, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'chai tea', deliveryTime: '20-30 mins', rating: '4.4' },
-    { dishName: 'Meri Wali Chai (customized)', brandName: 'Chaayos', basePrice: 100, finalPrice: 85, discount: 15, couponCode: 'CHAAYOS15', offerLabel: '15% OFF App Order', verified: true, lastVerifiedAt: '2025-08-01', category: 'chai tea', deliveryTime: '20-30 mins', rating: '4.4' },
-]);
+    { dishName: 'Masala Chai (Regular)', brandName: 'Chaayos', basePrice: 80, finalPrice: 80, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'chai tea masala', deliveryTime: '20-30 mins', rating: '4.4' },
+    { dishName: 'Doodh Patti Chai', brandName: 'Chaayos', basePrice: 90, finalPrice: 90, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'chai tea milk', deliveryTime: '20-30 mins', rating: '4.4' },
+    { dishName: 'Meri Wali Chai (customized)', brandName: 'Chaayos', basePrice: 100, finalPrice: 85, discount: 15, couponCode: 'CHAAYOS15', offerLabel: '15% OFF App Order', category: 'chai tea custom', deliveryTime: '20-30 mins', rating: '4.4' },
+    { dishName: 'Adrak Chai', brandName: 'Chaayos', basePrice: 85, finalPrice: 85, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'chai tea ginger', deliveryTime: '20-30 mins', rating: '4.4' },
+], {
+    searchUrlFn: (q, loc) => `https://www.chaayos.com/menu`,
+    itemSelector: '.product, .menu-item, .item, [class*="product"], [class*="menu-item"]',
+    nameSelector: '.name, .title, h3, h4, [class*="name"]',
+    priceSelector: '.price, [class*="price"]',
+    imageSelector: 'img',
+    offerSelector: '[class*="offer"], [class*="badge"]',
+    unavailableSignals: ['not available', 'not serviceable', 'coming soon'],
+});
 
 // ─── Chai Point ────────────────────────────────────────────────────────────────
-export const ChaiPointPacket: ProviderPacket = makeDirectOrderPacket({
-    id: 'chaipoint',
-    name: 'Chai Point',
-    category: 'Food',
-    subcategory: 'Cafe',
-    icon: 'CP',
-    brandColor: '#f4a101',
+export const ChaiPointPacket = makeWebViewBrandPacket({
+    id: 'chaipoint', name: 'Chai Point', category: 'Food', subcategory: 'Cafe',
+    icon: 'CP', brandColor: '#f4a101',
     url: 'https://www.chaipoint.com',
     loginUrl: 'https://order.chaipoint.com',
-    regions: ['all'],
-    description: 'Chai Point official ordering'
+    regions: ['all'], description: 'Chai Point official ordering',
 }, [
-    { dishName: 'Classic Masala Chai', brandName: 'Chai Point', basePrice: 70, finalPrice: 70, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'chai tea', deliveryTime: '20-30 mins', rating: '4.2' },
-    { dishName: 'Adrak Chai', brandName: 'Chai Point', basePrice: 75, finalPrice: 75, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'chai tea', deliveryTime: '20-30 mins', rating: '4.2' },
-]);
+    { dishName: 'Classic Masala Chai', brandName: 'Chai Point', basePrice: 70, finalPrice: 70, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'chai tea masala', deliveryTime: '20-30 mins', rating: '4.2' },
+    { dishName: 'Adrak Chai', brandName: 'Chai Point', basePrice: 75, finalPrice: 75, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'chai tea ginger', deliveryTime: '20-30 mins', rating: '4.2' },
+    { dishName: 'Cold Coffee', brandName: 'Chai Point', basePrice: 120, finalPrice: 99, discount: 21, couponCode: '', offerLabel: 'App Price', category: 'coffee cold', deliveryTime: '20-30 mins', rating: '4.2' },
+], {
+    searchUrlFn: (q, loc) => `https://order.chaipoint.com/menu`,
+    itemSelector: '.product, .item, [class*="product"], [class*="item"]',
+    nameSelector: '.name, h3, [class*="name"]',
+    priceSelector: '.price, [class*="price"]',
+    imageSelector: 'img',
+    offerSelector: '[class*="offer"], [class*="badge"]',
+    unavailableSignals: ['not available', 'coming soon'],
+});
 
 // ─── Barista ──────────────────────────────────────────────────────────────────
-export const BaristaPacket: ProviderPacket = makeDirectOrderPacket({
-    id: 'barista',
-    name: 'Barista',
-    category: 'Food',
-    subcategory: 'Cafe',
-    icon: 'Ba',
-    brandColor: '#5c3317',
+export const BaristaPacket = makeWebViewBrandPacket({
+    id: 'barista', name: 'Barista', category: 'Food', subcategory: 'Cafe',
+    icon: 'Ba', brandColor: '#5c3317',
     url: 'https://www.barista.co.in',
     loginUrl: 'https://www.barista.co.in/order',
-    regions: ['all'],
-    description: 'Barista Coffee official ordering'
+    regions: ['all'], description: 'Barista Coffee official ordering',
 }, [
-    { dishName: 'Café Americano', brandName: 'Barista', basePrice: 175, finalPrice: 175, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'coffee cafe', deliveryTime: '25-40 mins', rating: '4.1' },
-    { dishName: 'Classic Cappuccino', brandName: 'Barista', basePrice: 215, finalPrice: 215, discount: 0, couponCode: '', offerLabel: 'Public Price', verified: true, lastVerifiedAt: '2025-08-01', category: 'coffee cafe', deliveryTime: '25-40 mins', rating: '4.1' },
-]);
+    { dishName: 'Café Americano', brandName: 'Barista', basePrice: 175, finalPrice: 175, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'coffee cafe americano', deliveryTime: '25-40 mins', rating: '4.1' },
+    { dishName: 'Classic Cappuccino', brandName: 'Barista', basePrice: 215, finalPrice: 215, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'coffee cappuccino', deliveryTime: '25-40 mins', rating: '4.1' },
+    { dishName: 'Cold Coffee (Blended)', brandName: 'Barista', basePrice: 249, finalPrice: 199, discount: 50, couponCode: '', offerLabel: 'Happy Hours Offer', category: 'coffee cold blended', deliveryTime: '25-40 mins', rating: '4.1' },
+], {
+    searchUrlFn: (q, loc) => `https://www.barista.co.in/menu`,
+    itemSelector: '.product, .menu-item, .item, [class*="product"], [class*="item"]',
+    nameSelector: '.name, h3, [class*="name"]',
+    priceSelector: '.price, [class*="price"]',
+    imageSelector: 'img',
+    offerSelector: '[class*="offer"], [class*="badge"]',
+    unavailableSignals: ['not available', 'not serviceable'],
+});

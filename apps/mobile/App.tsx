@@ -417,6 +417,7 @@ export default function App() {
   };
 
   // Providers used for live WebView extraction (have real login + extractor)
+  // Providers that run WebView extraction (WEBVIEW_LOGIN + WEBVIEW_EXTRACT types)
   const activeProviders = (PROVIDERS || []).filter(p =>
     p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
   );
@@ -678,8 +679,8 @@ export default function App() {
                                               </View>
                                               <Text style={styles.connName} numberOfLines={2}>{p.name}</Text>
 
-                                              {isDirectOrder ? (
-                                                  /* Direct-order brand: not account-linkable, just open website */
+                                              {p.connectionType === 'OFFICIAL_WEB' ? (
+                                                  /* Pure direct-order: open website */
                                                   <TouchableOpacity
                                                       style={[styles.linkBtn, {backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1'}]}
                                                       onPress={() => {
@@ -689,6 +690,18 @@ export default function App() {
                                                       }}
                                                   >
                                                       <Text style={[styles.linkBtnText, {color: '#334155'}]}>🌐 ORDER</Text>
+                                                  </TouchableOpacity>
+                                              ) : p.connectionType === 'WEBVIEW_EXTRACT' ? (
+                                                  /* WebView-scraped brand: no account needed, open menu to compare */
+                                                  <TouchableOpacity
+                                                      style={[styles.linkBtn, {backgroundColor: '#1e293b'}]}
+                                                      onPress={() => {
+                                                          import('react-native').then(({ Linking }) => {
+                                                              Linking.openURL(p.loginUrl).catch(() => {});
+                                                          });
+                                                      }}
+                                                  >
+                                                      <Text style={styles.linkBtnText}>🍽️ MENU</Text>
                                                   </TouchableOpacity>
                                               ) : isConn ? (
                                                   <View style={{width: '100%', alignItems: 'center'}}>
