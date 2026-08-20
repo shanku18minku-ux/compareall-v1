@@ -169,6 +169,22 @@ export default function App() {
   
   const connectedCount = activeProviders.filter(p => connectedProviders.includes(p.id)).length;
   const isAllConnected = activeProviders.length > 0 && connectedCount === activeProviders.length;
+
+  // Filter results by veg toggle — this was MISSING causing ReferenceError crash
+  const displayedResults = isVegOnly
+    ? results.filter(group =>
+        group.dishes && group.dishes.some((d: any) =>
+          d.dishName && (
+            d.dishName.toLowerCase().includes('veg') ||
+            d.dishName.toLowerCase().includes('paneer') ||
+            d.dishName.toLowerCase().includes('aloo') ||
+            d.dishName.toLowerCase().includes('mushroom') ||
+            d.dishName.toLowerCase().includes('dal') ||
+            d.dishName.toLowerCase().includes('sabzi')
+          )
+        )
+      )
+    : results;
   
   // Render Background Extractors
   const renderExtractors = () => {
