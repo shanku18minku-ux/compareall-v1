@@ -164,33 +164,96 @@ export default function App() {
   // Restaurant details mode
   const [selectedRest, setSelectedRest] = useState<any>(null);
 
-  // Default fetch on load
+  // Maximum GPS accuracy location fetch
   useEffect(() => {
-    const timer = setTimeout(async () => {
-        try {
-            try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
+    let watchSub: any = null;
+
+    const startLocationTracking = async () => {
+      try {
+        // Request foreground permission
+        const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-            setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
-        } else {
-            let loc = await Location.getCurrentPositionAsync({ accuracy: 5 }).catch(() => null);
-            if (!loc) {
-                setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand (Fallback)' });
-            } else {
-                let geo = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }).catch(() => []);
-                let name = geo && geo.length > 0 ? (geo[0].city || geo[0].name || '') + ', ' + (geo[0].region || '') : 'Current Location';
-                setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, name });
-            }
+          // Permission denied — use fallback coordinates for Daltonganj
+          setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
+          return;
         }
-    } catch(e) {
+
+        // STEP 1: Quick coarse fix (immediate — uses cell tower / WiFi)
+        // So user sees a location instantly without waiting for GPS satellite lock
+        try {
+          const coarse = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced, // fast, ~100m accuracy
+          });
+          if (coarse?.coords) {
+            const geo = await Location.reverseGeocodeAsync({
+              latitude: coarse.coords.latitude,
+              longitude: coarse.coords.longitude
+            }).catch(() => []);
+            const name = geo?.length > 0
+              ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
+              : 'Current Location';
+            setLocation({ latitude: coarse.coords.latitude, longitude: coarse.coords.longitude, name });
+          }
+        } catch (_) {}
+
+        // STEP 2: High-precision GPS fix (uses satellite, takes 5-15s)
+        // BestForNavigation = highest accuracy mode on Android/iOS
+        const precise = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          mayShowUserSettingsDialog: true, // ask user to turn on GPS if off
+        }).catch(() => null);
+
+        if (precise?.coords) {
+          const geo = await Location.reverseGeocodeAsync({
+            latitude: precise.coords.latitude,
+            longitude: precise.coords.longitude
+          }).catch(() => []);
+          const name = geo?.length > 0
+            ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
+            : 'Current Location';
+          setLocation({
+            latitude: precise.coords.latitude,
+            longitude: precise.coords.longitude,
+            name,
+            accuracy: precise.coords.accuracy, // meters accuracy
+          });
+        }
+
+        // STEP 3: Live position watch — updates if user moves 20+ meters
+        // This ensures location stays fresh throughout the session
+        watchSub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 20,      // update every 20 meters moved
+            timeInterval: 60000,       // or every 60 seconds
+          },
+          async (pos) => {
+            if (!pos?.coords) return;
+            const geo = await Location.reverseGeocodeAsync({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            }).catch(() => []);
+            const name = geo?.length > 0
+              ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
+              : 'Current Location';
+            setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, name });
+          }
+        );
+      } catch (e) {
+        // Any error → fallback to Daltonganj
         setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
-    }
-        } catch(e) {
-            setLocation({ latitude: 24.0322, longitude: 84.0722, name: 'Daltonganj, Jharkhand' });
-        }
-    }, 1000);
-    return () => clearTimeout(timer);
+      }
+    };
+
+    // Small delay so app UI renders first, then GPS starts
+    const timer = setTimeout(startLocationTracking, 500);
+    return () => {
+      clearTimeout(timer);
+      if (watchSub) watchSub.remove(); // cleanup watcher on unmount
+    };
   }, []);
+
+
 
   // Fetch default data silently if Food is active and no search query
   useEffect(() => {
