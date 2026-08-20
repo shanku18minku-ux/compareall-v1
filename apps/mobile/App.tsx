@@ -559,8 +559,34 @@ export default function App() {
   const activeProviders = (PROVIDERS || []).filter(p =>
     p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
   );
-  // All food providers for Connections page (includes direct-order brands)
-  const allFoodProviders = (PROVIDERS || []).filter(p => p && p.category === activeCategory);
+
+  // Location-aware provider availability check
+  // Providers with regions: ['all'] → always available
+  // Providers with specific city list → only available if user's city matches
+  const isProviderAvailableInLocation = (provider: any): boolean => {
+      const regions: string[] = provider.regions || provider.metadata?.regions || ['all'];
+      if (!regions || regions.includes('all')) return true;
+      if (!location?.name) return true; // no location set yet → show all
+      const userCity = location.name.split(',')[0].toLowerCase().trim()
+          .replace(/[^a-z0-9\s]/g, '').trim();
+      // Also check common aliases
+      const aliases: Record<string, string[]> = {
+          'medininagar': ['daltonganj', 'palamu', 'medininagar'],
+          'daltonganj': ['daltonganj', 'palamu', 'medininagar'],
+          'bengaluru': ['bangalore', 'bengaluru'],
+          'gurugram': ['gurgaon', 'gurugram'],
+          'new delhi': ['delhi', 'ncr', 'new delhi'],
+      };
+      const cityVariants = aliases[userCity] || [userCity];
+      return regions.some(r => cityVariants.some(v => r.toLowerCase().includes(v) || v.includes(r.toLowerCase())));
+  };
+
+  // Connections page: only Food Delivery platforms, filtered by location availability
+  const allFoodProviders = (PROVIDERS || []).filter(p =>
+      p && p.category === activeCategory &&
+      p.connectionType !== 'OFFICIAL_WEB' &&
+      isProviderAvailableInLocation(p)
+  );
 
   const connectedCount = allFoodProviders.filter(p => connectedProviders.includes(p.id)).length;
   const isAllConnected = allFoodProviders.length > 0 && connectedCount === allFoodProviders.length;

@@ -9,7 +9,10 @@ export const eatclubMetadata: ProviderMetadata = {
     brandColor: '#305bea',
     url: 'https://eatclub.in/',
     loginUrl: 'https://www.eatclub.in',
-    regions: ['all'],
+    regions: [
+        'mumbai', 'pune', 'delhi', 'ncr', 'gurugram', 'gurgaon', 'noida', 'faridabad', 'ghaziabad',
+        'bangalore', 'bengaluru', 'hyderabad', 'chennai',
+    ],
     description: 'Extracts cart and pricing from EatClub'
 };
 
