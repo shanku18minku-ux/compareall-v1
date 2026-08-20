@@ -30,6 +30,7 @@ export interface SearchFilters {
   maxPrice?: number;
   minRating?: number;
   category?: string;
+  subCategory?: string;
 }
 
 export interface SearchQuery {
