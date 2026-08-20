@@ -30,7 +30,7 @@ export function makeWebViewBrandPacket(meta: any, staticOffers: any[], extractor
 
     return {
         metadata: meta,
-        connectionType: 'WEBVIEW_EXTRACT',
+        connectionType: 'OFFICIAL_WEB',
 
         // ── Pure-JS instant fallback ─────────────────────────────────────────
         getPublicOffers: (query: string) => {

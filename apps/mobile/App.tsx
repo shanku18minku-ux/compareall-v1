@@ -349,22 +349,27 @@ export default function App() {
       if (!isStatic) {
           completedProvidersRef.current.add(providerId);
           
-          // Check if ALL live extractors have finished
-          const totalExtractors = PROVIDERS.filter(p => p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB').length;
+          // Count ONLY WebView-based extractors (not OFFICIAL_WEB which fire instantly)
+          const totalExtractors = PROVIDERS.filter(p => 
+              p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
+          ).length;
           if (completedProvidersRef.current.size >= totalExtractors) {
               setIsSearching(false);
               if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
           }
 
-          // If this is live data (or an empty array meaning 'unavailable'), 
-          // we MUST remove any static fallback data for this provider first.
+          // Remove stale static fallback ONLY for this specific provider
+          // IMPORTANT: Do NOT remove static offers from other providers (e.g., Domino's static)
+          // when Swiggy live data arrives. Each provider cleans only its own stale data.
           setResults(prev => {
               let nextState = prev.map(group => {
                   return {
                       ...group,
                       dishes: group.dishes.map((dish: any) => ({
                           ...dish,
-                          offers: dish.offers.filter((o: any) => !(o.providerName === provider.name && o.isStaticFallback))
+                          offers: dish.offers.filter(
+                              (o: any) => !(o.providerName === provider.name && o.isStaticFallback)
+                          )
                       })).filter((dish: any) => dish.offers.length > 0)
                   };
               }).filter(group => group.dishes.length > 0);
@@ -445,9 +450,27 @@ export default function App() {
              });
 
              if (!group) {
-                 // For chain brands, use canonical name (e.g., "Domino's" not "Domino's - Koramangala")
+                 // Canonical name map — ensures consistent display names across all providers
+                 const CANONICAL_NAMES: Record<string, string> = {
+                     'dominos': "Domino's", "domino's": "Domino's",
+                     'pizzahut': 'Pizza Hut', 'pizza hut': 'Pizza Hut',
+                     'mcdonalds': "McDonald's", "mcdonald's": "McDonald's",
+                     'kfc': 'KFC',
+                     'burgerking': 'Burger King', 'burger king': 'Burger King',
+                     'subway': 'Subway',
+                     'tacobell': 'Taco Bell', 'taco bell': 'Taco Bell',
+                     'wowmomo': 'Wow Momo', 'wow momo': 'Wow Momo',
+                     'chaayos': 'Chaayos',
+                     'chaipoint': 'Chai Point', 'chai point': 'Chai Point',
+                     'barista': 'Barista',
+                     'faasos': 'Faasos',
+                     'behrouz': 'Behrouz Biryani',
+                     'haldirams': "Haldiram's", "haldiram's": "Haldiram's",
+                     'bikanervala': 'Bikanervala',
+                     'ovenstory': 'Oven Story', 'oven story': 'Oven Story',
+                 };
                  const displayName = matchedChain
-                     ? matchedChain.charAt(0).toUpperCase() + matchedChain.slice(1)
+                     ? (CANONICAL_NAMES[matchedChain] || CANONICAL_NAMES[norm(matchedChain)] || (matchedChain.charAt(0).toUpperCase() + matchedChain.slice(1)))
                      : (restName || 'Unknown');
                  group = {
                      id: `rest_${Date.now()}_${Math.random()}`,
