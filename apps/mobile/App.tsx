@@ -334,19 +334,38 @@ export default function App() {
           try {
               const offers = packet.getPublicOffers(val);
               if (offers && offers.length > 0) {
-                  // Wrap in setTimeout(0) so state update happens after setResults([]) clears
-                  setTimeout(() => handleDataExtracted({ data: offers }, provider.id), 50);
+                  const taggedOffers = offers.map((o: any) => ({ ...o, isStaticFallback: true }));
+                  setTimeout(() => handleDataExtracted({ data: taggedOffers, isStaticFallback: true }, provider.id), 50);
               }
           } catch (_) {}
       });
   };
 
   const handleDataExtracted = (data: any, providerId: string) => {
-      completedProvidersRef.current.add(providerId);
-      const items = data.data || data.items || [];
-      if (!items.length) return;
       const provider = PROVIDERS.find(p => p.id === providerId);
       if (!provider) return;
+
+      const isStatic = data.isStaticFallback === true;
+      if (!isStatic) {
+          completedProvidersRef.current.add(providerId);
+          // If this is live data (or an empty array meaning 'unavailable'), 
+          // we MUST remove any static fallback data for this provider first.
+          setResults(prev => {
+              let nextState = prev.map(group => {
+                  return {
+                      ...group,
+                      dishes: group.dishes.map((dish: any) => ({
+                          ...dish,
+                          offers: dish.offers.filter((o: any) => !(o.providerName === provider.name && o.isStaticFallback))
+                      })).filter((dish: any) => dish.offers.length > 0)
+                  };
+              }).filter(group => group.dishes.length > 0);
+              return nextState;
+          });
+      }
+
+      const items = data.data || data.items || [];
+      if (!items.length) return;
 
       setResults(prev => {
           let updated = [...prev];
@@ -468,6 +487,7 @@ export default function App() {
                      potentialSavings: item.couponSavings || item.autoCouponSavings || 0,
                      isPersonalized: connectedProviders.includes(providerId),
                      offerText: item.offerText || '',
+                     isStaticFallback: item.isStaticFallback || false,
                  });
              } else if (matchedChain) {
                  // Chain brand: update if this outlet has better price
