@@ -305,7 +305,7 @@ export default function App() {
           setIsSearching(true);
           completedProvidersRef.current = new Set();
           if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-          searchTimerRef.current = setTimeout(() => setIsSearching(false), 15000);
+          searchTimerRef.current = setTimeout(() => setIsSearching(false), 12000);
       }
   }, [activeTab, activeCategory, location]);
 
@@ -320,7 +320,7 @@ export default function App() {
       completedProvidersRef.current.clear();
 
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = setTimeout(() => setIsSearching(false), 15000);
+      searchTimerRef.current = setTimeout(() => setIsSearching(false), 12000);
 
       // ── Inject public offers from OFFICIAL_WEB brands immediately ──────────
       // These brands don't use WebView — call getPublicOffers() directly (pure JS)
@@ -348,6 +348,14 @@ export default function App() {
       const isStatic = data.isStaticFallback === true;
       if (!isStatic) {
           completedProvidersRef.current.add(providerId);
+          
+          // Check if ALL live extractors have finished
+          const totalExtractors = PROVIDERS.filter(p => p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB').length;
+          if (completedProvidersRef.current.size >= totalExtractors) {
+              setIsSearching(false);
+              if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+          }
+
           // If this is live data (or an empty array meaning 'unavailable'), 
           // we MUST remove any static fallback data for this provider first.
           setResults(prev => {
@@ -630,12 +638,17 @@ export default function App() {
           </TouchableOpacity>
       </View>
                  
-                 {isSearching && results.length === 0 ? (
-                     <View style={styles.centerMsg}>
-                         <ActivityIndicator size="large" color="#000" />
-                         <Text style={styles.msgText}>Searching for best prices...</Text>
+                 {isSearching ? (
+                     <View style={[styles.centerMsg, {marginTop: 60}]}>
+                         <ActivityIndicator size="large" color="#16a34a" />
+                         <Text style={[styles.msgText, {marginTop: 20, color: '#16a34a', fontWeight: '800'}]}>Comparing live prices...</Text>
+                         <Text style={{fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 10, paddingHorizontal: 40}}>Please wait while we check Swiggy, Zomato, and Direct Apps to find you the best deals.</Text>
                      </View>
-                 ) : results.length === 0 && !isSearching ? (
+                 ) : results.length === 0 && !isSearching && searchQuery ? (
+                     <View style={styles.centerMsg}>
+                         <Text style={styles.msgText}>No restaurants found for "{searchQuery}"</Text>
+                     </View>
+                 ) : results.length === 0 && !isSearching && !searchQuery ? (
                      <View style={styles.centerMsg}>
                          <Text style={styles.msgText}>Search for restaurants or dishes above</Text>
                      </View>
