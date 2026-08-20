@@ -743,11 +743,11 @@ export default function App() {
               <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 32}}>
                   <Text style={styles.connTitle}>Link Accounts</Text>
                   <Text style={{fontSize: 13, color: '#64748b', marginBottom: 20, lineHeight: 18}}>
-                    Connect delivery accounts for personalized deals. For other brands, tap to order directly from their official website.
+                    Connect your food delivery accounts to unlock your personalized deals, hidden coupons, and member-only pricing.
                   </Text>
 
-                  {/* Render brands grouped by subcategory */}
-                  {FOOD_SUBCATEGORY_ORDER.map(subcat => {
+                  {/* Render brands grouped by subcategory (Only Food Delivery for now) */}
+                  {FOOD_SUBCATEGORY_ORDER.filter(s => s === 'Food Delivery').map(subcat => {
                       const group = allFoodProviders.filter(p => (p.subcategory || 'Food Delivery') === subcat);
                       if (group.length === 0) return null;
                       return (
