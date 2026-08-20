@@ -262,11 +262,11 @@ export const SwiggyPacket: ProviderPacket = {
                             return;
                         }
                         
-                        // Skip if restaurant is closed
+                        // Skip if restaurant is explicitly closed (not just showing schedule)
                         var isRestClosed = false;
                         if (restInfo && restInfo.availability && restInfo.availability.opened === false) isRestClosed = true;
                         if (restInfo && restInfo.isOpen === false) isRestClosed = true;
-                        if (restInfo && restInfo.availability && restInfo.availability.nextOpenTimeMessage) isRestClosed = true;
+                        // Do NOT filter on nextOpenTimeMessage alone — it can show on open restaurants too
 
                         if (isRestClosed) {
                             return;

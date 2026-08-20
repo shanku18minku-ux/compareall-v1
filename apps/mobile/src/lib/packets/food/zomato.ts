@@ -222,24 +222,15 @@ export const ZomatoPacket: ProviderPacket = {
             function sendZomatoResults(items) {
                 if (!items || items.length === 0) return;
                 latestZomatoResults = items;
-                if (isDispatched) return;
+                // Allow re-dispatch always — lat/lng URL ensures we only get local results
                 try {
                     if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
                         isDispatched = true;
-                        
-                        var userCity = locName ? locName.toLowerCase().split(',')[0].trim() : '';
-                        var filtered = items.filter(function(r) {
-                            var rCity = r.metadata && r.metadata.locality ? r.metadata.locality : (r.restaurantCity || '');
-                            if (!rCity || !userCity) return true;
-                            return rCity.toLowerCase().includes(userCity) || userCity.includes(rCity.toLowerCase()) || (r.metadata && r.metadata.citySlug && r.metadata.citySlug === userCity);
-                        });
-                        
-                        if (filtered.length === 0 && items.length > 0) filtered = items;
-
+                        // No city filtering needed — Zomato lat/lng URL already returns only local restaurants
                         window.ReactNativeWebView.postMessage(JSON.stringify({
                             type: 'SEARCH_RESULTS',
                             success: true,
-                            data: filtered
+                            data: items
                         }));
                     }
                 } catch(e) {}
@@ -280,16 +271,14 @@ export const ZomatoPacket: ProviderPacket = {
                     if (!s) return;
                     var info = s.info || (s.restaurant && s.restaurant.info) || (s.restaurant) || (s.card && s.card.card && s.card.card.info);
                     if (info && info.name) {
-                        // Skip closed or unserviceable restaurants/items
+                        // Skip ONLY explicitly closed/unserviceable restaurants
+                        // Do NOT filter on 'opens' text — it can mean "Opens at 7am" (which is open now)
                         var isZomatoClosed = false;
-                        if (info.is_closed || info.is_unserviceable || info.is_out_of_stock || (s.restaurant && s.restaurant.is_closed) || info.availability === false) {
+                        if (info.is_closed === true || info.is_unserviceable === true) {
                             isZomatoClosed = true;
                         }
-                        // Check for textual 'Opens on/at' tags often used as overlay banners
-                        if (info.bottomText && info.bottomText.text && info.bottomText.text.toLowerCase().indexOf('opens') !== -1) {
-                            isZomatoClosed = true;
-                        }
-                        if (info.timing && info.timing.text && info.timing.text.toLowerCase().indexOf('opens') !== -1) {
+                        // Only skip if availability is explicitly false (not null/undefined)
+                        if (info.availability === false) {
                             isZomatoClosed = true;
                         }
                         
@@ -639,9 +628,14 @@ export const ZomatoPacket: ProviderPacket = {
             var scrapeInterval = setInterval(function() {
                 attempts++;
 
-                // Don't stop early - keep trying until we get results or timeout
-                if (latestZomatoResults && latestZomatoResults.length > 0 && !isDispatched) {
-                    sendZomatoResults(latestZomatoResults);
+                // Send API results if available (runs every interval)
+                if (latestZomatoResults && latestZomatoResults.length > 0) {
+                    // Always resend if we get more results than before
+                    if (latestZomatoResults.length > lastResultCount) {
+                        lastResultCount = latestZomatoResults.length;
+                        isDispatched = false; // allow re-send with better data
+                        sendZomatoResults(latestZomatoResults);
+                    }
                 }
 
                 try {
@@ -656,7 +650,7 @@ export const ZomatoPacket: ProviderPacket = {
                     }
                 } catch(e) {}
 
-                if (isDispatched || attempts >= 40) {
+                if (attempts >= 40) {
                     clearInterval(scrapeInterval);
                     // If still no results after 20s, send empty
                     if (!isDispatched && window.ReactNativeWebView) {

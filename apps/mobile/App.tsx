@@ -218,9 +218,14 @@ export default function App() {
               latitude: coarse.coords.latitude,
               longitude: coarse.coords.longitude
             }).catch(() => []);
-            const name = geo?.length > 0
-              ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
-              : 'Current Location';
+            const g0 = geo?.[0] || {};
+            const nameParts = [
+              g0.name && !g0.name.match(/^\d/) ? g0.name : '',  // locality/area name (skip if just a number)
+              g0.sublocality || g0.subregion || '',
+              g0.city || g0.district || '',
+              g0.region || ''
+            ].filter((v, i, a) => v && a.indexOf(v) === i); // unique non-empty parts
+            const name = nameParts.length > 0 ? nameParts.slice(0, 3).join(', ') : 'Current Location';
             setLocation({ latitude: coarse.coords.latitude, longitude: coarse.coords.longitude, name });
           }
         } catch (_) {}
@@ -237,9 +242,14 @@ export default function App() {
             latitude: precise.coords.latitude,
             longitude: precise.coords.longitude
           }).catch(() => []);
-          const name = geo?.length > 0
-            ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
-            : 'Current Location';
+          const g0 = geo?.[0] || {};
+          const nameParts = [
+            g0.name && !g0.name.match(/^\d/) ? g0.name : '',
+            g0.sublocality || g0.subregion || '',
+            g0.city || g0.district || '',
+            g0.region || ''
+          ].filter((v, i, a) => v && a.indexOf(v) === i);
+          const name = nameParts.length > 0 ? nameParts.slice(0, 3).join(', ') : 'Current Location';
           setLocation({
             latitude: precise.coords.latitude,
             longitude: precise.coords.longitude,
@@ -262,9 +272,14 @@ export default function App() {
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude
             }).catch(() => []);
-            const name = geo?.length > 0
-              ? [(geo[0].city || geo[0].district || geo[0].subregion || ''), (geo[0].region || '')].filter(Boolean).join(', ')
-              : 'Current Location';
+            const gw = geo?.[0] || {};
+            const wParts = [
+              gw.name && !gw.name.match(/^\d/) ? gw.name : '',
+              gw.sublocality || gw.subregion || '',
+              gw.city || gw.district || '',
+              gw.region || ''
+            ].filter((v, i, a) => v && a.indexOf(v) === i);
+            const name = wParts.length > 0 ? wParts.slice(0, 3).join(', ') : 'Current Location';
             setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, name });
           }
         );
