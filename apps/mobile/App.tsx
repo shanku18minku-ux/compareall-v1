@@ -575,18 +575,30 @@ export default function App() {
       const regions: string[] = provider.regions || provider.metadata?.regions || ['all'];
       if (!regions || regions.includes('all')) return true;
       if (!location?.name) return true; // no location set yet → show all
-      const userCity = location.name.split(',')[0].toLowerCase().trim()
-          .replace(/[^a-z0-9\s]/g, '').trim();
-      // Also check common aliases
+      
+      const fullLocationString = location.name.toLowerCase();
+      
+      // Also check common aliases mapping (if string contains key, add values to check)
       const aliases: Record<string, string[]> = {
-          'medininagar': ['daltonganj', 'palamu', 'medininagar'],
-          'daltonganj': ['daltonganj', 'palamu', 'medininagar'],
-          'bengaluru': ['bangalore', 'bengaluru'],
-          'gurugram': ['gurgaon', 'gurugram'],
-          'new delhi': ['delhi', 'ncr', 'new delhi'],
+          'medininagar': ['daltonganj', 'palamu'],
+          'daltonganj': ['medininagar', 'palamu'],
+          'bengaluru': ['bangalore'],
+          'bangalore': ['bengaluru'],
+          'gurugram': ['gurgaon'],
+          'gurgaon': ['gurugram'],
+          'new delhi': ['delhi', 'ncr'],
+          'delhi': ['ncr', 'new delhi']
       };
-      const cityVariants = aliases[userCity] || [userCity];
-      return regions.some(r => cityVariants.some(v => r.toLowerCase().includes(v) || v.includes(r.toLowerCase())));
+
+      // Check if any region (or its aliases) exists in the full location string
+      return regions.some(region => {
+          const rLow = region.toLowerCase();
+          // If region is directly in location string
+          if (fullLocationString.includes(rLow)) return true;
+          // Check if any alias of this region is in the location string
+          const regionAliases = aliases[rLow] || [];
+          return regionAliases.some(alias => fullLocationString.includes(alias));
+      });
   };
 
   // Connections page: only Food Delivery platforms, filtered by location availability
