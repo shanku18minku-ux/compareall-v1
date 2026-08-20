@@ -422,7 +422,19 @@ export default function App() {
              }
 
              const dishKey = norm(dishName);
-             let dishEntry = group.dishes.find((d: any) => norm(d.dishName) === dishKey);
+             let dishEntry = group.dishes.find((d: any) => {
+                 const existingKey = norm(d.dishName);
+                 if (existingKey === dishKey) return true;
+                 if (existingKey.includes(dishKey) || dishKey.includes(existingKey)) {
+                     // Keep the more descriptive name (e.g., 'Cheese Pizza (8 Inches)' > 'Pizza')
+                     if (dishName.length > d.dishName.length) {
+                         d.dishName = dishName;
+                     }
+                     return true;
+                 }
+                 return false;
+             });
+
              if (!dishEntry) {
                  dishEntry = { dishName, imageUrl: item.dishImage || item.imageUrl || '', offers: [] };
                  group.dishes.push(dishEntry);
