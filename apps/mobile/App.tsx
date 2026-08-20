@@ -325,25 +325,27 @@ export default function App() {
       completedProvidersRef.current.clear();
 
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = setTimeout(() => setIsSearching(false), 12000);
+      // Timeout fallback: if extractors take too long, purge any stale static data
+      // and stop the loading state so user sees live-confirmed results only
+      searchTimerRef.current = setTimeout(() => {
+          // Final purge: remove any restaurant that only has static fallback offers
+          setResults(prev => prev
+              .map(group => ({
+                  ...group,
+                  dishes: group.dishes.map((dish: any) => ({
+                      ...dish,
+                      offers: dish.offers.filter((o: any) => !o.isStaticFallback)
+                  })).filter((dish: any) => dish.offers.length > 0)
+              }))
+              .filter(group => group.dishes.length > 0)
+          );
+          setIsSearching(false);
+      }, 12000);
 
-      // ── Inject public offers from OFFICIAL_WEB brands immediately ──────────
-      // These brands don't use WebView — call getPublicOffers() directly (pure JS)
-      const directBrands = (PROVIDERS || []).filter(
-          p => p && p.category === activeCategory && p.connectionType === 'OFFICIAL_WEB'
-      );
-
-      directBrands.forEach(provider => {
-          const packet = getPacket(provider.id);
-          if (!packet?.getPublicOffers) return;
-          try {
-              const offers = packet.getPublicOffers(val);
-              if (offers && offers.length > 0) {
-                  const taggedOffers = offers.map((o: any) => ({ ...o, isStaticFallback: true }));
-                  setTimeout(() => handleDataExtracted({ data: taggedOffers, isStaticFallback: true }, provider.id), 50);
-              }
-          } catch (_) {}
-      });
+      // NOTE: Static fallback injection removed intentionally.
+      // Only live platform data (Swiggy, Zomato, etc.) is shown — this guarantees
+      // 100% location-specific results. Pizza Hut / Taco Bell will only appear if
+      // a connected platform actually has them in the user's city.
   };
 
   const handleDataExtracted = (data: any, providerId: string) => {
