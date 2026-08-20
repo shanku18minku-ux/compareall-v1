@@ -77,8 +77,22 @@ export function makeWebViewBrandPacket(meta: any, staticOffers: any[], extractor
             const offerSel = JSON.stringify(offerSelector || '[class*="offer"],[class*="badge"]');
             const unavailSigs = JSON.stringify(unavailableSignals || ['not available', 'not serviceable']);
 
+            const geoMock = location && location.lat && location.lon ? `
+    // MOCK HTML5 GEOLOCATION TO AUTO-BYPASS LOCATION PICKERS
+    navigator.geolocation = {
+        getCurrentPosition: function(success) {
+            success({ coords: { latitude: ${location.lat}, longitude: ${location.lon}, accuracy: 10 } });
+        },
+        watchPosition: function(success) {
+            success({ coords: { latitude: ${location.lat}, longitude: ${location.lon}, accuracy: 10 } });
+            return 1;
+        },
+        clearWatch: function() {}
+    };` : '';
+
             return `
 (function() {
+    ${geoMock}
     var BRAND = ${brandName};
     var q = ${q};
     var staticOffers = ${staticJson};

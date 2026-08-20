@@ -135,6 +135,19 @@ export const ZomatoPacket: ProviderPacket = {
         (function() {
             var userLat = ${userLat};
             var userLng = ${userLng};
+            
+            // MOCK HTML5 GEOLOCATION TO AUTO-BYPASS LOCATION PICKERS
+            navigator.geolocation = {
+                getCurrentPosition: function(success) {
+                    success({ coords: { latitude: userLat, longitude: userLng, accuracy: 10 } });
+                },
+                watchPosition: function(success) {
+                    success({ coords: { latitude: userLat, longitude: userLng, accuracy: 10 } });
+                    return 1;
+                },
+                clearWatch: function() {}
+            };
+
             var hasLocation = ${hasLocation ? 'true' : 'false'};
             var q = ${JSON.stringify(searchQuery)};
             var locName = ${JSON.stringify(location?.name || '')};
