@@ -391,17 +391,30 @@ export default function App() {
                             norm(g.restaurantName).includes(chainKey);
                  }
 
-                 const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
-                 const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+                 // Robust Fuzzy Name Matching (Word Overlap)
+                 const filterWords = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).filter(w => w.length > 2 && !['restaurant', 'the', 'and', 'veg', 'nonveg'].includes(w));
+                 const rWords = filterWords(restName);
+                 const gWords = filterWords(g.restaurantName);
 
-                 if (rWords.length === 0 || gWords.length === 0) return false;
-                 if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
+                 if (rWords.length === 0 || gWords.length === 0) {
+                     return norm(restName) === norm(g.restaurantName);
+                 }
 
-                 const n1 = rWords.join('');
-                 const n2 = gWords.join('');
-                 if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) return true;
-
-                 return false;
+                 let overlap = 0;
+                 rWords.forEach(rw => {
+                     if (gWords.some(gw => gw === rw || (gw.length > 3 && rw.length > 3 && (gw.includes(rw) || rw.includes(gw))))) overlap++;
+                 });
+                 
+                 const matchRatio = overlap / Math.max(rWords.length, gWords.length);
+                 
+                 // If 50% or more words match, we consider it the same restaurant!
+                 if (matchRatio >= 0.5) {
+                     // Keep the shorter, cleaner name (e.g. 'Jain Shree' instead of 'Jain Shree Veg Restaurant')
+                     if (restName.length < g.restaurantName.length) {
+                         g.restaurantName = restName;
+                     }
+                     return true;
+                 }
              });
 
              if (!group) {
