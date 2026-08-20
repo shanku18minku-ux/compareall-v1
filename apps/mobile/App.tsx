@@ -4,7 +4,7 @@ import {
   SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, 
   Image, StyleSheet, ActivityIndicator, Vibration, Keyboard, StatusBar
 } from 'react-native';
-import { PROVIDERS, getPacket } from './src/lib/packets/registry';
+import { PROVIDERS, getPacket, FOOD_SUBCATEGORY_ORDER } from './src/lib/packets/registry';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { UniversalCartModal } from './src/lib/UniversalCartModal';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
@@ -398,10 +398,15 @@ export default function App() {
       });
   };
 
-  const activeProviders = (PROVIDERS || []).filter(p => p && p.category === activeCategory);
-  
-  const connectedCount = activeProviders.filter(p => connectedProviders.includes(p.id)).length;
-  const isAllConnected = activeProviders.length > 0 && connectedCount === activeProviders.length;
+  // Providers used for live WebView extraction (have real login + extractor)
+  const activeProviders = (PROVIDERS || []).filter(p =>
+    p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
+  );
+  // All food providers for Connections page (includes direct-order brands)
+  const allFoodProviders = (PROVIDERS || []).filter(p => p && p.category === activeCategory);
+
+  const connectedCount = allFoodProviders.filter(p => connectedProviders.includes(p.id)).length;
+  const isAllConnected = allFoodProviders.length > 0 && connectedCount === allFoodProviders.length;
 
   const vegKeywords = ['veg', 'paneer', 'aloo', 'mushroom', 'dal', 'sabzi', 'gobi', 'matar', 'tofu', 'idli', 'dosa', 'uttapam', 'puri', 'chole', 'rajma', 'kadhai', 'palak', 'corn', 'baby corn', 'mixed veg', 'veg fried', 'veg biryani', 'garden', 'salad'];
 
@@ -441,22 +446,27 @@ export default function App() {
   };
 
   const getProviderColor = (name: string) => {
-      switch (name.toUpperCase()) {
+      // Check registry for brandColor first
+      const prov = (PROVIDERS || []).find(p => p.name === name);
+      if (prov?.brandColor) return prov.brandColor;
+      switch ((name || '').toUpperCase()) {
           case 'ZOMATO': return '#cb202d';
           case 'SWIGGY': return '#ff5200';
           case 'EATSURE': return '#4945be';
           case 'EATCLUB': return '#305bea';
-          default: return '#000000';
+          default: return '#334155'; // slate-700
       }
   };
 
   const getProviderInitial = (name: string) => {
-      switch (name.toUpperCase()) {
+      const prov = (PROVIDERS || []).find(p => p.name === name);
+      if (prov?.icon) return prov.icon;
+      switch ((name || '').toUpperCase()) {
           case 'ZOMATO': return 'Z';
           case 'SWIGGY': return 'S';
           case 'EATSURE': return 'E';
           case 'EATCLUB': return 'C';
-          default: return name.charAt(0);
+          default: return (name || '?').charAt(0).toUpperCase();
       }
   };
 
@@ -623,53 +633,75 @@ export default function App() {
           )}
 
           {activeTab === 'Connections' && (
-              <ScrollView contentContainerStyle={{padding: 16}}>
+              <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 32}}>
                   <Text style={styles.connTitle}>Link Accounts</Text>
-                  <Text style={{fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 18}}>
-                    Connect your delivery accounts to unlock personalized best deals & exclusive discounts.
+                  <Text style={{fontSize: 13, color: '#64748b', marginBottom: 20, lineHeight: 18}}>
+                    Connect delivery accounts for personalized deals. For other brands, tap to order directly from their official website.
                   </Text>
-                  
-                  <Text style={styles.connCategory}>Food Delivery</Text>
-                  <View style={styles.connGrid}>
-                      {activeProviders.map(p => {
-                          const isConn = connectedProviders.includes(p.id);
-                          return (
-                              <View key={p.id} style={styles.connCard}>
-                                  {/* Provider circle icon */}
-                                  <View style={[styles.providerCircleLg, {backgroundColor: getProviderColor(p.name)}]}>
-                                      <Text style={styles.providerCircleTextLg}>{getProviderInitial(p.name)}</Text>
-                                  </View>
-                                  <Text style={styles.connName}>{p.name}</Text>
-                                  
-                                  {isConn ? (
-                                      <View style={{width: '100%', alignItems: 'center'}}>
-                                          {/* Connected badge */}
-                                          <View style={{backgroundColor: '#dcfce7', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginBottom: 8, width: '100%', alignItems: 'center', flexDirection: 'row', justifyContent: 'center'}}>
-                                              <Text style={{color: '#16a34a', fontSize: 12, fontWeight: '800'}}>✓ CONNECTED</Text>
+
+                  {/* Render brands grouped by subcategory */}
+                  {FOOD_SUBCATEGORY_ORDER.map(subcat => {
+                      const group = allFoodProviders.filter(p => (p.subcategory || 'Food Delivery') === subcat);
+                      if (group.length === 0) return null;
+                      return (
+                          <View key={subcat} style={{marginBottom: 8}}>
+                              {/* Subcategory header */}
+                              <Text style={styles.connCategory}>{subcat}</Text>
+                              <View style={styles.connGrid}>
+                                  {group.map(p => {
+                                      const isConn = connectedProviders.includes(p.id);
+                                      const isDirectOrder = p.connectionType === 'OFFICIAL_WEB';
+                                      const provColor = p.brandColor || getProviderColor(p.name);
+                                      return (
+                                          <View key={p.id} style={styles.connCard}>
+                                              {/* Brand icon circle */}
+                                              <View style={[styles.providerCircleLg, {backgroundColor: provColor}]}>
+                                                  <Text style={styles.providerCircleTextLg}>{p.icon || getProviderInitial(p.name)}</Text>
+                                              </View>
+                                              <Text style={styles.connName} numberOfLines={2}>{p.name}</Text>
+
+                                              {isDirectOrder ? (
+                                                  /* Direct-order brand: not account-linkable, just open website */
+                                                  <TouchableOpacity
+                                                      style={[styles.linkBtn, {backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1'}]}
+                                                      onPress={() => {
+                                                          import('react-native').then(({ Linking }) => {
+                                                              Linking.openURL(p.loginUrl).catch(() => {});
+                                                          });
+                                                      }}
+                                                  >
+                                                      <Text style={[styles.linkBtnText, {color: '#334155'}]}>🌐 ORDER</Text>
+                                                  </TouchableOpacity>
+                                              ) : isConn ? (
+                                                  <View style={{width: '100%', alignItems: 'center'}}>
+                                                      <View style={{backgroundColor: '#dcfce7', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginBottom: 8, width: '100%', alignItems: 'center', flexDirection: 'row', justifyContent: 'center'}}>
+                                                          <Text style={{color: '#16a34a', fontSize: 12, fontWeight: '800'}}>✓ CONNECTED</Text>
+                                                      </View>
+                                                      <TouchableOpacity
+                                                          style={{paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#fca5a5', backgroundColor: '#fff5f5'}}
+                                                          onPress={() => {
+                                                              setConnectedProviders(prev => prev.filter(id => id !== p.id));
+                                                              setResults([]);
+                                                          }}
+                                                      >
+                                                          <Text style={{color: '#ef4444', fontSize: 11, fontWeight: '700'}}>Disconnect</Text>
+                                                      </TouchableOpacity>
+                                                  </View>
+                                              ) : (
+                                                  <TouchableOpacity
+                                                      style={styles.linkBtn}
+                                                      onPress={() => setLoginModal(p)}
+                                                  >
+                                                      <Text style={styles.linkBtnText}>LINK NOW</Text>
+                                                  </TouchableOpacity>
+                                              )}
                                           </View>
-                                          {/* Disconnect button */}
-                                          <TouchableOpacity
-                                              style={{paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#fca5a5', backgroundColor: '#fff5f5'}}
-                                              onPress={() => {
-                                                  setConnectedProviders(prev => prev.filter(id => id !== p.id));
-                                                  setResults([]);
-                                              }}
-                                          >
-                                              <Text style={{color: '#ef4444', fontSize: 11, fontWeight: '700'}}>Disconnect</Text>
-                                          </TouchableOpacity>
-                                      </View>
-                                  ) : (
-                                      <TouchableOpacity 
-                                          style={styles.linkBtn}
-                                          onPress={() => setLoginModal(p)}
-                                      >
-                                          <Text style={styles.linkBtnText}>LINK NOW</Text>
-                                      </TouchableOpacity>
-                                  )}
+                                      );
+                                  })}
                               </View>
-                          );
-                      })}
-                  </View>
+                          </View>
+                      );
+                  })}
               </ScrollView>
           )}
           
