@@ -19,6 +19,13 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
   const [expanded, setExpanded] = React.useState(false);
   const fmtEta = (offer: any) => offer.deliveryTime ? String(offer.deliveryTime).replace(/[?]/g,'').trim() : '~30 min';
 
+  // Platforms not yet connected that have coupons — show "connect for best deals"
+  const unconnectedWithDeals = sortedOffers.filter((offer: any) => {
+    const providerId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
+    const isConn = connectedProviders.includes(providerId || '');
+    return !isConn && offer.couponCode;
+  });
+
   return (
     <View style={{ backgroundColor: '#fff', marginBottom: 2, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
       {/* Top section: name + image + from price */}
@@ -26,23 +33,33 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
         <View style={{ flex: 1, paddingRight: 12 }}>
           <Text style={{ fontSize: 17, fontWeight: '800', color: '#1e293b', marginBottom: 6, lineHeight: 22 }}>{dish.dishName}</Text>
           {savings > 0 && (
-            <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 }}>
+            <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 6 }}>
               <Text style={{ color: '#16a34a', fontSize: 11, fontWeight: '800' }}>Save up to Rs.{savings}</Text>
             </View>
           )}
           {isPersonalizedAvailable && (
-            <View style={{ backgroundColor: '#eff6ff', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 }}>
-              <Text style={{ color: '#2563eb', fontSize: 11, fontWeight: '700' }}>Your deal active</Text>
+            <View style={{ backgroundColor: '#eff6ff', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 6 }}>
+              <Text style={{ color: '#2563eb', fontSize: 11, fontWeight: '700' }}>✓ Your deal active</Text>
+            </View>
+          )}
+          {/* "Connect for best deals" hint for unconnected platforms */}
+          {unconnectedWithDeals.length > 0 && (
+            <View style={{ backgroundColor: '#fff7ed', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 1, borderColor: '#fed7aa' }}>
+              <Text style={{ color: '#c2410c', fontSize: 10, fontWeight: '700' }}>
+                🔗 Connect {unconnectedWithDeals.map((o: any) => o.providerName).join(' & ')} for best deals
+              </Text>
             </View>
           )}
           <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>From</Text>
           <Text style={{ fontSize: 24, fontWeight: '900', color: '#16a34a' }}>Rs.{bestPrice}</Text>
         </View>
         <View>
+          {/* Dish image — uses Swiggy's CDN or Zomato thumb */}
           {dish.imageUrl
-            ? <Image source={{ uri: dish.imageUrl }} style={{ width: 95, height: 95, borderRadius: 12 }} resizeMode="cover" />
+            ? <Image source={{ uri: dish.imageUrl }} style={{ width: 95, height: 95, borderRadius: 12 }} resizeMode="cover"
+                onError={() => {}} />
             : <View style={{ width: 95, height: 95, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' }}>
-                <Text style={{ fontSize: 30, color: '#94a3b8' }}>?</Text>
+                <Text style={{ fontSize: 32 }}>🍽️</Text>
               </View>
           }
           {/* Platform count badge */}
@@ -68,7 +85,7 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
           )}
           <Text style={{ fontSize: 12, color: '#64748b' }}>{expanded ? 'Hide' : 'See all'} platforms</Text>
         </View>
-        <Text style={{ fontSize: 20, color: '#94a3b8', lineHeight: 24 }}>{expanded ? '^' : 'v'}</Text>
+        <Text style={{ fontSize: 20, color: '#94a3b8', lineHeight: 24 }}>{expanded ? '▲' : '▼'}</Text>
       </TouchableOpacity>
 
       {/* Expanded comparison table */}
@@ -88,6 +105,9 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
             const hasDiscount = origPrice > price && origPrice > 0;
             const providerId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
             const isConnected = connectedProviders.includes(providerId || '');
+            // Show coupon ONLY when connected; otherwise show connect prompt
+            const showCoupon = isConnected && offer.couponCode;
+            const showConnectHint = !isConnected && offer.couponCode;
             return (
               <View key={oIdx} style={[{
                 flexDirection: 'row', alignItems: 'center',
@@ -98,7 +118,7 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
                   <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: provColor, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                     <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>{provInit}</Text>
                   </View>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: '#1e293b' }}>{offer.providerName}</Text>
                       {isConnected && (
@@ -108,7 +128,16 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
                       )}
                     </View>
                     {isBest && <Text style={{ fontSize: 10, color: '#16a34a', fontWeight: '700' }}>Best Price</Text>}
-                    {offer.couponCode ? <Text style={{ fontSize: 10, color: '#f97316', fontWeight: '600' }}>Use: {offer.couponCode}</Text> : null}
+                    {/* Coupon: ONLY when connected */}
+                    {showCoupon && (
+                      <Text style={{ fontSize: 10, color: '#f97316', fontWeight: '700' }}>✓ Use: {offer.couponCode}</Text>
+                    )}
+                    {/* Connect prompt: when NOT connected but coupon exists */}
+                    {showConnectHint && (
+                      <Text style={{ fontSize: 9, color: '#b45309', fontWeight: '600' }}>
+                        🔗 Connect for best deals
+                      </Text>
+                    )}
                   </View>
                 </View>
                 <Text style={{ fontSize: 12, color: '#64748b', width: 72, textAlign: 'center' }}>{fmtEta(offer)}</Text>

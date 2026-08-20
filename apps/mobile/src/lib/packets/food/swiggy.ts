@@ -463,6 +463,7 @@ export const SwiggyPacket: ProviderPacket = {
                                 dishId: info.id || '',
                                 dishName: info.name || '',
                                 restaurantName: restName,
+                                dishImage: info.imageId ? ('https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto,w_300,h_300,c_fit/' + info.imageId) : '',
                                   deliveryTime: (restInfo && restInfo.sla && restInfo.sla.slaString) ? restInfo.sla.slaString : '',
                                   restaurantUrl: restaurantUrl,
                                 menuPrice: finalPrice,
