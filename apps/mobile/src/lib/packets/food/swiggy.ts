@@ -566,6 +566,19 @@ export const SwiggyPacket: ProviderPacket = {
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
         const lat = location?.latitude || 0;
         const lng = location?.longitude || 0;
+        
+        let citySlug = 'delhi';
+        if (location?.name) {
+            const slugOverrides: Record<string, string> = {
+                'medininagar': 'daltonganj', 'daltonganj': 'daltonganj', 'palamu': 'daltonganj',
+                'bengaluru': 'bangalore', 'new-delhi': 'delhi', 'gurugram': 'gurgaon',
+            };
+            let rawCity = location.name.split(',')[0].toLowerCase().trim();
+            citySlug = rawCity.replace(/[^a-z0-9]/g, '-');
+            citySlug = slugOverrides[rawCity] || slugOverrides[citySlug] || citySlug;
+            return `https://www.swiggy.com/city/${citySlug}/search?query=${encodeURIComponent(query)}`;
+        }
+
         if (lat && lng) {
             return `https://www.swiggy.com/search?lat=${lat}&lng=${lng}&query=${encodeURIComponent(query)}`;
         }
