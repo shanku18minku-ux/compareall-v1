@@ -572,33 +572,38 @@ export default function App() {
   // Providers with regions: ['all'] → always available
   // Providers with specific city list → only available if user's city matches
   const isProviderAvailableInLocation = (provider: any): boolean => {
-      const regions: string[] = provider.regions || provider.metadata?.regions || ['all'];
-      if (!regions || regions.includes('all')) return true;
-      if (!location?.name) return true; // no location set yet → show all
-      
-      const fullLocationString = location.name.toLowerCase();
-      
-      // Also check common aliases mapping (if string contains key, add values to check)
-      const aliases: Record<string, string[]> = {
-          'medininagar': ['daltonganj', 'palamu'],
-          'daltonganj': ['medininagar', 'palamu'],
-          'bengaluru': ['bangalore'],
-          'bangalore': ['bengaluru'],
-          'gurugram': ['gurgaon'],
-          'gurgaon': ['gurugram'],
-          'new delhi': ['delhi', 'ncr'],
-          'delhi': ['ncr', 'new delhi']
-      };
+      try {
+          const regions: string[] = provider.regions || provider.metadata?.regions || ['all'];
+          if (!regions || !Array.isArray(regions) || regions.includes('all')) return true;
+          if (!location || !location.name) return true; // no location set yet → show all
+          
+          const fullLocationString = String(location.name).toLowerCase();
+          
+          // Also check common aliases mapping (if string contains key, add values to check)
+          const aliases: Record<string, string[]> = {
+              'medininagar': ['daltonganj', 'palamu'],
+              'daltonganj': ['medininagar', 'palamu'],
+              'bengaluru': ['bangalore'],
+              'bangalore': ['bengaluru'],
+              'gurugram': ['gurgaon'],
+              'gurgaon': ['gurugram'],
+              'new delhi': ['delhi', 'ncr'],
+              'delhi': ['ncr', 'new delhi']
+          };
 
-      // Check if any region (or its aliases) exists in the full location string
-      return regions.some(region => {
-          const rLow = region.toLowerCase();
-          // If region is directly in location string
-          if (fullLocationString.includes(rLow)) return true;
-          // Check if any alias of this region is in the location string
-          const regionAliases = aliases[rLow] || [];
-          return regionAliases.some(alias => fullLocationString.includes(alias));
-      });
+          // Check if any region (or its aliases) exists in the full location string
+          return regions.some(region => {
+              if (!region || typeof region !== 'string') return false;
+              const rLow = region.toLowerCase();
+              // If region is directly in location string
+              if (fullLocationString.includes(rLow)) return true;
+              // Check if any alias of this region is in the location string
+              const regionAliases = aliases[rLow] || [];
+              return regionAliases.some(alias => fullLocationString.includes(alias));
+          });
+      } catch (e) {
+          return true; // Fallback to available on any error to prevent app crash
+      }
   };
 
   // Connections page: only Food Delivery platforms, filtered by location availability
