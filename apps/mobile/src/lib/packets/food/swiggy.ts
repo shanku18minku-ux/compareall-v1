@@ -130,49 +130,14 @@ export const SwiggyPacket: ProviderPacket = {
                     .trim();
             }
 
-            var REAL_PRICES_CATALOG = {
-                'paneer chilli': { 'jain shree': 310, 'kaveri': 150, 'biryani by food': 150, '8 star': 150, 'raj rasoi': 190, 'radhika': 220, 'dosa plaza': 200, 'punjabi kitchen': 200, 'delicious': 210, 'buddy': 200, 'param': 200, 'hm resort': 230, 'havaly': 220, 'lajawab': 240, 'default': 220 },
-                'paneer masala': { 'jain shree': 340, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 250, 'radhika': 260, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 260, 'havaly': 250, 'lajawab': 270, 'default': 240 },
-                'paneer butter masala': { 'jain shree': 310, 'kaveri': 220, 'biryani by food': 230, '8 star': 220, 'raj rasoi': 240, 'radhika': 250, 'dosa plaza': 230, 'punjabi kitchen': 240, 'delicious': 230, 'buddy': 230, 'param': 230, 'hm resort': 250, 'havaly': 240, 'lajawab': 270, 'default': 240 },
-                'paneer tikka': { 'jain shree': 280, 'kaveri': 210, 'biryani by food': 240, '8 star': 200, 'raj rasoi': 220, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 230, 'delicious': 190, 'buddy': 210, 'param': 210, 'hm resort': 230, 'havaly': 220, 'lajawab': 260, 'default': 230 },
-                'chicken biryani': { 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 260, 'radhika': 280, 'delicious': 240, 'buddy': 240, 'param': 250, 'hm resort': 270, 'havaly': 260, 'lajawab': 280, 'default': 250 }
-            };
-
-            function isNonVegDish(dishOrQueryName) {
-                var s = (dishOrQueryName || '').toLowerCase();
-                if (s.indexOf('veg biryani') !== -1 || s.indexOf('paneer biryani') !== -1 || s.indexOf('soya biryani') !== -1 || s.indexOf('mushroom biryani') !== -1 || s.indexOf('veg ') !== -1 || s.indexOf('paneer') !== -1 || s.indexOf('mushroom') !== -1 || s.indexOf('corn') !== -1 || s.indexOf('dal ') !== -1) {
-                    if (s.indexOf('chicken') === -1 && s.indexOf('mutton') === -1 && s.indexOf('egg') === -1 && s.indexOf('fish') === -1 && s.indexOf('prawn') === -1) {
-                        return false;
-                    }
-                }
-                var nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'prawn', 'pork', 'beef', 'non-veg', 'nonveg', 'non veg', 'keema', 'kebab', 'kabab', 'tandoori chicken', 'butter chicken'];
-                return nonVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
-            }
-
-            function isPureVegRestaurant(restaurantName) {
-                var s = (restaurantName || '').toLowerCase();
-                var pureVegKeywords = ['veg restaurant', 'pure veg', 'jain', 'shree veg', 'only veg', 'shree jain', 'thali veg', 'bhojnalaya', 'sweets', 'shakahari', 'dosa plaza', 'chaap di hatti', 'chaap'];
-                return pureVegKeywords.some(function(k) { return s.indexOf(k) !== -1; });
-            }
-
+            // Price rule: ONLY use real price from API response.
+            // parsedPrice comes from Swiggy's actual data (dish price or costForTwo/2).
+            // NO hardcoded catalog fallbacks — if price unknown, return 0.
             function getAccurateDishPrice(queryStr, restaurantName, parsedPrice) {
-                if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 30 && !isNaN(parsedPrice)) {
+                if (parsedPrice && typeof parsedPrice === 'number' && parsedPrice > 10 && !isNaN(parsedPrice)) {
                     return parsedPrice;
                 }
-                var cleanQ = normalizeQueryStr(queryStr);
-                var cleanR = (restaurantName || '').toLowerCase();
-                for (var dKey in REAL_PRICES_CATALOG) {
-                    if (cleanQ.indexOf(dKey) !== -1 || dKey.indexOf(cleanQ) !== -1) {
-                        var rMap = REAL_PRICES_CATALOG[dKey];
-                        for (var rKey in rMap) {
-                            if (cleanR.indexOf(rKey) !== -1) {
-                                return rMap[rKey];
-                            }
-                        }
-                        return rMap['default'] || 220;
-                    }
-                }
-                return parsedPrice || 220;
+                return 0; // unknown price — UI will handle this
             }
             
             function parseDapiCards(json) {
