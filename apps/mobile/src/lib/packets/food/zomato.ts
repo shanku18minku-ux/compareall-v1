@@ -692,29 +692,17 @@ export const ZomatoPacket: ProviderPacket = {
     },
 
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        const lat = location?.latitude || 0;
-        const lng = location?.longitude || 0;
-
-        // Use Zomato's search endpoint with lat/lng — this is the page Zomato uses
-        // when you type in the search bar on the delivery listing page.
-        // It returns ALL matching restaurants including chains like Domino's
-        if (lat && lng) {
-            return `https://www.zomato.com/search?q=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}`;
-        }
-
-        // Fallback: city slug based search
+        let citySlug = 'ncr';
         if (location?.name) {
             const slugOverrides: Record<string, string> = {
                 'medininagar': 'daltonganj', 'daltonganj': 'daltonganj', 'palamu': 'daltonganj',
                 'bengaluru': 'bangalore', 'new-delhi': 'ncr', 'gurugram': 'gurgaon',
             };
             let rawCity = location.name.split(',')[0].toLowerCase().trim();
-            let citySlug = rawCity.replace(/[^a-z0-9]/g, '-');
+            citySlug = rawCity.replace(/[^a-z0-9]/g, '-');
             citySlug = slugOverrides[rawCity] || slugOverrides[citySlug] || citySlug;
-            return `https://www.zomato.com/${citySlug}/delivery-restaurants?q=${encodeURIComponent(query)}`;
         }
-
-        return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
+        return `https://www.zomato.com/${citySlug}/delivery-restaurants?q=${encodeURIComponent(query)}`;
     }
 };
 

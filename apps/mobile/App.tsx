@@ -789,84 +789,29 @@ export default function App() {
                  ) : (
                      <ScrollView contentContainerStyle={{padding: 16}}>
                          <Text style={styles.sectionTitle}>{searchQuery ? `Results for "${searchQuery}"` : 'Restaurants near you'}</Text>
-                         
-                         {searchQuery ? (
-                             // Flat list of dishes for search queries
-                             displayedResults.flatMap(group => 
-                                 group.dishes.map((dish: any) => ({ ...dish, restaurantName: group.restaurantName, groupImageUrl: group.imageUrl, groupRef: group }))
-                             ).map((dish: any, idx: number) => {
-                                 const getDisplayPrice = (offer: any) => {
-                                     const pId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
-                                     const isConn = connectedProviders.includes(pId || '');
-                                     return isConn
-                                         ? (offer.price?.finalPayablePrice || offer.price?.menuPrice || offer.price?.basePrice || 9999)
-                                         : (offer.price?.menuPrice || offer.price?.basePrice || 9999);
-                                 };
-                                 const sortedOffers = [...dish.offers].sort((a:any, b:any) =>
-                                     getDisplayPrice(a) - getDisplayPrice(b)
-                                 );
-                                 const bestOffer = sortedOffers[0];
-                                 const bestPrice = bestOffer ? getDisplayPrice(bestOffer) : 0;
-                                 const worstPrice = sortedOffers[sortedOffers.length-1];
-                                 const maxPrice = worstPrice ? getDisplayPrice(worstPrice) : 0;
-                                 const savings = sortedOffers.length > 1 ? maxPrice - bestPrice : 0;
-                                 const platformCount = sortedOffers.length;
-                                 const isPersonalizedAvailable = sortedOffers.some((o:any) => o.isPersonalized);
-                                 // Inject restaurantName into dish name for the card if it's missing, or pass it as a prop
-                                 // We will just modify the dishName to include restaurantName for better visibility
-                                 const displayDish = { ...dish, dishName: `${dish.dishName}\n@ ${dish.restaurantName}`, imageUrl: dish.imageUrl || dish.groupImageUrl };
-                                 
-                                 return (
-                                     <DishCard
-                                         key={idx}
-                                         dish={displayDish}
-                                         sortedOffers={sortedOffers}
-                                         bestOffer={bestOffer}
-                                         bestPrice={bestPrice}
-                                         savings={savings}
-                                         platformCount={platformCount}
-                                         isPersonalizedAvailable={isPersonalizedAvailable}
-                                         getProviderColor={getProviderColor}
-                                         getProviderInitial={getProviderInitial}
-                                         connectedProviders={connectedProviders}
-                                         PROVIDERS={PROVIDERS}
-                                         onAddToCart={() => {
-                                             Vibration.vibrate(20);
-                                             setCartItems(prev => {
-                                                 const exist = prev.find(i => i.id === dish.dishName);
-                                                 if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
-                                                 return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
-                                             });
-                                         }}
-                                     />
-                                 );
-                             })
-                         ) : (
-                             // Grouped by restaurants when just browsing
-                             displayedResults.map((group, idx) => (
-                                 <TouchableOpacity key={idx} style={styles.restCard} onPress={() => setSelectedRest(group)}>
-                                     <View style={styles.restCardInner}>
-                                           {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={styles.restImage} /> : <View style={[styles.restImage, {backgroundColor: '#e2e8f0'}]} />}
-                                           <View style={styles.restDetails}>
-                                               <Text style={styles.restName}>{group.restaurantName}</Text>
-                                               <View style={styles.platformChipsContainer}>
-                                                   {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
-                                                       <View key={p} style={[styles.platformChip, {backgroundColor: getProviderColor(p), flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8}]}>
-                                                         <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 4}}>
-                                                           <Text style={{color: '#fff', fontSize: 9, fontWeight: '900'}}>{getProviderInitial(p)}</Text>
-                                                         </View>
-                                                         <Text style={{fontSize: 11, color: '#fff', fontWeight: '700'}}>{p}</Text>
-                                                       </View>
-                                                   ))}
-                                               </View>
-                                               <View style={styles.compareBtn}>
-                                                   <Text style={styles.compareBtnText}>View Menu</Text>
-                                               </View>
+                         {displayedResults.map((group, idx) => (
+                             <TouchableOpacity key={idx} style={styles.restCard} onPress={() => setSelectedRest(group)}>
+                                 <View style={styles.restCardInner}>
+                                       {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={styles.restImage} /> : <View style={[styles.restImage, {backgroundColor: '#e2e8f0'}]} />}
+                                       <View style={styles.restDetails}>
+                                           <Text style={styles.restName}>{group.restaurantName}</Text>
+                                           <View style={styles.platformChipsContainer}>
+                                               {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
+                                                   <View key={p} style={[styles.platformChip, {backgroundColor: getProviderColor(p), flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8}]}>
+                                                     <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 4}}>
+                                                       <Text style={{color: '#fff', fontSize: 9, fontWeight: '900'}}>{getProviderInitial(p)}</Text>
+                                                     </View>
+                                                     <Text style={{fontSize: 11, color: '#fff', fontWeight: '700'}}>{p}</Text>
+                                                   </View>
+                                               ))}
+                                           </View>
+                                           <View style={styles.compareBtn}>
+                                               <Text style={styles.compareBtnText}>Compare Prices</Text>
                                            </View>
                                        </View>
-                                 </TouchableOpacity>
-                             ))
-                         )}
+                                   </View>
+                             </TouchableOpacity>
+                         ))}
                      </ScrollView>
                  )}
              </View>
