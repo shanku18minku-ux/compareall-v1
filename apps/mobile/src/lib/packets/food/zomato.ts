@@ -133,14 +133,26 @@ export const ZomatoPacket: ProviderPacket = {
 
         return `
         (function() {
-            console.log('[CompareAll Zomato Extractor] Started for query: ' + ${JSON.stringify(searchQuery)} + ' in city: ' + ${JSON.stringify(citySlug)});
-            
             var userLat = ${userLat};
             var userLng = ${userLng};
             var hasLocation = ${hasLocation ? 'true' : 'false'};
             var q = ${JSON.stringify(searchQuery)};
             var locName = ${JSON.stringify(location?.name || '')};
-            var citySlug = ${JSON.stringify(citySlug)};
+            
+            // AUTO-DETECT city slug from actual loaded URL (works for ANY city)
+            // When Zomato redirects lat/lng URL → city page, we get the real slug
+            var citySlug = (function() {
+                try {
+                    var urlParts = window.location.pathname.split('/').filter(Boolean);
+                    // URL like /daltonganj/delivery-restaurants → urlParts[0] = 'daltonganj'
+                    if (urlParts.length >= 1 && urlParts[0] !== 'delivery-restaurants' && urlParts[0] !== 'search') {
+                        return urlParts[0];
+                    }
+                } catch(e) {}
+                return ${JSON.stringify(citySlug)}; // fallback to computed slug
+            })();
+            
+            console.log('[CompareAll Zomato] Auto-detected city: ' + citySlug + ' | Query: ' + q);
 
             // Set Zomato location in storage & cookies
             try {
@@ -661,31 +673,28 @@ export const ZomatoPacket: ProviderPacket = {
     },
 
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
-        // Slug overrides for cities where Zomato uses a different slug
-        const slugOverrides: Record<string, string> = {
-            'medininagar': 'daltonganj',
-            'daltonganj': 'daltonganj',
-            'palamu': 'daltonganj',
-            'bengaluru': 'bangalore',
-            'new-delhi': 'ncr',
-            'gurugram': 'gurgaon',
-        };
+        const lat = location?.latitude || 0;
+        const lng = location?.longitude || 0;
 
-        if (location && location.name) {
-            let rawCity = location.name.split(',')[0].toLowerCase().trim();
-            let cityName = rawCity.replace(/[^a-z0-9]/g, '-');
-            // Apply slug override if known
-            if (slugOverrides[rawCity] || slugOverrides[cityName]) {
-                cityName = slugOverrides[rawCity] || slugOverrides[cityName];
-            }
-            const lat = location?.latitude || 0;
-            const lng = location?.longitude || 0;
-            if (lat && lng) {
-                // Pass lat/lng so Zomato API uses pinpoint location
-                return `https://www.zomato.com/${cityName}/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
-            }
-            return `https://www.zomato.com/${cityName}/delivery-restaurants?q=${encodeURIComponent(query)}`;
+        // PRIMARY: Use lat/lng coordinates — works for ANY city, no hardcoded slug needed.
+        // Zomato will automatically redirect to the correct city page.
+        if (lat && lng) {
+            return `https://www.zomato.com/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
         }
+
+        // FALLBACK: city name slug (only when no GPS coords)
+        if (location?.name) {
+            const slugOverrides: Record<string, string> = {
+                'medininagar': 'daltonganj', 'daltonganj': 'daltonganj', 'palamu': 'daltonganj',
+                'bengaluru': 'bangalore', 'new-delhi': 'ncr', 'gurugram': 'gurgaon',
+            };
+            let rawCity = location.name.split(',')[0].toLowerCase().trim();
+            let citySlug = rawCity.replace(/[^a-z0-9]/g, '-');
+            citySlug = slugOverrides[rawCity] || slugOverrides[citySlug] || citySlug;
+            return `https://www.zomato.com/${citySlug}/delivery-restaurants?q=${encodeURIComponent(query)}`;
+        }
+
+        // LAST RESORT: global search
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
