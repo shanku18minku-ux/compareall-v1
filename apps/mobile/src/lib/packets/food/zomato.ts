@@ -85,7 +85,7 @@ export const ZomatoPacket: ProviderPacket = {
             'bokaro': ['bokaro'],
             'deoghar': ['deoghar'],
             'hazaribagh': ['hazaribagh'],
-            'medininagar': ['medininagar', 'daltonganj', 'palamu'],
+            'daltonganj': ['medininagar', 'daltonganj', 'palamu'],
             'chandigarh': ['chandigarh', 'mohali', 'panchkula'],
             'indore': ['indore'],
             'bhopal': ['bhopal'],
@@ -622,28 +622,31 @@ export const ZomatoPacket: ProviderPacket = {
             }
 
             var attempts = 0;
+            var lastResultCount = 0;
             var scrapeInterval = setInterval(function() {
                 attempts++;
-                if (isDispatched) {
-                    clearInterval(scrapeInterval);
-                    return;
-                }
 
-                if (latestZomatoResults && latestZomatoResults.length > 0) {
+                // Don't stop early - keep trying until we get results or timeout
+                if (latestZomatoResults && latestZomatoResults.length > 0 && !isDispatched) {
                     sendZomatoResults(latestZomatoResults);
                 }
 
                 try {
                     var domResults = parseZomatoDom();
                     if (domResults && domResults.length > 0) {
-                        sendZomatoResults(domResults);
+                        // Allow re-dispatch if we get MORE results than before
+                        if (domResults.length > lastResultCount) {
+                            lastResultCount = domResults.length;
+                            isDispatched = false; // allow re-send with better data
+                            sendZomatoResults(domResults);
+                        }
                     }
                 } catch(e) {}
 
-                if (!isDispatched && attempts >= 25) {
-                    // No real data found — send empty instead of injecting fake/wrong-city data
+                if (isDispatched || attempts >= 40) {
                     clearInterval(scrapeInterval);
-                    if (window.ReactNativeWebView) {
+                    // If still no results after 20s, send empty
+                    if (!isDispatched && window.ReactNativeWebView) {
                         window.ReactNativeWebView.postMessage(JSON.stringify({
                             type: 'SEARCH_RESULTS',
                             success: true,
@@ -651,24 +654,37 @@ export const ZomatoPacket: ProviderPacket = {
                         }));
                     }
                 }
-            }, 250);
+            }, 500);
         })();
         true;
         `;
     },
 
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
+        // Slug overrides for cities where Zomato uses a different slug
+        const slugOverrides: Record<string, string> = {
+            'medininagar': 'daltonganj',
+            'daltonganj': 'daltonganj',
+            'palamu': 'daltonganj',
+            'bengaluru': 'bangalore',
+            'new-delhi': 'ncr',
+            'gurugram': 'gurgaon',
+        };
+
         if (location && location.name) {
-            let cityName = location.name.split(',')[0].toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
-            if (cityName === 'bengaluru') cityName = 'bangalore';
-            if (cityName) {
-                const lat = location?.latitude || 0;
-                const lng = location?.longitude || 0;
-                if (lat && lng) {
-                    return `https://www.zomato.com/${cityName}/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
-                }
-                return `https://www.zomato.com/${cityName}/delivery-restaurants?q=${encodeURIComponent(query)}`;
+            let rawCity = location.name.split(',')[0].toLowerCase().trim();
+            let cityName = rawCity.replace(/[^a-z0-9]/g, '-');
+            // Apply slug override if known
+            if (slugOverrides[rawCity] || slugOverrides[cityName]) {
+                cityName = slugOverrides[rawCity] || slugOverrides[cityName];
             }
+            const lat = location?.latitude || 0;
+            const lng = location?.longitude || 0;
+            if (lat && lng) {
+                // Pass lat/lng so Zomato API uses pinpoint location
+                return `https://www.zomato.com/${cityName}/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
+            }
+            return `https://www.zomato.com/${cityName}/delivery-restaurants?q=${encodeURIComponent(query)}`;
         }
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
