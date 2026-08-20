@@ -1,11 +1,11 @@
-﻿import { ProviderPacket, ProviderMetadata } from '../types';
+import { ProviderPacket, ProviderMetadata } from '../types';
 
 export const swiggyMetadata: ProviderMetadata = {
     id: 'food-a',
     category: 'Food',
     subcategory: 'Food Delivery',
     name: 'Swiggy',
-    icon: '',
+    icon: 'S',
     brandColor: '#ff5200',
     authType: 'otp',
     url: 'https://www.swiggy.com',

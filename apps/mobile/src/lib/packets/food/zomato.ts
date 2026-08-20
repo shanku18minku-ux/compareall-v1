@@ -1,11 +1,11 @@
-﻿import { ProviderPacket, ProviderMetadata } from '../types';
+import { ProviderPacket, ProviderMetadata } from '../types';
 
 export const zomatoMetadata: ProviderMetadata = {
     id: 'food-b',
     name: 'Zomato',
     category: 'Food',
     subcategory: 'Food Delivery',
-    icon: '',
+    icon: 'Z',
     brandColor: '#cb202d',
     authType: 'otp',
     url: 'https://www.zomato.com',

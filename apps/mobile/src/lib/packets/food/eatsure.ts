@@ -1,4 +1,4 @@
-﻿import { ProviderPacket } from '../types';
+import { ProviderPacket } from '../types';
 
 export const EatSurePacket: ProviderPacket = {
     metadata: {
@@ -6,7 +6,7 @@ export const EatSurePacket: ProviderPacket = {
         name: 'EatSure',
         category: 'Food',
         subcategory: 'Food Delivery',
-        icon: '',
+        icon: 'E',
         brandColor: '#4945be',
         authType: 'otp',
         url: 'https://www.eatsure.com',

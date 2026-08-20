@@ -12,6 +12,8 @@ import * as Location from 'expo-location';
 
 const CATEGORIES = ['Food', 'Commute', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
+const normalizeText = (s: string) => s ? s.normalize('NFC').replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '') : s;
+
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Search');
@@ -101,9 +103,12 @@ export default function App() {
       setResults(prev => {
           let updated = [...prev];
           items.forEach((item: any) => {
-             const dishName = item.dishName || item.name;
-             const restName = item.restaurantName || item.restaurant;
-             if (!dishName && !restName) return;
+             const dishNameRaw = item.dishName || item.name;
+             const restNameRaw = item.restaurantName || item.restaurant;
+             if (!dishNameRaw && !restNameRaw) return;
+
+             const dishName = normalizeText(dishNameRaw);
+             const restName = normalizeText(restNameRaw);
 
              const norm = (s: string) => (s||'').toLowerCase().replace(/[^a-z0-9]/g, '');
              const restKey = norm(restName);
@@ -113,22 +118,16 @@ export default function App() {
                    if (!restKey || !gName) return false;
                    if (gName === restKey) return true;
                    
-                   // Avoid black-hole grouping where "Pizza" swallows "Domino's Pizza"
-                   // Use strict word boundary check or high-similarity
                    const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
                    const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
                    
                    if (rWords.length === 0 || gWords.length === 0) return false;
                    
-                   // Require at least first two words to match if they are multi-word, or exact match if single word
                    if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
                    
                    const n1 = rWords.join('');
                    const n2 = gWords.join('');
                    
-                   // Perfect merge: If they share the exact same first word, AND one's full name is inside the other's
-                   // (e.g. "Jain Shree" in "Jain Shree Sweets" -> MERGES)
-                   // (e.g. "Burger King" vs "Burger Singh" -> BLOCKS, because neither contains the other)
                    if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) {
                        return true;
                    }
@@ -151,7 +150,6 @@ export default function App() {
                    dishEntry.imageUrl = item.dishImage || item.imageUrl;
                }
 
-             // Auto coupon extraction is handled inside the packet injection
              dishEntry.offers.push({
                  providerName: provider.name,
                  price: item.price,
@@ -170,35 +168,26 @@ export default function App() {
   const connectedCount = activeProviders.filter(p => connectedProviders.includes(p.id)).length;
   const isAllConnected = activeProviders.length > 0 && connectedCount === activeProviders.length;
 
-  // Filter results by veg toggle — this was MISSING causing ReferenceError crash
+  const vegKeywords = ['veg', 'paneer', 'aloo', 'mushroom', 'dal', 'sabzi', 'gobi', 'matar', 'tofu', 'idli', 'dosa', 'uttapam', 'puri', 'chole', 'rajma', 'kadhai', 'palak', 'corn', 'baby corn', 'mixed veg', 'veg fried', 'veg biryani', 'garden', 'salad'];
+
   const displayedResults = isVegOnly
     ? results.filter(group =>
         group.dishes && group.dishes.some((d: any) =>
-          d.dishName && (
-            d.dishName.toLowerCase().includes('veg') ||
-            d.dishName.toLowerCase().includes('paneer') ||
-            d.dishName.toLowerCase().includes('aloo') ||
-            d.dishName.toLowerCase().includes('mushroom') ||
-            d.dishName.toLowerCase().includes('dal') ||
-            d.dishName.toLowerCase().includes('sabzi')
-          )
+          d.isVeg === true || (d.dishName && vegKeywords.some(keyword => d.dishName.toLowerCase().includes(keyword)))
         )
       )
     : results;
   
-  // Render Background Extractors
   const renderExtractors = () => {
-      
       if (!isSearching || activeCategory !== 'Food') return null;
       
-      const fetchQuery = searchQuery || 'food'; // Default fallback
+      const fetchQuery = searchQuery || 'food';
       return (
           <View style={{height: 0, opacity: 0}}>
               {activeProviders.map(provider => {
                   const packet = getPacket(provider.id);
                   if (!packet || !packet.getSearchUrl) return null;
-                  const searchUrl = packet.getSearchUrl(fetchQuery);
-                  // Keep key stable to prevent crashes
+                  const searchUrl = packet.getSearchUrl(fetchQuery, location);
                   return (
                       <WebViewExtractor
                           key={provider.id}
@@ -216,6 +205,26 @@ export default function App() {
       );
   };
 
+  const getProviderColor = (name: string) => {
+      switch (name.toUpperCase()) {
+          case 'ZOMATO': return '#cb202d';
+          case 'SWIGGY': return '#ff5200';
+          case 'EATSURE': return '#4945be';
+          case 'EATCLUB': return '#305bea';
+          default: return '#000000';
+      }
+  };
+
+  const getProviderInitial = (name: string) => {
+      switch (name.toUpperCase()) {
+          case 'ZOMATO': return 'Z';
+          case 'SWIGGY': return 'S';
+          case 'EATSURE': return 'E';
+          case 'EATCLUB': return 'C';
+          default: return name.charAt(0);
+      }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -224,7 +233,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.headerLogo}>CompareAll</Text>
         <TouchableOpacity style={styles.locationPill}>
-           <Text style={styles.locationIcon}></Text>
+           <Text style={styles.locationIcon}>📍</Text>
            <Text style={styles.locationText} numberOfLines={1}>{location?.name || 'Locating...'}</Text>
         </TouchableOpacity>
       </View>
@@ -247,55 +256,62 @@ export default function App() {
       {/* Main Content Area */}
       <View style={styles.content}>
           
-    
     {activeTab === 'Search' && activeCategory === 'Food' && !selectedRest && (
              <View style={{flex: 1}}>
-                 <View style={[styles.searchContainer, {flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent', elevation: 0, padding: 0}]}>
-          <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 16, elevation: 2}}>
-              <Text style={styles.searchIcon}>??</Text>
+                 <View style={styles.searchContainer}>
+          <View style={styles.searchInputWrapper}>
+              <View style={styles.searchIconContainer}><Text style={styles.searchIconText}>🔍</Text></View>
               <TextInput 
-                  style={[styles.searchInput, {flex: 1, marginBottom: 0, elevation: 0, backgroundColor: 'transparent'}]}
+                  style={styles.searchInput}
                   placeholder="Search restaurants or dishes..."
+                  placeholderTextColor="#94a3b8"
                   defaultValue={searchQuery}
                   onSubmitEditing={(e) => { setSearchQuery(e.nativeEvent.text); handleSearch(e.nativeEvent.text); }}
                   returnKeyType="search"
               />
           </View>
           <TouchableOpacity 
-              style={{marginLeft: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: isVegOnly ? '#16a34a' : '#fff', elevation: 2, borderWidth: 1, borderColor: isVegOnly ? '#16a34a' : '#e2e8f0'}}
+              style={[styles.vegToggle, isVegOnly && styles.vegToggleActive]}
               onPress={() => setIsVegOnly(!isVegOnly)}
           >
-              <Text style={{color: isVegOnly ? '#fff' : '#16a34a', fontWeight: '900', fontSize: 14}}>VEG</Text>
+              <Text style={[styles.vegToggleText, isVegOnly && styles.vegToggleTextActive]}>VEG</Text>
           </TouchableOpacity>
       </View>
                  
                  {isSearching && results.length === 0 ? (
                      <View style={styles.centerMsg}>
                          <ActivityIndicator size="large" color="#000" />
-                         <Text style={styles.msgText}>Finding best prices nearby...</Text>
+                         <Text style={styles.msgText}>Searching for best prices...</Text>
+                     </View>
+                 ) : results.length === 0 && !isSearching ? (
+                     <View style={styles.centerMsg}>
+                         <Text style={styles.msgText}>Search for restaurants or dishes above</Text>
+                     </View>
+                 ) : displayedResults.length === 0 && isVegOnly && results.length > 0 ? (
+                     <View style={styles.centerMsg}>
+                         <Text style={styles.msgText}>No vegetarian options found in search results</Text>
                      </View>
                  ) : (
                      <ScrollView contentContainerStyle={{padding: 16}}>
                          <Text style={styles.sectionTitle}>{searchQuery ? `Results for "${searchQuery}"` : 'Restaurants near you'}</Text>
                          {displayedResults.map((group, idx) => (
                              <TouchableOpacity key={idx} style={styles.restCard} onPress={() => setSelectedRest(group)}>
-                                 <View style={styles.restCardHeader}>
-                                       {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={{width: 50, height: 50, borderRadius: 8, marginRight: 12}} /> : null}
-                                       <View style={{flex: 1}}>
+                                 <View style={styles.restCardInner}>
+                                       {group.imageUrl ? <Image source={{uri: group.imageUrl}} style={styles.restImage} /> : <View style={[styles.restImage, {backgroundColor: '#e2e8f0'}]} />}
+                                       <View style={styles.restDetails}>
                                            <Text style={styles.restName}>{group.restaurantName}</Text>
-                                           <Text style={styles.openText}>Open Now</Text>
+                                           <View style={styles.platformChipsContainer}>
+                                               {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
+                                                   <View key={p} style={[styles.platformChip, {backgroundColor: getProviderColor(p)}]}>
+                                                      <Text style={styles.platformChipText}>{getProviderInitial(p)}</Text>
+                                                   </View>
+                                               ))}
+                                           </View>
+                                           <View style={styles.compareBtn}>
+                                               <Text style={styles.compareBtnText}>Compare Prices</Text>
+                                           </View>
                                        </View>
                                    </View>
-                                 <View style={styles.restProviders}>
-                                     {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
-                                         <View key={p} style={styles.restProviderChip}>
-                                            <Text style={styles.restProviderText}>{p}</Text>
-                                         </View>
-                                     ))}
-                                 </View>
-                                 <View style={styles.openMenuBtn}>
-                                     <Text style={styles.openMenuText}>Open Menu ➔</Text>
-                                 </View>
                              </TouchableOpacity>
                          ))}
                      </ScrollView>
@@ -306,40 +322,54 @@ export default function App() {
           {activeTab === 'Search' && activeCategory === 'Food' && selectedRest && (
              <View style={{flex: 1}}>
                  <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedRest(null)}>
-                     <Text style={{fontSize: 16}}>← Back to {searchQuery ? 'search' : 'restaurants'}</Text>
+                     <Text style={styles.backBtnText}>← Back to {searchQuery ? 'search' : 'restaurants'}</Text>
                  </TouchableOpacity>
                  <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 100}}>
                      <Text style={styles.menuTitle}>{selectedRest.restaurantName}</Text>
                      
-                     {selectedRest.dishes.map((dish: any, dIdx: number) => (
-                         <View key={dIdx} style={styles.dishCard}>
-                               <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                   <Text style={[styles.dishName, {flex: 1}]}>{dish.dishName}</Text>
-                                   {dish.imageUrl ? <Image source={{uri: dish.imageUrl}} style={{width: 70, height: 70, borderRadius: 8, marginLeft: 12}} /> : null}
-                               </View>
-                             {dish.offers.map((offer: any, oIdx: number) => (
-                                 <View key={oIdx} style={styles.offerRow}>
-                                     <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                     <Text style={styles.offerPrice}>₹{offer.price?.finalPayablePrice || offer.price?.basePrice || 0}</Text>
-                                 </View>
-                             ))}
-                             <TouchableOpacity 
-                                style={styles.addBtn}
-                                onPress={() => {
-                                    Vibration.vibrate(20);
-                                    const bestOffer = dish.offers.sort((a:any, b:any) => (a.price?.finalPayablePrice||0) - (b.price?.finalPayablePrice||0))[0];
-                                    setCartItems(prev => {
-                                        const exist = prev.find(i => i.id === dish.dishName);
-                                        if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
-                                        return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
-                                    });
-                                    setIsCartVisible(true);
-                                }}
-                             >
-                                 <Text style={styles.addBtnText}>ADD</Text>
-                             </TouchableOpacity>
-                         </View>
-                     ))}
+                     {selectedRest.dishes.map((dish: any, dIdx: number) => {
+                         const sortedOffers = [...dish.offers].sort((a:any, b:any) => (a.price?.finalPayablePrice||a.price?.basePrice||0) - (b.price?.finalPayablePrice||b.price?.basePrice||0));
+                         const bestOffer = sortedOffers[0];
+
+                         return (
+                             <View key={dIdx} style={styles.dishCard}>
+                                   <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12}}>
+                                       <Text style={styles.dishName}>{dish.dishName}</Text>
+                                       {dish.imageUrl ? <Image source={{uri: dish.imageUrl}} style={styles.dishImage} /> : null}
+                                   </View>
+                                 {sortedOffers.map((offer: any, oIdx: number) => {
+                                     const isBest = offer === bestOffer;
+                                     return (
+                                     <View key={oIdx} style={[styles.offerRow, isBest && styles.offerRowBest]}>
+                                         <View style={styles.offerProviderInfo}>
+                                             <View style={[styles.providerCircleSm, {backgroundColor: getProviderColor(offer.providerName)}]}>
+                                                 <Text style={styles.providerCircleTextSm}>{getProviderInitial(offer.providerName)}</Text>
+                                             </View>
+                                             <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                         </View>
+                                         <View style={styles.offerPriceInfo}>
+                                            {isBest && <View style={styles.bestBadge}><Text style={styles.bestBadgeText}>BEST</Text></View>}
+                                            <Text style={styles.offerPrice}>₹{offer.price?.finalPayablePrice || offer.price?.basePrice || 0}</Text>
+                                         </View>
+                                     </View>
+                                 )})}
+                                 <TouchableOpacity 
+                                    style={styles.addBtn}
+                                    onPress={() => {
+                                        Vibration.vibrate(20);
+                                        setCartItems(prev => {
+                                            const exist = prev.find(i => i.id === dish.dishName);
+                                            if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
+                                            return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
+                                        });
+                                        setIsCartVisible(true);
+                                    }}
+                                 >
+                                     <Text style={styles.addBtnText}>ADD</Text>
+                                 </TouchableOpacity>
+                             </View>
+                         );
+                     })}
                  </ScrollView>
              </View>
           )}
@@ -354,11 +384,13 @@ export default function App() {
                           const isConn = connectedProviders.includes(p.id);
                           return (
                               <View key={p.id} style={styles.connCard}>
-                                  <Text style={styles.connIcon}>{p.icon || '??'}</Text>
+                                  <View style={[styles.providerCircleLg, {backgroundColor: getProviderColor(p.name)}]}>
+                                      <Text style={styles.providerCircleTextLg}>{getProviderInitial(p.name)}</Text>
+                                  </View>
                                   <Text style={styles.connName}>{p.name}</Text>
                                   {isConn ? (
-                                      <View style={[styles.linkBtn, {backgroundColor: '#16a34a'}]}>
-                                          <Text style={styles.linkBtnText}>CONNECTED</Text>
+                                      <View style={[styles.linkBtn, {backgroundColor: '#e6f4ea'}]}>
+                                          <Text style={[styles.linkBtnText, {color: '#16a34a'}]}>CONNECTED</Text>
                                       </View>
                                   ) : (
                                       <TouchableOpacity 
@@ -386,12 +418,12 @@ export default function App() {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
-              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}></Text>
-<Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
+              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}>🔍</Text>
+              <Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Connections')}>
-              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}></Text>
-<Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
+              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}>🔗</Text>
+              <Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
           </TouchableOpacity>
       </View>
 
@@ -399,7 +431,7 @@ export default function App() {
       {cartItems.length > 0 && activeTab === 'Search' && (
           <TouchableOpacity style={styles.floatingCart} onPress={() => setIsCartVisible(true)}>
               <Text style={styles.floatingCartText}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} Items</Text>
-              <Text style={styles.floatingCartText}>View Cart ?</Text>
+              <Text style={styles.floatingCartText}>View Cart -{'>'}</Text>
           </TouchableOpacity>
       )}
 
@@ -455,13 +487,13 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { alignItems: 'center', paddingVertical: 12, backgroundColor: '#fff' },
-  headerLogo: { fontSize: 22, fontWeight: 'bold', color: '#000', marginBottom: 6 },
+  header: { alignItems: 'center', paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerLogo: { fontSize: 24, fontWeight: '900', color: '#000', marginBottom: 8, letterSpacing: -0.5 },
   locationPill: { flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: 'center' },
   locationIcon: { marginRight: 4, fontSize: 12 },
   locationText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   
-  slabContainer: { backgroundColor: '#fff', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  slabContainer: { backgroundColor: '#fff', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   slabScroll: { paddingHorizontal: 16 },
   slabTab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 10 },
   slabTabActive: { backgroundColor: '#000' },
@@ -469,49 +501,67 @@ const styles = StyleSheet.create({
   slabTabTextActive: { color: '#fff' },
   
   content: { flex: 1 },
-  searchContainer: { margin: 16, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0,height:2}, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  searchIcon: { fontSize: 18, marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 14, fontSize: 16 },
   
-  centerMsg: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  msgText: { marginTop: 12, fontSize: 16, color: '#64748b' },
+  searchContainer: { margin: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent' },
+  searchInputWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, shadowColor: '#000', shadowOffset: {width:0,height:4}, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  searchIconContainer: { marginRight: 8 },
+  searchIconText: { fontSize: 18 },
+  searchInput: { flex: 1, paddingVertical: 16, fontSize: 16, color: '#0f172a' },
+  vegToggle: { marginLeft: 12, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: {width:0,height:4}, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, borderWidth: 1, borderColor: '#e2e8f0' },
+  vegToggleActive: { backgroundColor: '#16a34a', borderColor: '#16a34a' },
+  vegToggleText: { color: '#16a34a', fontWeight: '900', fontSize: 14 },
+  vegToggleTextActive: { color: '#fff' },
   
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a', marginBottom: 16 },
-  restCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: {width:0,height:1}, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  restCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  restName: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
-  openText: { fontSize: 12, color: '#16a34a', fontWeight: 'bold' },
-  restProviders: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  restProviderChip: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 6 },
-  restProviderText: { fontSize: 12, color: '#475569' },
-  openMenuBtn: { backgroundColor: '#f8fafc', paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
-  openMenuText: { fontSize: 14, fontWeight: '600', color: '#3b82f6' },
+  centerMsg: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  msgText: { marginTop: 12, fontSize: 16, color: '#64748b', textAlign: 'center', lineHeight: 24 },
   
-  backBtn: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  menuTitle: { fontSize: 22, fontWeight: 'bold', color: '#000', marginBottom: 16 },
-  dishCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
-  dishName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 12 },
-  offerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
-  offerProvider: { fontSize: 14, color: '#475569' },
-  offerPrice: { fontSize: 14, fontWeight: 'bold', color: '#0f172a' },
-  addBtn: { marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
-  addBtnText: { color: '#16a34a', fontWeight: 'bold', fontSize: 14 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a', marginBottom: 16, letterSpacing: -0.5 },
+  restCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0,height:4}, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  restCardInner: { flexDirection: 'row' },
+  restImage: { width: 65, height: 65, borderRadius: 10, marginRight: 16 },
+  restDetails: { flex: 1, justifyContent: 'center' },
+  restName: { fontSize: 17, fontWeight: '700', color: '#1e293b', marginBottom: 6 },
+  platformChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  platformChip: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6, marginBottom: 4 },
+  platformChipText: { fontSize: 11, color: '#fff', fontWeight: 'bold' },
+  compareBtn: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  compareBtnText: { fontSize: 12, fontWeight: '600', color: '#475569' },
   
-  connTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  connCategory: { fontSize: 18, fontWeight: 'bold', color: '#334155', marginBottom: 12 },
+  backBtn: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  backBtnText: { fontSize: 16, color: '#0f172a', fontWeight: '600' },
+  menuTitle: { fontSize: 28, fontWeight: '900', color: '#000', marginBottom: 20, letterSpacing: -0.5 },
+  dishCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0,height:2}, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2, borderWidth: 1, borderColor: '#f1f5f9' },
+  dishName: { fontSize: 17, fontWeight: '700', color: '#1e293b', flex: 1, paddingRight: 12 },
+  dishImage: { width: 70, height: 70, borderRadius: 10 },
+  offerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
+  offerRowBest: { backgroundColor: '#f0fdf4', marginHorizontal: -16, paddingHorizontal: 16 },
+  offerProviderInfo: { flexDirection: 'row', alignItems: 'center' },
+  providerCircleSm: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  providerCircleTextSm: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  offerProvider: { fontSize: 14, color: '#475569', fontWeight: '500' },
+  offerPriceInfo: { flexDirection: 'row', alignItems: 'center' },
+  bestBadge: { backgroundColor: '#16a34a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8 },
+  bestBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  offerPrice: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+  addBtn: { marginTop: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  addBtnText: { color: '#16a34a', fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
+  
+  connTitle: { fontSize: 28, fontWeight: '900', marginBottom: 24, letterSpacing: -0.5, color: '#000' },
+  connCategory: { fontSize: 16, fontWeight: '700', color: '#64748b', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
   connGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  connCard: { width: '48%', backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0,height:1}, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  connIcon: { fontSize: 32, marginBottom: 8 },
-  connName: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  linkBtn: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, width: '100%', alignItems: 'center' },
-  linkBtnText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  connCard: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0,height:4}, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, borderWidth: 1, borderColor: '#f1f5f9' },
+  providerCircleLg: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  providerCircleTextLg: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+  connName: { fontSize: 17, fontWeight: '700', marginBottom: 16, color: '#1e293b' },
+  linkBtn: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, width: '100%', alignItems: 'center' },
+  linkBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   
-  bottomNav: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingBottom: 20, paddingTop: 10 },
+  bottomNav: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingBottom: 24, paddingTop: 12 },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navIcon: { fontSize: 20, color: '#94a3b8', marginBottom: 4 },
-  navText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
-  navActive: { color: '#0ea5e9' },
+  navIcon: { fontSize: 20, color: '#94a3b8', marginBottom: 6 },
+  navText: { fontSize: 12, color: '#94a3b8', fontWeight: '700' },
+  navActive: { color: '#000' },
   
-  floatingCart: { position: 'absolute', bottom: 90, left: 16, right: 16, backgroundColor: '#16a34a', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0,height:4}, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
-  floatingCartText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  floatingCart: { position: 'absolute', bottom: 100, left: 16, right: 16, backgroundColor: '#14532d', borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#16a34a', shadowOffset: {width:0,height:8}, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  floatingCartText: { color: '#fff', fontSize: 16, fontWeight: '800' }
 });
