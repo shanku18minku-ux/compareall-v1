@@ -354,8 +354,21 @@ export default function App() {
               p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
           ).length;
           if (completedProvidersRef.current.size >= totalExtractors) {
-              setIsSearching(false);
               if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+              // FINAL CLEANUP: after all live platforms done, remove any restaurant
+              // groups that have ONLY static fallback offers (means no live platform
+              // confirmed them in this location — e.g. Oven Story not in Medininagar)
+              setResults(prev => prev
+                  .map(group => ({
+                      ...group,
+                      dishes: group.dishes.map((dish: any) => ({
+                          ...dish,
+                          offers: dish.offers.filter((o: any) => !o.isStaticFallback)
+                      })).filter((dish: any) => dish.offers.length > 0)
+                  }))
+                  .filter(group => group.dishes.length > 0)
+              );
+              setIsSearching(false);
           }
 
           // Remove stale static fallback ONLY for this specific provider

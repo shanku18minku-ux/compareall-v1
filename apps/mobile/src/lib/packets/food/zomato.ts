@@ -158,14 +158,24 @@ export const ZomatoPacket: ProviderPacket = {
                 try {
                     var urlParts = window.location.pathname.split('/').filter(Boolean);
                     // URL like /daltonganj/delivery-restaurants → urlParts[0] = 'daltonganj'
+                    // URL like /search → needs to wait for redirect
                     if (urlParts.length >= 1 && urlParts[0] !== 'delivery-restaurants' && urlParts[0] !== 'search') {
                         return urlParts[0];
                     }
+                    // If on /search page, try to get city from Zomato's internal state
+                    try {
+                        var locStr = localStorage.getItem('user_location') || localStorage.getItem('location') || '';
+                        if (locStr) {
+                            var locObj = JSON.parse(locStr);
+                            if (locObj && locObj.citySlug) return locObj.citySlug;
+                            if (locObj && locObj.city_slug) return locObj.city_slug;
+                        }
+                    } catch(e2) {}
                 } catch(e) {}
                 return ${JSON.stringify(citySlug)}; // fallback to computed slug
             })();
             
-            console.log('[CompareAll Zomato] Auto-detected city: ' + citySlug + ' | Query: ' + q);
+            console.log('[CompareAll Zomato] City slug: ' + citySlug + ' | Query: ' + q);
 
             // Set Zomato location in storage & cookies
             try {
@@ -713,7 +723,7 @@ export const ZomatoPacket: ProviderPacket = {
         // when you type in the search bar on the delivery listing page.
         // It returns ALL matching restaurants including chains like Domino's
         if (lat && lng) {
-            return `https://www.zomato.com/search?q=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&deeplink_filters={"search_context":"delivery"}`;
+            return `https://www.zomato.com/search?q=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}`;
         }
 
         // Fallback: city slug based search
