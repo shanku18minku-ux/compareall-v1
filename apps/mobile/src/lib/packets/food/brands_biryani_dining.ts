@@ -5,6 +5,39 @@ function makeDirectOrderPacket(meta: ProviderMetadata, publicOffers: any[]): Pro
     return {
         metadata: meta,
         connectionType: 'OFFICIAL_WEB',
+        // Pure JS function — called from App.tsx handleSearch without WebView
+        getPublicOffers: (query: string) => {
+            const q = (query || '').toLowerCase().trim();
+            if (!q || q === 'food') return publicOffers.map(o => ({
+                dishName: o.dishName,
+                restaurantName: o.brandName,
+                price: { finalPayablePrice: o.finalPrice, basePrice: o.basePrice, discount: o.discount || 0 },
+                deliveryTime: o.deliveryTime || '~30-45 mins',
+                rating: o.rating || '4.0',
+                couponCode: o.couponCode || '',
+                autoCouponSavings: o.discount || 0,
+                offerStatus: 'PUBLIC',
+                offerLabel: o.offerLabel || 'Public Offer',
+            }));
+            return publicOffers
+                .filter(o => {
+                    const title = (o.dishName || '').toLowerCase();
+                    const cat = (o.category || '').toLowerCase();
+                    const brand = (o.brandName || '').toLowerCase();
+                    return title.includes(q) || cat.includes(q) || brand.includes(q);
+                })
+                .map(o => ({
+                    dishName: o.dishName,
+                    restaurantName: o.brandName,
+                    price: { finalPayablePrice: o.finalPrice, basePrice: o.basePrice, discount: o.discount || 0 },
+                    deliveryTime: o.deliveryTime || '~30-45 mins',
+                    rating: o.rating || '4.0',
+                    couponCode: o.couponCode || '',
+                    autoCouponSavings: o.discount || 0,
+                    offerStatus: 'PUBLIC',
+                    offerLabel: o.offerLabel || 'Public Offer',
+                }));
+        },
         getLoginDetectionScript: () => `(function(){ if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:'OPEN_OFFICIAL'}));} })();`,
         getSearchUrl: (query: string, location?: any) => meta.loginUrl,
         getExtractorInjection: (url: string, searchQuery: string, location?: any) => {
