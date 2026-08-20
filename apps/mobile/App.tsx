@@ -466,7 +466,6 @@ export default function App() {
       
       {/* Top Header */}
       <View style={styles.header}>
-        <Text style={styles.headerLogo}>CompareAll</Text>
         <TouchableOpacity style={styles.locationPill}>
            <Text style={styles.locationIcon}>📍</Text>
            <Text style={styles.locationText} numberOfLines={1}>{location?.name || 'Locating...'}</Text>
