@@ -302,8 +302,11 @@ export default function App() {
                                            <Text style={styles.restName}>{group.restaurantName}</Text>
                                            <View style={styles.platformChipsContainer}>
                                                {Array.from(new Set(group.dishes.flatMap((d:any) => d.offers.map((o:any)=>o.providerName)))).map((p:any) => (
-                                                   <View key={p} style={[styles.platformChip, {backgroundColor: getProviderColor(p)}]}>
-                                                      <Text style={styles.platformChipText}>{getProviderInitial(p)}</Text>
+                                                   <View key={p} style={[styles.platformChip, {backgroundColor: getProviderColor(p), flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8}]}>
+                                                     <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 4}}>
+                                                       <Text style={{color: '#fff', fontSize: 9, fontWeight: '900'}}>{getProviderInitial(p)}</Text>
+                                                     </View>
+                                                     <Text style={{fontSize: 11, color: '#fff', fontWeight: '700'}}>{p}</Text>
                                                    </View>
                                                ))}
                                            </View>
@@ -328,47 +331,100 @@ export default function App() {
                      <Text style={styles.menuTitle}>{selectedRest.restaurantName}</Text>
                      
                      {selectedRest.dishes.map((dish: any, dIdx: number) => {
-                         const sortedOffers = [...dish.offers].sort((a:any, b:any) => (a.price?.finalPayablePrice||a.price?.basePrice||0) - (b.price?.finalPayablePrice||b.price?.basePrice||0));
-                         const bestOffer = sortedOffers[0];
-
-                         return (
-                             <View key={dIdx} style={styles.dishCard}>
-                                   <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12}}>
-                                       <Text style={styles.dishName}>{dish.dishName}</Text>
-                                       {dish.imageUrl ? <Image source={{uri: dish.imageUrl}} style={styles.dishImage} /> : null}
+                       const sortedOffers = [...dish.offers].sort((a:any, b:any) => 
+                         (a.price?.finalPayablePrice||a.price?.basePrice||999) - (b.price?.finalPayablePrice||b.price?.basePrice||999)
+                       );
+                       const bestOffer = sortedOffers[0];
+                       const worstPrice = sortedOffers[sortedOffers.length-1];
+                       const savings = sortedOffers.length > 1 
+                         ? (worstPrice?.price?.finalPayablePrice||worstPrice?.price?.basePrice||0) - (bestOffer?.price?.finalPayablePrice||bestOffer?.price?.basePrice||0)
+                         : 0;
+                     
+                       return (
+                         <View key={dIdx} style={styles.dishCard}>
+                           {/* Dish Header */}
+                           <View style={{flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12}}>
+                             <View style={{flex: 1}}>
+                               <Text style={styles.dishName}>{dish.dishName}</Text>
+                               {savings > 0 && (
+                                 <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+                                   <View style={{backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
+                                     <Text style={{color: '#16a34a', fontSize: 11, fontWeight: '700'}}>Save up to ₹{savings}</Text>
                                    </View>
-                                 {sortedOffers.map((offer: any, oIdx: number) => {
-                                     const isBest = offer === bestOffer;
-                                     return (
-                                     <View key={oIdx} style={[styles.offerRow, isBest && styles.offerRowBest]}>
-                                         <View style={styles.offerProviderInfo}>
-                                             <View style={[styles.providerCircleSm, {backgroundColor: getProviderColor(offer.providerName)}]}>
-                                                 <Text style={styles.providerCircleTextSm}>{getProviderInitial(offer.providerName)}</Text>
-                                             </View>
-                                             <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                         </View>
-                                         <View style={styles.offerPriceInfo}>
-                                            {isBest && <View style={styles.bestBadge}><Text style={styles.bestBadgeText}>BEST</Text></View>}
-                                            <Text style={styles.offerPrice}>₹{offer.price?.finalPayablePrice || offer.price?.basePrice || 0}</Text>
-                                         </View>
-                                     </View>
-                                 )})}
-                                 <TouchableOpacity 
-                                    style={styles.addBtn}
-                                    onPress={() => {
-                                        Vibration.vibrate(20);
-                                        setCartItems(prev => {
-                                            const exist = prev.find(i => i.id === dish.dishName);
-                                            if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
-                                            return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
-                                        });
-                                        setIsCartVisible(true);
-                                    }}
-                                 >
-                                     <Text style={styles.addBtnText}>ADD</Text>
-                                 </TouchableOpacity>
+                                 </View>
+                               )}
                              </View>
-                         );
+                             {dish.imageUrl 
+                               ? <Image source={{uri: dish.imageUrl}} style={styles.dishImage} resizeMode="cover" />
+                               : <View style={[styles.dishImage, {backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0'}]}>
+                                   <Text style={{fontSize: 22}}>🍽</Text>
+                                 </View>
+                             }
+                           </View>
+                     
+                           {/* Platform Comparison Rows */}
+                           <View style={{backgroundColor: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 12}}>
+                             {/* Header row */}
+                             <View style={{flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f1f5f9'}}>
+                               <Text style={{flex: 1, fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5}}>Platform</Text>
+                               <Text style={{fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 40}}>Delivery</Text>
+                               <Text style={{fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5}}>Price</Text>
+                             </View>
+                             {sortedOffers.map((offer: any, oIdx: number) => {
+                               const isBest = oIdx === 0;
+                               const provColor = getProviderColor(offer.providerName);
+                               const provInit = getProviderInitial(offer.providerName);
+                               const price = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
+                               const eta = offer.deliveryTime ? String(offer.deliveryTime).replace(/[?]/g,'').trim() : '~30 min';
+                               return (
+                                 <View key={oIdx} style={[{
+                                   flexDirection: 'row', alignItems: 'center',
+                                   paddingHorizontal: 12, paddingVertical: 10,
+                                   borderBottomWidth: oIdx < sortedOffers.length-1 ? 1 : 0,
+                                   borderBottomColor: '#e2e8f0',
+                                 }, isBest && {backgroundColor: '#f0fdf4'}]}>
+                                   {/* Provider info */}
+                                   <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                                     <View style={{width: 28, height: 28, borderRadius: 14, backgroundColor: provColor, alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
+                                       <Text style={{color: '#fff', fontSize: 12, fontWeight: '900'}}>{provInit}</Text>
+                                     </View>
+                                     <View>
+                                       <Text style={{fontSize: 14, fontWeight: '700', color: '#1e293b'}}>{offer.providerName}</Text>
+                                       {isBest && <Text style={{fontSize: 10, color: '#16a34a', fontWeight: '600'}}>Best Price</Text>}
+                                     </View>
+                                   </View>
+                                   {/* ETA */}
+                                   <Text style={{fontSize: 12, color: '#64748b', width: 70, textAlign: 'center'}}>{eta || '~30 min'}</Text>
+                                   {/* Price */}
+                                   <View style={{alignItems: 'flex-end', minWidth: 60}}>
+                                     {isBest && <View style={{backgroundColor: '#16a34a', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3, marginBottom: 2}}>
+                                       <Text style={{color: '#fff', fontSize: 9, fontWeight: '800'}}>BEST</Text>
+                                     </View>}
+                                     <Text style={{fontSize: 16, fontWeight: '800', color: isBest ? '#16a34a' : '#1e293b'}}>₹{price}</Text>
+                                     {offer.couponCode && <Text style={{fontSize: 9, color: '#f97316'}}>Use: {offer.couponCode}</Text>}
+                                   </View>
+                                 </View>
+                               );
+                             })}
+                           </View>
+                     
+                           {/* ADD TO CART Button */}
+                           <TouchableOpacity 
+                             style={styles.addBtn}
+                             onPress={() => {
+                               Vibration.vibrate(20);
+                               setCartItems(prev => {
+                                 const exist = prev.find(i => i.id === dish.dishName);
+                                 if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
+                                 return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
+                               });
+                               // DO NOT call setIsCartVisible(true) here - floating cart will show
+                             }}
+                           >
+                             <Text style={styles.addBtnText}>+ ADD TO CART</Text>
+                           </TouchableOpacity>
+                         </View>
+                       );
                      })}
                  </ScrollView>
              </View>

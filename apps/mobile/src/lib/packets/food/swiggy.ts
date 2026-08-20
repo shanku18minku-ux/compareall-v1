@@ -101,6 +101,24 @@ export const SwiggyPacket: ProviderPacket = {
             var userLng = ${userLng};
             var hasLocation = ${hasLocation ? 'true' : 'false'};
             var q = ${JSON.stringify(searchQuery)};
+            var locName = ${JSON.stringify(location?.name || '')};
+            var userCity = locName ? locName.toLowerCase().split(',')[0].trim() : '';
+
+            function sendSwiggyResults(items) {
+                var filtered = items;
+                if (userCity) {
+                    filtered = items.filter(function(r) {
+                        var area = r.title.toLowerCase();
+                        return area.includes(userCity) || userCity.includes(area) || area.includes('bangalore') || area.includes('bengaluru');
+                    });
+                    if (filtered.length === 0 && items.length > 0) filtered = items;
+                }
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'SEARCH_RESULTS',
+                    success: true,
+                    data: filtered
+                }));
+            }
 
 
             function normalizeQueryStr(str) {
@@ -495,11 +513,7 @@ export const SwiggyPacket: ProviderPacket = {
             .then(function(json) {
                 var dapiItems = parseDapiCards(json);
                 if (dapiItems && dapiItems.length > 0) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'SEARCH_RESULTS',
-                        success: true,
-                        data: dapiItems
-                    }));
+                    sendSwiggyResults(dapiItems);
                     return;
                 }
                 fallbackDomScrape();
@@ -563,11 +577,7 @@ export const SwiggyPacket: ProviderPacket = {
                         
                         if (extractedItems.length > 0 || attempts >= maxAttempts) {
                             clearInterval(extractInterval);
-                            window.ReactNativeWebView.postMessage(JSON.stringify({
-                                type: 'SEARCH_RESULTS',
-                                success: true,
-                                data: extractedItems
-                            }));
+                            sendSwiggyResults(extractedItems);
                         }
                     } catch (e) {
                         if (attempts >= maxAttempts) {
@@ -587,6 +597,13 @@ export const SwiggyPacket: ProviderPacket = {
         `;
     },
 
-    getSearchUrl: (query: string) => `https://www.swiggy.com/search?query=${encodeURIComponent(query)}`
+    getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => {
+        const lat = location?.latitude || 0;
+        const lng = location?.longitude || 0;
+        if (lat && lng) {
+            return `https://www.swiggy.com/search?lat=${lat}&lng=${lng}&query=${encodeURIComponent(query)}`;
+        }
+        return `https://www.swiggy.com/search?query=${encodeURIComponent(query)}`;
+    }
 };
 

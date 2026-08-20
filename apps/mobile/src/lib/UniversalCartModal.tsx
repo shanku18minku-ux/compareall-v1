@@ -4,6 +4,12 @@ import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaVi
 export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuantity, onCheckout, connectedProviders }) => {
     const [detailBreakdown, setDetailBreakdown] = useState<string | null>(null);
 
+    const formatETA = (dt) => {
+      if (!dt) return '~30 mins';
+      const s = String(dt).replace(/[?]/g, '').trim();
+      return s || '~30 mins';
+    };
+
     // Get all unique providers that have an offer for any item in the cart
     const availableProviders = useMemo(() => {
         const providers = new Set();
@@ -91,11 +97,14 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
             <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>Cart comparison</Text>
-                    <TouchableOpacity onPress={onClose}>
-                        <Text style={styles.close}>✕</Text>
-                    </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#fff' }}>
+                  <TouchableOpacity onPress={onClose} style={{ marginRight: 12 }}>
+                    <Text style={{ fontSize: 22, fontWeight: '300', color: '#000' }}>&#x2190;</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#000', flex: 1 }}>Cart Compare</Text>
+                  <TouchableOpacity onPress={onClose}>
+                    <Text style={{ fontSize: 16, color: '#64748b' }}>Close</Text>
+                  </TouchableOpacity>
                 </View>
                 
                 <ScrollView contentContainerStyle={{padding: 16}}>
@@ -133,7 +142,7 @@ export const UniversalCartModal = ({ visible, onClose, cartItems, onUpdateQuanti
                             <View key={String(providerName)} style={styles.priceCard}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.providerName}>{String(providerName)}</Text>
-                                    <Text style={styles.timeTag}>?? {providerEta}</Text>
+                                    <Text style={styles.timeTag}>🕒 {formatETA(providerEta)}</Text>
                                 </View>
                                 <View style={styles.priceRow}>
                                     <Text style={styles.finalPrice}>₹{finalToPay}</Text>

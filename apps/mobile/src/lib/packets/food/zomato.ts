@@ -214,10 +214,20 @@ export const ZomatoPacket: ProviderPacket = {
                 try {
                     if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
                         isDispatched = true;
+                        
+                        var userCity = locName ? locName.toLowerCase().split(',')[0].trim() : '';
+                        var filtered = items.filter(function(r) {
+                            var rCity = r.metadata && r.metadata.locality ? r.metadata.locality : (r.restaurantCity || '');
+                            if (!rCity || !userCity) return true;
+                            return rCity.toLowerCase().includes(userCity) || userCity.includes(rCity.toLowerCase()) || (r.metadata && r.metadata.citySlug && r.metadata.citySlug === userCity);
+                        });
+                        
+                        if (filtered.length === 0 && items.length > 0) filtered = items;
+
                         window.ReactNativeWebView.postMessage(JSON.stringify({
                             type: 'SEARCH_RESULTS',
                             success: true,
-                            data: items
+                            data: filtered
                         }));
                     }
                 } catch(e) {}
@@ -652,7 +662,12 @@ export const ZomatoPacket: ProviderPacket = {
             let cityName = location.name.split(',')[0].toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
             if (cityName === 'bengaluru') cityName = 'bangalore';
             if (cityName) {
-                return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
+                const lat = location?.latitude || 0;
+                const lng = location?.longitude || 0;
+                if (lat && lng) {
+                    return `https://www.zomato.com/${cityName}/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
+                }
+                return `https://www.zomato.com/${cityName}/delivery-restaurants?q=${encodeURIComponent(query)}`;
             }
         }
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
