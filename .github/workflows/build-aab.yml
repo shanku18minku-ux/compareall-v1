@@ -1,4 +1,4 @@
-name: Build Expo APK
+name: Build Expo AAB
 
 on:
   push:
