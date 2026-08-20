@@ -150,14 +150,19 @@ export default function App() {
                    dishEntry.imageUrl = item.dishImage || item.imageUrl;
                }
 
-             dishEntry.offers.push({
-                 providerName: provider.name,
-                 price: item.price,
-                 deliveryTime: item.deliveryTime,
-                 rating: item.rating,
-                 couponCode: item.couponCode,
-                 potentialSavings: item.couponSavings || item.autoCouponSavings || 0
-             });
+             // DEDUP: Only add offer if this provider hasn't already added one for this dish
+             const alreadyHasOffer = dishEntry.offers.some((o: any) => o.providerName === provider.name);
+             if (!alreadyHasOffer) {
+                 dishEntry.offers.push({
+                     providerName: provider.name,
+                     price: item.price,
+                     deliveryTime: item.deliveryTime,
+                     rating: item.rating,
+                     couponCode: item.couponCode,
+                     potentialSavings: item.couponSavings || item.autoCouponSavings || 0,
+                     isPersonalized: connectedProviders.includes(providerId), // flag for connected accounts
+                 });
+             }
           });
           return updated;
       });
@@ -433,6 +438,9 @@ export default function App() {
           {activeTab === 'Connections' && (
               <ScrollView contentContainerStyle={{padding: 16}}>
                   <Text style={styles.connTitle}>Link Accounts</Text>
+                  <Text style={{fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 18}}>
+                    Connect your delivery accounts to unlock personalized best deals & exclusive discounts.
+                  </Text>
                   
                   <Text style={styles.connCategory}>Food Delivery</Text>
                   <View style={styles.connGrid}>
@@ -440,13 +448,28 @@ export default function App() {
                           const isConn = connectedProviders.includes(p.id);
                           return (
                               <View key={p.id} style={styles.connCard}>
+                                  {/* Provider circle icon */}
                                   <View style={[styles.providerCircleLg, {backgroundColor: getProviderColor(p.name)}]}>
                                       <Text style={styles.providerCircleTextLg}>{getProviderInitial(p.name)}</Text>
                                   </View>
                                   <Text style={styles.connName}>{p.name}</Text>
+                                  
                                   {isConn ? (
-                                      <View style={[styles.linkBtn, {backgroundColor: '#e6f4ea'}]}>
-                                          <Text style={[styles.linkBtnText, {color: '#16a34a'}]}>CONNECTED</Text>
+                                      <View style={{width: '100%', alignItems: 'center'}}>
+                                          {/* Connected badge */}
+                                          <View style={{backgroundColor: '#dcfce7', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginBottom: 8, width: '100%', alignItems: 'center', flexDirection: 'row', justifyContent: 'center'}}>
+                                              <Text style={{color: '#16a34a', fontSize: 12, fontWeight: '800'}}>✓ CONNECTED</Text>
+                                          </View>
+                                          {/* Disconnect button */}
+                                          <TouchableOpacity
+                                              style={{paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#fca5a5', backgroundColor: '#fff5f5'}}
+                                              onPress={() => {
+                                                  setConnectedProviders(prev => prev.filter(id => id !== p.id));
+                                                  setResults([]);
+                                              }}
+                                          >
+                                              <Text style={{color: '#ef4444', fontSize: 11, fontWeight: '700'}}>Disconnect</Text>
+                                          </TouchableOpacity>
                                       </View>
                                   ) : (
                                       <TouchableOpacity 

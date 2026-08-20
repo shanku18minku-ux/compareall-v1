@@ -15,19 +15,30 @@ export const eatclubMetadata: ProviderMetadata = {
 export const EatClubPacket: ProviderPacket = {
     metadata: eatclubMetadata,
     
+    // Strict URL pattern - only fires when user is redirected to home/dashboard after login
+    successUrlPattern: /^https?:\/\/(www\.)?eatclub\.in\/(home|dashboard|profile|my-account|orders)/,
+
     getLoginDetectionScript: () => `
         (function() {
+            var fired = false;
             function checkLogin() {
-                var hasToken = !!localStorage.getItem('token') || !!localStorage.getItem('user_token') || !!localStorage.getItem('user') || !!document.cookie.includes('token');
-                var hasProfileBtn = !!document.querySelector('.profile-icon, .user-name, a[href*="profile"]');
-                if (hasToken || hasProfileBtn) {
+                if (fired) return;
+                // STRICT check: require actual user identity data, not just any token
+                var userId = localStorage.getItem('user_id') || localStorage.getItem('userId') || localStorage.getItem('customerId');
+                var userEmail = localStorage.getItem('email') || localStorage.getItem('user_email');
+                var userPhone = localStorage.getItem('phone') || localStorage.getItem('mobile');
+                // Also check for logged-in specific UI elements
+                var hasLoggedInUI = !!document.querySelector('[class*="logout"], [class*="my-orders"], [href*="my-orders"], [href*="profile"], [class*="user-profile"]');
+                
+                if ((userId || userEmail || userPhone) && hasLoggedInUI) {
+                    fired = true;
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
                     return true;
                 }
                 return false;
             }
             if (!checkLogin()) {
-                setInterval(checkLogin, 1500);
+                setInterval(checkLogin, 2000);
             }
         })();
     `,
