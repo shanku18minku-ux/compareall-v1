@@ -6,16 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "compareall",
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
-    },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "in.compareall.app"
+      "supportsTablet": true
     },
+    "scheme": "compareall",
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -26,12 +20,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "in.compareall.app",
       "versionCode": 1,
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -39,8 +27,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "compareall.in",
-              "pathPrefix": "/app"
+              "host": "compareall.in"
+            },
+            {
+              "scheme": "https",
+              "host": "*.compareall.in"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -58,11 +49,6 @@
           "locationAlwaysAndWhenInUsePermission": "Allow CompareAll to use your location to find the best restaurant prices near you."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "compareall-app"
-      }
-    }
+    ]
   }
 }

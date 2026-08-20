@@ -71,10 +71,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x apps/mobile/android/gradlew
 
-      - name: Build Release APK with Gradle
+      - name: Build Release AAB with Gradle
         run: |
           cd apps/mobile/android
-          ./gradlew assembleRelease \
+          ./gradlew bundleRelease \
             --no-daemon \
             --no-parallel \
             --no-configuration-cache \
@@ -90,8 +90,8 @@ jobs:
           name: gradle-build-log.txt
           path: /tmp/gradle-build.log
 
-      - name: Upload APK
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: CompareAll-Release.apk
-          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          name: CompareAll-Release.aab
+          path: apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
