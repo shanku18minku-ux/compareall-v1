@@ -188,6 +188,10 @@ export const ZomatoPacket: ProviderPacket = {
             }
 
             var REAL_PRICES_CATALOG = {
+                'pizza': { "domino's": 199, 'dominos': 199, 'pizza hut': 249, 'pizzahut': 249, 'oven story': 349, 'ovenstory': 349, 'jain shree': 250, 'default': 220 },
+                'margherita': { "domino's": 149, 'dominos': 149, 'pizza hut': 199, 'default': 180 },
+                'paneer pizza': { "domino's": 249, 'dominos': 249, 'pizza hut': 299, 'default': 260 },
+                'cheese pizza': { "domino's": 179, 'dominos': 179, 'pizza hut': 229, 'default': 200 },
                 'paneer chilli': { 'jain shree': 290, 'kaveri': 160, 'biryani by food': 160, '8 star': 160, 'raj rasoi': 210, 'radhika': 240, 'dosa plaza': 210, 'punjabi kitchen': 210, 'delicious': 220, 'buddy': 210, 'param': 220, 'hm resort': 250, 'havaly': 240, 'lajawab': 270, 'default': 240 },
                 'paneer masala': { 'jain shree': 320, 'kaveri': 240, 'biryani by food': 250, '8 star': 240, 'raj rasoi': 270, 'radhika': 280, 'dosa plaza': 250, 'punjabi kitchen': 260, 'delicious': 250, 'buddy': 250, 'param': 250, 'hm resort': 280, 'havaly': 270, 'lajawab': 290, 'default': 260 },
                 'paneer butter masala': { 'jain shree': 320, 'kaveri': 230, 'biryani by food': 240, '8 star': 230, 'raj rasoi': 260, 'radhika': 270, 'dosa plaza': 240, 'punjabi kitchen': 250, 'delicious': 240, 'buddy': 240, 'param': 240, 'hm resort': 270, 'havaly': 260, 'lajawab': 290, 'default': 250 },
@@ -492,7 +496,28 @@ export const ZomatoPacket: ProviderPacket = {
                     if (nextDataElem && nextDataElem.textContent) {
                         var nextData = JSON.parse(nextDataElem.textContent);
                         var pageProps = (nextData && nextData.props && nextData.props.pageProps) ? nextData.props.pageProps : {};
+                        
+                        // Handle delivery-restaurants page format
                         var searchResults = pageProps.searchResult || pageProps.restaurants || [];
+                        
+                        // Handle /search page format — different JSON shape
+                        if ((!searchResults || searchResults.length === 0) && pageProps.data) {
+                            var sections = pageProps.data.sections || pageProps.data.results || [];
+                            sections.forEach(function(sec) {
+                                var cards = sec.cards || sec.restaurants || sec.results || [];
+                                cards.forEach(function(c) {
+                                    var r = c.card || c.cardV2 || c;
+                                    var info = (r.card && (r.card.info || r.card.restaurant)) || r.restaurant || r.info || r;
+                                    if (info && info.name) searchResults.push(info);
+                                });
+                            });
+                        }
+                        
+                        // Handle raw sections array (another Zomato API format)
+                        if ((!searchResults || searchResults.length === 0) && pageProps.sections) {
+                            searchResults = pageProps.sections;
+                        }
+                        
                         var nextItems = processZomatoSections(searchResults);
                         if (nextItems.length > 0) return nextItems;
                     }
@@ -684,13 +709,14 @@ export const ZomatoPacket: ProviderPacket = {
         const lat = location?.latitude || 0;
         const lng = location?.longitude || 0;
 
-        // PRIMARY: Use lat/lng coordinates — works for ANY city, no hardcoded slug needed.
-        // Zomato will automatically redirect to the correct city page.
+        // Use Zomato's search endpoint with lat/lng — this is the page Zomato uses
+        // when you type in the search bar on the delivery listing page.
+        // It returns ALL matching restaurants including chains like Domino's
         if (lat && lng) {
-            return `https://www.zomato.com/delivery-restaurants?lat=${lat}&lon=${lng}&q=${encodeURIComponent(query)}`;
+            return `https://www.zomato.com/search?q=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&deeplink_filters={"search_context":"delivery"}`;
         }
 
-        // FALLBACK: city name slug (only when no GPS coords)
+        // Fallback: city slug based search
         if (location?.name) {
             const slugOverrides: Record<string, string> = {
                 'medininagar': 'daltonganj', 'daltonganj': 'daltonganj', 'palamu': 'daltonganj',
@@ -702,7 +728,6 @@ export const ZomatoPacket: ProviderPacket = {
             return `https://www.zomato.com/${citySlug}/delivery-restaurants?q=${encodeURIComponent(query)}`;
         }
 
-        // LAST RESORT: global search
         return `https://www.zomato.com/search?q=${encodeURIComponent(query)}`;
     }
 };
