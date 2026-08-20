@@ -693,7 +693,6 @@ export default function App() {
                  </ScrollView>
              </View>
           )}
-          )}
 
           {activeTab === 'Connections' && (
               <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 32}}>
