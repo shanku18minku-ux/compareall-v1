@@ -558,19 +558,10 @@ export default function App() {
       });
   };
 
-  // Providers used for live WebView extraction (have real login + extractor)
-  // Providers that run WebView extraction (WEBVIEW_LOGIN + WEBVIEW_EXTRACT types)
-  // WebView extractors for search — location-filtered to avoid launching
-  // EatSure/EatClub WebViews in cities where they're not available
-  const activeProviders = (PROVIDERS || []).filter(p =>
-    p && p.category === activeCategory &&
-    p.connectionType !== 'OFFICIAL_WEB' &&
-    isProviderAvailableInLocation(p)
-  );
-
   // Location-aware provider availability check
   // Providers with regions: ['all'] → always available
   // Providers with specific city list → only available if user's city matches
+  // IMPORTANT: Must be defined BEFORE activeProviders which uses it
   const isProviderAvailableInLocation = (provider: any): boolean => {
       try {
           const regions: string[] = provider.regions || provider.metadata?.regions || ['all'];
@@ -605,6 +596,15 @@ export default function App() {
           return true; // Fallback to available on any error to prevent app crash
       }
   };
+
+  // WebView extractors for search — location-filtered to avoid launching
+  // EatSure/EatClub WebViews in cities where they're not available
+  // IMPORTANT: Defined AFTER isProviderAvailableInLocation
+  const activeProviders = (PROVIDERS || []).filter(p =>
+    p && p.category === activeCategory &&
+    p.connectionType !== 'OFFICIAL_WEB' &&
+    isProviderAvailableInLocation(p)
+  );
 
   // Connections page: only Food Delivery platforms, filtered by location availability
   const allFoodProviders = (PROVIDERS || []).filter(p =>
