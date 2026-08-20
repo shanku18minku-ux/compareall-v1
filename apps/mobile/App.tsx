@@ -147,10 +147,12 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
                 </View>
                 <Text style={{ fontSize: 12, color: '#64748b', width: 72, textAlign: 'center' }}>{fmtEta(offer)}</Text>
                 <View style={{ width: 80, alignItems: 'flex-end' }}>
-                  {isBest && <View style={{ backgroundColor: '#16a34a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginBottom: 2 }}>
+                  {isBest && price > 0 && <View style={{ backgroundColor: '#16a34a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginBottom: 2 }}>
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>BEST</Text>
                   </View>}
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: isBest ? '#16a34a' : '#1e293b' }}>Rs.{price}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: isBest && price > 0 ? '#16a34a' : '#1e293b' }}>
+                      {price > 0 ? `Rs.${price}` : 'Price N/A'}
+                  </Text>
                   {hasDiscount && <Text style={{ fontSize: 10, color: '#94a3b8', textDecorationLine: 'line-through' }}>Rs.{origPrice}</Text>}
                 </View>
               </View>
