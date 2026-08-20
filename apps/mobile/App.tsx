@@ -14,6 +14,129 @@ const CATEGORIES = ['Food', 'Commute', 'Groceries', 'Shopping', 'Medicine', 'Ser
 
 const normalizeText = (s: string) => s ? s.normalize('NFC').replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '') : s;
 
+// ── DishCard: Comparify-style with collapsible platform dropdown ────────────
+const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformCount, isPersonalizedAvailable, getProviderColor, getProviderInitial, connectedProviders, PROVIDERS, onAddToCart }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const fmtEta = (offer: any) => offer.deliveryTime ? String(offer.deliveryTime).replace(/[?]/g,'').trim() : '~30 min';
+
+  return (
+    <View style={{ backgroundColor: '#fff', marginBottom: 2, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
+      {/* Top section: name + image + from price */}
+      <View style={{ flexDirection: 'row', padding: 16, alignItems: 'flex-start' }}>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#1e293b', marginBottom: 6, lineHeight: 22 }}>{dish.dishName}</Text>
+          {savings > 0 && (
+            <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 }}>
+              <Text style={{ color: '#16a34a', fontSize: 11, fontWeight: '800' }}>Save up to Rs.{savings}</Text>
+            </View>
+          )}
+          {isPersonalizedAvailable && (
+            <View style={{ backgroundColor: '#eff6ff', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 }}>
+              <Text style={{ color: '#2563eb', fontSize: 11, fontWeight: '700' }}>Your deal active</Text>
+            </View>
+          )}
+          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>From</Text>
+          <Text style={{ fontSize: 24, fontWeight: '900', color: '#16a34a' }}>Rs.{bestPrice}</Text>
+        </View>
+        <View>
+          {dish.imageUrl
+            ? <Image source={{ uri: dish.imageUrl }} style={{ width: 95, height: 95, borderRadius: 12 }} resizeMode="cover" />
+            : <View style={{ width: 95, height: 95, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' }}>
+                <Text style={{ fontSize: 30, color: '#94a3b8' }}>?</Text>
+              </View>
+          }
+          {/* Platform count badge */}
+          <View style={{ position: 'absolute', bottom: -8, left: -4, backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{platformCount} platform{platformCount > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Dropdown toggle row */}
+      <TouchableOpacity
+        onPress={() => setExpanded(e => !e)}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f8fafc', borderTopWidth: 1, borderTopColor: '#f1f5f9' }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {bestOffer && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: getProviderColor(bestOffer.providerName), paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginRight: 10 }}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 5 }}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{getProviderInitial(bestOffer.providerName)}</Text>
+              </View>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Best on {bestOffer.providerName}</Text>
+            </View>
+          )}
+          <Text style={{ fontSize: 12, color: '#64748b' }}>{expanded ? 'Hide' : 'See all'} platforms</Text>
+        </View>
+        <Text style={{ fontSize: 20, color: '#94a3b8', lineHeight: 24 }}>{expanded ? '^' : 'v'}</Text>
+      </TouchableOpacity>
+
+      {/* Expanded comparison table */}
+      {expanded && (
+        <View style={{ borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+          <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#f8fafc' }}>
+            <Text style={{ flex: 1, fontSize: 10, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Platform</Text>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'center' }}>Delivery</Text>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, width: 80, textAlign: 'right' }}>Price</Text>
+          </View>
+          {sortedOffers.map((offer: any, oIdx: number) => {
+            const isBest = oIdx === 0;
+            const provColor = getProviderColor(offer.providerName);
+            const provInit = getProviderInitial(offer.providerName);
+            const price = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
+            const origPrice = offer.price?.basePrice || 0;
+            const hasDiscount = origPrice > price && origPrice > 0;
+            const providerId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
+            const isConnected = connectedProviders.includes(providerId || '');
+            return (
+              <View key={oIdx} style={[{
+                flexDirection: 'row', alignItems: 'center',
+                paddingHorizontal: 16, paddingVertical: 13,
+                borderBottomWidth: 1, borderBottomColor: '#f8fafc',
+              }, isBest && { backgroundColor: '#f0fdf4' }]}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: provColor, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>{provInit}</Text>
+                  </View>
+                  <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1e293b' }}>{offer.providerName}</Text>
+                      {isConnected && (
+                        <View style={{ backgroundColor: '#dbeafe', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 6 }}>
+                          <Text style={{ color: '#1d4ed8', fontSize: 9, fontWeight: '800' }}>YOUR DEAL</Text>
+                        </View>
+                      )}
+                    </View>
+                    {isBest && <Text style={{ fontSize: 10, color: '#16a34a', fontWeight: '700' }}>Best Price</Text>}
+                    {offer.couponCode ? <Text style={{ fontSize: 10, color: '#f97316', fontWeight: '600' }}>Use: {offer.couponCode}</Text> : null}
+                  </View>
+                </View>
+                <Text style={{ fontSize: 12, color: '#64748b', width: 72, textAlign: 'center' }}>{fmtEta(offer)}</Text>
+                <View style={{ width: 80, alignItems: 'flex-end' }}>
+                  {isBest && <View style={{ backgroundColor: '#16a34a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginBottom: 2 }}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>BEST</Text>
+                  </View>}
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: isBest ? '#16a34a' : '#1e293b' }}>Rs.{price}</Text>
+                  {hasDiscount && <Text style={{ fontSize: 10, color: '#94a3b8', textDecorationLine: 'line-through' }}>Rs.{origPrice}</Text>}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Add to Cart */}
+      <TouchableOpacity
+        onPress={onAddToCart}
+        style={{ margin: 16, marginTop: 12, backgroundColor: '#16a34a', borderRadius: 14, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+      >
+        <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: 0.3 }}>+ Add to Cart</Text>
+        {bestPrice > 0 && <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginLeft: 10 }}>Rs.{bestPrice}</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Search');
@@ -332,107 +455,65 @@ export default function App() {
                  <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedRest(null)}>
                      <Text style={styles.backBtnText}>← Back to {searchQuery ? 'search' : 'restaurants'}</Text>
                  </TouchableOpacity>
-                 <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 100}}>
-                     <Text style={styles.menuTitle}>{selectedRest.restaurantName}</Text>
-                     
+                 <ScrollView contentContainerStyle={{paddingBottom: 120}}>
+                     {/* Restaurant header */}
+                     <View style={{backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9'}}>
+                         <Text style={styles.menuTitle}>{selectedRest.restaurantName}</Text>
+                         <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
+                             {Array.from(new Set(selectedRest.dishes.flatMap((d:any) => d.offers.map((o:any) => o.providerName)))).map((p:any) => (
+                                 <View key={p} style={{flexDirection:'row', alignItems:'center', backgroundColor: getProviderColor(p), paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginRight: 6, marginBottom: 4}}>
+                                     <Text style={{color:'#fff', fontSize: 11, fontWeight: '700'}}>{p}</Text>
+                                     {connectedProviders.includes(PROVIDERS.find(pr => pr.name === p)?.id || '') && (
+                                         <View style={{backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1, marginLeft: 4}}>
+                                             <Text style={{color: '#fff', fontSize: 9, fontWeight: '900'}}>✓ ME</Text>
+                                         </View>
+                                     )}
+                                 </View>
+                             ))}
+                         </View>
+                     </View>
+
+                     {/* Dish cards */}
                      {selectedRest.dishes.map((dish: any, dIdx: number) => {
-                       const sortedOffers = [...dish.offers].sort((a:any, b:any) => 
-                         (a.price?.finalPayablePrice||a.price?.basePrice||999) - (b.price?.finalPayablePrice||b.price?.basePrice||999)
+                       const sortedOffers = [...dish.offers].sort((a:any, b:any) =>
+                         (a.price?.finalPayablePrice||a.price?.basePrice||9999) - (b.price?.finalPayablePrice||b.price?.basePrice||9999)
                        );
                        const bestOffer = sortedOffers[0];
+                       const bestPrice = bestOffer?.price?.finalPayablePrice || bestOffer?.price?.basePrice || 0;
                        const worstPrice = sortedOffers[sortedOffers.length-1];
-                       const savings = sortedOffers.length > 1 
-                         ? (worstPrice?.price?.finalPayablePrice||worstPrice?.price?.basePrice||0) - (bestOffer?.price?.finalPayablePrice||bestOffer?.price?.basePrice||0)
-                         : 0;
-                     
+                       const maxPrice = worstPrice?.price?.finalPayablePrice || worstPrice?.price?.basePrice || 0;
+                       const savings = sortedOffers.length > 1 ? maxPrice - bestPrice : 0;
+                       const platformCount = sortedOffers.length;
+                       const isPersonalizedAvailable = sortedOffers.some((o:any) => o.isPersonalized);
+
                        return (
-                         <View key={dIdx} style={styles.dishCard}>
-                           {/* Dish Header */}
-                           <View style={{flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12}}>
-                             <View style={{flex: 1}}>
-                               <Text style={styles.dishName}>{dish.dishName}</Text>
-                               {savings > 0 && (
-                                 <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
-                                   <View style={{backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
-                                     <Text style={{color: '#16a34a', fontSize: 11, fontWeight: '700'}}>Save up to ₹{savings}</Text>
-                                   </View>
-                                 </View>
-                               )}
-                             </View>
-                             {dish.imageUrl 
-                               ? <Image source={{uri: dish.imageUrl}} style={styles.dishImage} resizeMode="cover" />
-                               : <View style={[styles.dishImage, {backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0'}]}>
-                                   <Text style={{fontSize: 22}}>🍽</Text>
-                                 </View>
-                             }
-                           </View>
-                     
-                           {/* Platform Comparison Rows */}
-                           <View style={{backgroundColor: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 12}}>
-                             {/* Header row */}
-                             <View style={{flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f1f5f9'}}>
-                               <Text style={{flex: 1, fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5}}>Platform</Text>
-                               <Text style={{fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 40}}>Delivery</Text>
-                               <Text style={{fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5}}>Price</Text>
-                             </View>
-                             {sortedOffers.map((offer: any, oIdx: number) => {
-                               const isBest = oIdx === 0;
-                               const provColor = getProviderColor(offer.providerName);
-                               const provInit = getProviderInitial(offer.providerName);
-                               const price = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
-                               const eta = offer.deliveryTime ? String(offer.deliveryTime).replace(/[?]/g,'').trim() : '~30 min';
-                               return (
-                                 <View key={oIdx} style={[{
-                                   flexDirection: 'row', alignItems: 'center',
-                                   paddingHorizontal: 12, paddingVertical: 10,
-                                   borderBottomWidth: oIdx < sortedOffers.length-1 ? 1 : 0,
-                                   borderBottomColor: '#e2e8f0',
-                                 }, isBest && {backgroundColor: '#f0fdf4'}]}>
-                                   {/* Provider info */}
-                                   <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                                     <View style={{width: 28, height: 28, borderRadius: 14, backgroundColor: provColor, alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
-                                       <Text style={{color: '#fff', fontSize: 12, fontWeight: '900'}}>{provInit}</Text>
-                                     </View>
-                                     <View>
-                                       <Text style={{fontSize: 14, fontWeight: '700', color: '#1e293b'}}>{offer.providerName}</Text>
-                                       {isBest && <Text style={{fontSize: 10, color: '#16a34a', fontWeight: '600'}}>Best Price</Text>}
-                                     </View>
-                                   </View>
-                                   {/* ETA */}
-                                   <Text style={{fontSize: 12, color: '#64748b', width: 70, textAlign: 'center'}}>{eta || '~30 min'}</Text>
-                                   {/* Price */}
-                                   <View style={{alignItems: 'flex-end', minWidth: 60}}>
-                                     {isBest && <View style={{backgroundColor: '#16a34a', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3, marginBottom: 2}}>
-                                       <Text style={{color: '#fff', fontSize: 9, fontWeight: '800'}}>BEST</Text>
-                                     </View>}
-                                     <Text style={{fontSize: 16, fontWeight: '800', color: isBest ? '#16a34a' : '#1e293b'}}>₹{price}</Text>
-                                     {offer.couponCode && <Text style={{fontSize: 9, color: '#f97316'}}>Use: {offer.couponCode}</Text>}
-                                   </View>
-                                 </View>
-                               );
-                             })}
-                           </View>
-                     
-                           {/* ADD TO CART Button */}
-                           <TouchableOpacity 
-                             style={styles.addBtn}
-                             onPress={() => {
-                               Vibration.vibrate(20);
-                               setCartItems(prev => {
-                                 const exist = prev.find(i => i.id === dish.dishName);
-                                 if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
-                                 return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
-                               });
-                               // DO NOT call setIsCartVisible(true) here - floating cart will show
-                             }}
-                           >
-                             <Text style={styles.addBtnText}>+ ADD TO CART</Text>
-                           </TouchableOpacity>
-                         </View>
+                         <DishCard
+                           key={dIdx}
+                           dish={dish}
+                           sortedOffers={sortedOffers}
+                           bestOffer={bestOffer}
+                           bestPrice={bestPrice}
+                           savings={savings}
+                           platformCount={platformCount}
+                           isPersonalizedAvailable={isPersonalizedAvailable}
+                           getProviderColor={getProviderColor}
+                           getProviderInitial={getProviderInitial}
+                           connectedProviders={connectedProviders}
+                           PROVIDERS={PROVIDERS}
+                           onAddToCart={() => {
+                             Vibration.vibrate(20);
+                             setCartItems(prev => {
+                               const exist = prev.find(i => i.id === dish.dishName);
+                               if (exist) return prev.map(i => i.id === dish.dishName ? {...i, quantity: i.quantity + 1} : i);
+                               return [...prev, { id: dish.dishName, title: dish.dishName, quantity: 1, offers: dish.offers, bestOffer }];
+                             });
+                           }}
+                         />
                        );
                      })}
                  </ScrollView>
              </View>
+          )}
           )}
 
           {activeTab === 'Connections' && (
