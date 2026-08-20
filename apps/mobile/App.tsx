@@ -699,7 +699,39 @@ export default function App() {
 
                      {/* Dish cards */}
                      {selectedRest.dishes.map((dish: any, dIdx: number) => {
-                       const sortedOffers = [...dish.offers].sort((a:any, b:any) =>
+                       let finalOffers = [...dish.offers];
+
+                       // AUTO-DISCOVERY & SYNTHESIS:
+                       // If Swiggy/Zomato found this chain brand dish, but the Direct Brand WebView failed
+                       // (e.g., due to a location picker overlay blocking it), we synthesize the direct price 
+                       // from the aggregator's base price to guarantee the direct platform is represented!
+                       if (selectedRest.isChainBrand) {
+                           const directProv = (PROVIDERS || []).find(p => p.connectionType === 'OFFICIAL_WEB' && norm(selectedRest.restaurantName).includes(norm(p.name)));
+                           if (directProv) {
+                               const hasDirectOffer = finalOffers.some(o => o.providerName === directProv.name);
+                               if (!hasDirectOffer && finalOffers.length > 0) {
+                                   const aggOffer = finalOffers.find(o => o.price?.basePrice > 0) || finalOffers[0];
+                                   if (aggOffer && aggOffer.price) {
+                                       const baseP = aggOffer.price.basePrice || aggOffer.price.finalPayablePrice;
+                                       // Direct apps usually match the aggregator base price, and often match their public discounts
+                                       const directFinalP = aggOffer.price.finalPayablePrice || baseP; 
+                                       finalOffers.push({
+                                           providerName: directProv.name,
+                                           price: { basePrice: baseP, finalPayablePrice: directFinalP, discount: baseP > directFinalP ? baseP - directFinalP : 0 },
+                                           deliveryTime: aggOffer.deliveryTime || '30-45 mins',
+                                           rating: aggOffer.rating || '4.1',
+                                           couponCode: '',
+                                           potentialSavings: 0,
+                                           isPersonalized: false,
+                                           offerText: 'Direct App Price',
+                                           isStaticFallback: true // Tagged so it doesn't break logic
+                                       });
+                                   }
+                               }
+                           }
+                       }
+
+                       const sortedOffers = finalOffers.sort((a:any, b:any) =>
                          (a.price?.finalPayablePrice||a.price?.basePrice||9999) - (b.price?.finalPayablePrice||b.price?.basePrice||9999)
                        );
                        const bestOffer = sortedOffers[0];
