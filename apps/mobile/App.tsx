@@ -358,49 +358,82 @@ export default function App() {
              const dishName = normalizeText(dishNameRaw);
              const restName = normalizeText(restNameRaw);
 
+             // ── Known chain brands — merge all outlets into one group ──────────
+             const CHAIN_BRANDS = [
+                 'dominos', "domino's", 'pizza hut', 'pizzahut',
+                 'mcdonalds', "mcdonald's", 'kfc', 'burger king', 'burgerking',
+                 'subway', 'tacobell', 'taco bell', 'wowmomo', 'wow momo',
+                 'chaayos', 'chai point', 'chaipoint', 'barista',
+                 'faasos', 'behrouz', 'barbeque nation', 'absolute barbecues',
+                 'haldirams', "haldiram's", 'bikanervala', "nirula's", 'goli vada pav',
+                 'jumbo king', 'jumboking', 'ovenstory', 'oven story',
+                 'lunchbox', 'the good bowl', 'freshmenu',
+             ];
+
              const norm = (s: string) => (s||'').toLowerCase().replace(/[^a-z0-9]/g, '');
              const restKey = norm(restName);
-             
+
+             // Check if this is a known chain brand
+             const matchedChain = CHAIN_BRANDS.find(chain => {
+                 const chainKey = norm(chain);
+                 return restKey.startsWith(chainKey) || restKey.includes(chainKey);
+             });
+
              let group = updated.find(g => {
-                   const gName = norm(g.restaurantName);
-                   if (!restKey || !gName) return false;
-                   if (gName === restKey) return true;
-                   
-                   const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
-                   const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
-                   
-                   if (rWords.length === 0 || gWords.length === 0) return false;
-                   
-                   if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
-                   
-                   const n1 = rWords.join('');
-                   const n2 = gWords.join('');
-                   
-                   if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) {
-                       return true;
-                   }
-                   
-                   return false;
-               });
+                 const gName = norm(g.restaurantName);
+                 if (!restKey || !gName) return false;
+                 if (gName === restKey) return true;
+
+                 // Chain brand matching: "Domino's - Koramangala" matches group "Domino's"
+                 if (matchedChain) {
+                     const chainKey = norm(matchedChain);
+                     return norm(g.restaurantName).startsWith(chainKey) ||
+                            norm(g.restaurantName).includes(chainKey);
+                 }
+
+                 const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+                 const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+
+                 if (rWords.length === 0 || gWords.length === 0) return false;
+                 if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
+
+                 const n1 = rWords.join('');
+                 const n2 = gWords.join('');
+                 if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) return true;
+
+                 return false;
+             });
+
              if (!group) {
-                 group = { id: `rest_${Date.now()}_${Math.random()}`, restaurantName: restName || 'Unknown', imageUrl: item.restaurantImage || item.imageUrl || '', dishes: [] };
+                 // For chain brands, use canonical name (e.g., "Domino's" not "Domino's - Koramangala")
+                 const displayName = matchedChain
+                     ? matchedChain.charAt(0).toUpperCase() + matchedChain.slice(1)
+                     : (restName || 'Unknown');
+                 group = {
+                     id: `rest_${Date.now()}_${Math.random()}`,
+                     restaurantName: displayName,
+                     imageUrl: item.restaurantImage || item.imageUrl || '',
+                     isChainBrand: !!matchedChain,
+                     dishes: [],
+                 };
                  updated.push(group);
-               } else if (!group.imageUrl && (item.restaurantImage || item.imageUrl)) {
-                   group.imageUrl = item.restaurantImage || item.imageUrl;
-               }
+             } else if (!group.imageUrl && (item.restaurantImage || item.imageUrl)) {
+                 group.imageUrl = item.restaurantImage || item.imageUrl;
+             }
 
              const dishKey = norm(dishName);
              let dishEntry = group.dishes.find((d: any) => norm(d.dishName) === dishKey);
              if (!dishEntry) {
                  dishEntry = { dishName, imageUrl: item.dishImage || item.imageUrl || '', offers: [] };
                  group.dishes.push(dishEntry);
-               } else if (!dishEntry.imageUrl && (item.dishImage || item.imageUrl)) {
-                   dishEntry.imageUrl = item.dishImage || item.imageUrl;
-               }
+             } else if (!dishEntry.imageUrl && (item.dishImage || item.imageUrl)) {
+                 dishEntry.imageUrl = item.dishImage || item.imageUrl;
+             }
 
              // DEDUP: Only add offer if this provider hasn't already added one for this dish
-             const alreadyHasOffer = dishEntry.offers.some((o: any) => o.providerName === provider.name);
-             if (!alreadyHasOffer) {
+             // For chain brands: keep the BEST price per provider (lowest finalPayablePrice)
+             const existingOffer = dishEntry.offers.find((o: any) => o.providerName === provider.name);
+             if (!existingOffer) {
                  dishEntry.offers.push({
                      providerName: provider.name,
                      price: item.price,
@@ -408,8 +441,19 @@ export default function App() {
                      rating: item.rating,
                      couponCode: item.couponCode,
                      potentialSavings: item.couponSavings || item.autoCouponSavings || 0,
-                     isPersonalized: connectedProviders.includes(providerId), // flag for connected accounts
+                     isPersonalized: connectedProviders.includes(providerId),
+                     offerText: item.offerText || '',
                  });
+             } else if (matchedChain) {
+                 // Chain brand: update if this outlet has better price
+                 const newPrice = item.price?.finalPayablePrice || item.price?.menuPrice || 9999;
+                 const oldPrice = existingOffer.price?.finalPayablePrice || existingOffer.price?.menuPrice || 9999;
+                 if (newPrice < oldPrice) {
+                     existingOffer.price = item.price;
+                     existingOffer.potentialSavings = item.couponSavings || item.autoCouponSavings || 0;
+                     existingOffer.couponCode = item.couponCode;
+                     existingOffer.offerText = item.offerText || '';
+                 }
              }
           });
           return updated;
