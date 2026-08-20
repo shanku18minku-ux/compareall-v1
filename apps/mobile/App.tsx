@@ -314,13 +314,31 @@ export default function App() {
       const val = q.trim();
       if (!val) return;
       setSearchQuery(val);
-      setSelectedRest(null); // Close restaurant details if open
+      setSelectedRest(null);
       setResults([]);
       setIsSearching(true);
       completedProvidersRef.current.clear();
-      
+
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
       searchTimerRef.current = setTimeout(() => setIsSearching(false), 15000);
+
+      // ── Inject public offers from OFFICIAL_WEB brands immediately ──────────
+      // These brands don't use WebView — call getPublicOffers() directly (pure JS)
+      const directBrands = (PROVIDERS || []).filter(
+          p => p && p.category === activeCategory && p.connectionType === 'OFFICIAL_WEB'
+      );
+
+      directBrands.forEach(provider => {
+          const packet = getPacket(provider.id);
+          if (!packet?.getPublicOffers) return;
+          try {
+              const offers = packet.getPublicOffers(val);
+              if (offers && offers.length > 0) {
+                  // Wrap in setTimeout(0) so state update happens after setResults([]) clears
+                  setTimeout(() => handleDataExtracted({ data: offers }, provider.id), 50);
+              }
+          } catch (_) {}
+      });
   };
 
   const handleDataExtracted = (data: any, providerId: string) => {
