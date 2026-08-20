@@ -100,14 +100,19 @@ const DishCard = ({ dish, sortedOffers, bestOffer, bestPrice, savings, platformC
             const isBest = oIdx === 0;
             const provColor = getProviderColor(offer.providerName);
             const provInit = getProviderInitial(offer.providerName);
-            const price = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
-            const origPrice = offer.price?.basePrice || 0;
-            const hasDiscount = origPrice > price && origPrice > 0;
             const providerId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
             const isConnected = connectedProviders.includes(providerId || '');
+            // STRICT PRICE RULE:
+            // Connected → show their actual discounted/personalized price (finalPayablePrice)
+            // NOT connected → show only the real menu price (no auto-applied coupon discounts)
+            const menuPrice = offer.price?.menuPrice || offer.price?.basePrice || 0;
+            const discountedPrice = offer.price?.finalPayablePrice || menuPrice;
+            const price = isConnected ? discountedPrice : menuPrice;
+            const origPrice = isConnected ? menuPrice : 0; // only show strikethrough when connected
+            const hasDiscount = isConnected && menuPrice > discountedPrice && menuPrice > 0;
             // Show coupon ONLY when connected; otherwise show connect prompt
             const showCoupon = isConnected && offer.couponCode;
-            const showConnectHint = !isConnected && offer.couponCode;
+            const showConnectHint = !isConnected && (offer.couponCode || offer.potentialSavings > 0);
             return (
               <View key={oIdx} style={[{
                 flexDirection: 'row', alignItems: 'center',
@@ -752,13 +757,22 @@ export default function App() {
 
                      {/* Dish cards */}
                      {selectedRest.dishes.map((dish: any, dIdx: number) => {
+                       // Sort by actual menu price — not auto-discounted price
+                       // This ensures "Best Price" reflects what a non-connected user actually pays
+                       const getDisplayPrice = (offer: any) => {
+                           const pId = (PROVIDERS || []).find((pr: any) => pr.name === offer.providerName)?.id;
+                           const isConn = connectedProviders.includes(pId || '');
+                           return isConn
+                               ? (offer.price?.finalPayablePrice || offer.price?.menuPrice || offer.price?.basePrice || 9999)
+                               : (offer.price?.menuPrice || offer.price?.basePrice || 9999);
+                       };
                        const sortedOffers = [...dish.offers].sort((a:any, b:any) =>
-                         (a.price?.finalPayablePrice||a.price?.basePrice||9999) - (b.price?.finalPayablePrice||b.price?.basePrice||9999)
+                         getDisplayPrice(a) - getDisplayPrice(b)
                        );
                        const bestOffer = sortedOffers[0];
-                       const bestPrice = bestOffer?.price?.finalPayablePrice || bestOffer?.price?.basePrice || 0;
+                       const bestPrice = bestOffer ? getDisplayPrice(bestOffer) : 0;
                        const worstPrice = sortedOffers[sortedOffers.length-1];
-                       const maxPrice = worstPrice?.price?.finalPayablePrice || worstPrice?.price?.basePrice || 0;
+                       const maxPrice = worstPrice ? getDisplayPrice(worstPrice) : 0;
                        const savings = sortedOffers.length > 1 ? maxPrice - bestPrice : 0;
                        const platformCount = sortedOffers.length;
                        const isPersonalizedAvailable = sortedOffers.some((o:any) => o.isPersonalized);
