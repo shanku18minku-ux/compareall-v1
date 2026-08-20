@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, 
-  Image, StyleSheet, ActivityIndicator, Vibration, Keyboard, StatusBar
+  Image, StyleSheet, ActivityIndicator, Vibration, Keyboard, StatusBar, Linking
 } from 'react-native';
 import { PROVIDERS, getPacket, FOOD_SUBCATEGORY_ORDER } from './src/lib/packets/registry';
 import { WebViewExtractor } from './src/lib/WebViewExtractor';
@@ -199,6 +199,40 @@ export default function App() {
 
   // Restaurant details mode
   const [selectedRest, setSelectedRest] = useState<any>(null);
+
+  // Deep Link Handling
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      if (!event.url) return;
+      try {
+        const urlObj = new URL(event.url);
+        // Handle compareall.in/search?q=pizza or compareall://search?q=pizza
+        if (urlObj.pathname.includes('/search') || urlObj.host === 'search') {
+          const query = urlObj.searchParams.get('q');
+          if (query) {
+            setSearchQuery(query);
+            // Wait slightly for layout then search
+            setTimeout(() => {
+              handleSearch(query);
+            }, 500);
+          }
+        }
+      } catch (e) {
+        console.log("Error parsing deep link", e);
+      }
+    };
+
+    // Check initial URL if app was opened from closed state
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    // Listen to incoming links while app is open
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Maximum GPS accuracy location fetch
   useEffect(() => {

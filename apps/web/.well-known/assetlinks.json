@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.compareall.app",
+      "sha256_cert_fingerprints": [
+        "26:6F:29:41:1A:30:6C:45:1B:1E:59:D6:6E:59:D7:4E:48:81:A6:AF:8F:60:FB:24:C5:04:8D:29:5E:BE:41:C6"
+      ]
+    }
+  }
+]
