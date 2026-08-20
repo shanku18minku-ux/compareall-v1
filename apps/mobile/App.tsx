@@ -558,8 +558,12 @@ export default function App() {
 
   // Providers used for live WebView extraction (have real login + extractor)
   // Providers that run WebView extraction (WEBVIEW_LOGIN + WEBVIEW_EXTRACT types)
+  // WebView extractors for search — location-filtered to avoid launching
+  // EatSure/EatClub WebViews in cities where they're not available
   const activeProviders = (PROVIDERS || []).filter(p =>
-    p && p.category === activeCategory && p.connectionType !== 'OFFICIAL_WEB'
+    p && p.category === activeCategory &&
+    p.connectionType !== 'OFFICIAL_WEB' &&
+    isProviderAvailableInLocation(p)
   );
 
   // Location-aware provider availability check
