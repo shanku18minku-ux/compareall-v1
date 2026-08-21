@@ -32,6 +32,14 @@ export function makeWebViewBrandPacket(meta: any, staticOffers: any[], extractor
         metadata: meta,
         connectionType: 'OFFICIAL_WEB',
 
+        // URL pattern to detect successful login (matches common post-auth pages)
+        successUrlPattern: (() => {
+            const domain = (meta.url || '').replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '').replace(/\./g, '\\.');
+            if (!domain) return null;
+            // Match profile/account/dashboard/order pages after login
+            return new RegExp(`https?:\\/\\/(www\\.)?${domain}\\/(profile|account|my-account|dashboard|orders|my-orders|menu|home|order|cart|checkout)`, 'i');
+        })(),
+
         // ── Pure-JS instant fallback ─────────────────────────────────────────
         getPublicOffers: (query: string) => {
             const q = (query || '').toLowerCase().trim();
@@ -57,7 +65,77 @@ export function makeWebViewBrandPacket(meta: any, staticOffers: any[], extractor
             }));
         },
 
-        getLoginDetectionScript: () => `(function(){})();`,
+        getLoginDetectionScript: () => `
+(function() {
+    var sent = false;
+    function notifySuccess() {
+        if (sent) return;
+        sent = true;
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS' }));
+    }
+
+    // 1. Intercept fetch() calls for auth/otp/login/verify endpoints
+    try {
+        var origFetch = window.fetch;
+        if (origFetch) {
+            window.fetch = function() {
+                var args = arguments;
+                var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                return origFetch.apply(this, args).then(function(res) {
+                    try {
+                        var u = (url || '').toLowerCase();
+                        if ((u.includes('otp') || u.includes('auth') || u.includes('verify') || u.includes('login') || u.includes('session') || u.includes('token') || u.includes('profile') || u.includes('account')) && res.status >= 200 && res.status < 300) {
+                            setTimeout(notifySuccess, 1000);
+                        }
+                    } catch(e) {}
+                    return res;
+                });
+            };
+        }
+    } catch(e) {}
+
+    // 2. Intercept XHR
+    try {
+        var origOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url) {
+            this.addEventListener('load', function() {
+                try {
+                    var u = (url || '').toLowerCase();
+                    if ((u.includes('otp') || u.includes('auth') || u.includes('verify') || u.includes('login') || u.includes('session')) && this.status >= 200 && this.status < 300) {
+                        setTimeout(notifySuccess, 1000);
+                    }
+                } catch(e) {}
+            });
+            return origOpen.apply(this, arguments);
+        };
+    } catch(e) {}
+
+    // 3. Poll localStorage / cookie for login token (fallback)
+    var pollCount = 0;
+    var pollInterval = setInterval(function() {
+        pollCount++;
+        if (pollCount > 60) { clearInterval(pollInterval); return; } // Stop after 60s
+        try {
+            var hasToken = !!(
+                localStorage.getItem('token') ||
+                localStorage.getItem('access_token') ||
+                localStorage.getItem('user_id') ||
+                localStorage.getItem('userId') ||
+                localStorage.getItem('authToken') ||
+                localStorage.getItem('isLoggedIn') === 'true' ||
+                document.cookie.includes('token=') ||
+                document.cookie.includes('user_id=') ||
+                document.cookie.includes('customer_id=') ||
+                document.cookie.includes('auth=')
+            );
+            if (hasToken) {
+                clearInterval(pollInterval);
+                notifySuccess();
+            }
+        } catch(e) {}
+    }, 1000);
+})();
+`,
 
         getSearchUrl: (query: string, location?: any) => searchUrlFn(query, location),
 

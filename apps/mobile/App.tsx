@@ -572,7 +572,7 @@ export default function App() {
              onSuccess={() => {
                  setConnectedProviders(prev => [...prev, loginModal.id]);
                  setLoginModal(null);
-                 // Stay on Connections tab to show 'CONNECTED' status
+                 setActiveTab('Search'); // Search tab pe redirect
              }}
              onClose={() => setLoginModal(null)}
           />
