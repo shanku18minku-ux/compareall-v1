@@ -364,7 +364,7 @@ true;
 
     // ── 3. DOM scraping fallback (runs after page renders) ───────────────────
     var domAttempts = 0;
-    var maxDomAttempts = 15;
+    var maxDomAttempts = 25; // Sol-3: more retries (was 15)
 
     function tryDom() {
         if (sent) return;
@@ -378,7 +378,7 @@ true;
 
         var cards = document.querySelectorAll(itemSel);
         if (!cards || cards.length === 0) {
-            if (domAttempts < maxDomAttempts) setTimeout(tryDom, 700);
+            if (domAttempts < maxDomAttempts) setTimeout(tryDom, 500); // Sol-3: faster retry (was 700ms)
             else postResults(staticFallback());
             return;
         }
@@ -429,8 +429,8 @@ true;
         else postResults(staticFallback());
     }
 
-    // Start DOM polling after 3 seconds (let SPA hydrate)
-    setTimeout(tryDom, 3000);
+    // Sol-3: Start DOM polling after 2s (faster start), more retries
+    setTimeout(tryDom, 2000);
 
     // Final safety net — send static after 14s if nothing sent yet
     setTimeout(function() {

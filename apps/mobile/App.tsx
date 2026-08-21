@@ -9,6 +9,7 @@ import { WebViewExtractor } from './src/lib/WebViewExtractor';
 import { UniversalCartModal } from './src/lib/UniversalCartModal';
 import { LoginWebViewModal } from './src/lib/LoginWebViewModal';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CATEGORIES = ['Food', 'Commute', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
@@ -45,6 +46,29 @@ export default function App() {
   const [results, setResults] = useState<any[]>([]);
   const completedProvidersRef = useRef<Set<string>>(new Set());
   const searchTimerRef = useRef<any>(null);
+  // Sol-2: Price cache — providerId+dish -> last known price
+  const priceCache = useRef<Record<string, number>>({});
+
+  // Load price cache from AsyncStorage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('compareall_price_cache').then((val) => {
+      if (val) { try { priceCache.current = JSON.parse(val); } catch(_) {} }
+    }).catch(() => {});
+  }, []);
+
+  // Helper: save price to cache
+  const cachePrice = (providerId: string, dishName: string, price: number) => {
+    if (!providerId || !dishName || !price) return;
+    const key = `${providerId}__${dishName.toLowerCase().trim()}`;
+    priceCache.current[key] = price;
+    AsyncStorage.setItem('compareall_price_cache', JSON.stringify(priceCache.current)).catch(() => {});
+  };
+
+  // Helper: get cached price
+  const getCachedPrice = (providerId: string, dishName: string): number => {
+    const key = `${providerId}__${dishName.toLowerCase().trim()}`;
+    return priceCache.current[key] || 0;
+  };
 
   // Cart State
   const [cartItems, setCartItems] = useState<any[]>([]);
@@ -108,9 +132,36 @@ export default function App() {
   const handleDataExtracted = (data: any, providerId: string) => {
       completedProvidersRef.current.add(providerId);
       const items = data.data || data.items || [];
-      if (!items.length) return;
       const provider = PROVIDERS.find(p => p.id === providerId);
       if (!provider) return;
+
+      // Sol-2: If extraction returned empty, try to inject cached prices as fallback
+      if (!items.length) {
+          const cachedItems: any[] = [];
+          // Check if we have any cached prices for this provider + current search
+          const qLow = (searchQuery || '').toLowerCase().trim();
+          Object.keys(priceCache.current).forEach(key => {
+              if (!key.startsWith(providerId + '__')) return;
+              const dishName = key.replace(providerId + '__', '');
+              if (!qLow || dishName.includes(qLow) || qLow.includes(dishName)) {
+                  const cachedPrice = priceCache.current[key];
+                  if (cachedPrice > 0) {
+                      cachedItems.push({
+                          dishName: dishName,
+                          restaurantName: provider.name,
+                          price: { finalPayablePrice: cachedPrice, basePrice: cachedPrice, discount: 0 },
+                          deliveryTime: '~30-45 mins',
+                          rating: '4.0',
+                          couponCode: '',
+                          isCachedPrice: true, // flag to show "last known price"
+                      });
+                  }
+              }
+          });
+          if (!cachedItems.length) return; // No cache either, skip
+          // Use cached items as fallback
+          items.push(...cachedItems);
+      }
 
       setResults(prev => {
           let updated = [...prev];
@@ -118,6 +169,11 @@ export default function App() {
              const dishName = item.dishName || item.name;
              const restName = item.restaurantName || item.restaurant;
              if (!dishName && !restName) return;
+
+             // Sol-2: Cache price on successful live extraction
+             if (!item.isCachedPrice && item.price?.finalPayablePrice > 0) {
+                 cachePrice(providerId, dishName, item.price.finalPayablePrice);
+             }
 
              const norm = (s: string) => (s||'').toLowerCase().replace(/[^a-z0-9]/g, '');
              const restKey = norm(restName);
@@ -127,26 +183,15 @@ export default function App() {
                    if (!restKey || !gName) return false;
                    if (gName === restKey) return true;
                    
-                   // Avoid black-hole grouping where "Pizza" swallows "Domino's Pizza"
-                   // Use strict word boundary check or high-similarity
                    const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
                    const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
                    
                    if (rWords.length === 0 || gWords.length === 0) return false;
-                   
-                   // Require at least first two words to match if they are multi-word, or exact match if single word
                    if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
                    
                    const n1 = rWords.join('');
                    const n2 = gWords.join('');
-                   
-                   // Perfect merge: If they share the exact same first word, AND one's full name is inside the other's
-                   // (e.g. "Jain Shree" in "Jain Shree Sweets" -> MERGES)
-                   // (e.g. "Burger King" vs "Burger Singh" -> BLOCKS, because neither contains the other)
-                   if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) {
-                       return true;
-                   }
-                   
+                   if (rWords[0] === gWords[0] && (n1.includes(n2) || n2.includes(n1))) return true;
                    return false;
                });
              if (!group) {
@@ -165,19 +210,20 @@ export default function App() {
                    dishEntry.imageUrl = item.dishImage || item.imageUrl;
                }
 
-             // Auto coupon extraction is handled inside the packet injection
              dishEntry.offers.push({
                  providerName: provider.name,
                  price: item.price,
                  deliveryTime: item.deliveryTime,
                  rating: item.rating,
                  couponCode: item.couponCode,
-                 potentialSavings: item.couponSavings || item.autoCouponSavings || 0
+                 potentialSavings: item.couponSavings || item.autoCouponSavings || 0,
+                 isCachedPrice: item.isCachedPrice || false, // pass through flag
              });
           });
           return updated;
       });
   };
+
 
   const isProviderAvailableInLocation = (provider: any): boolean => {
       try {
@@ -409,6 +455,9 @@ export default function App() {
                          <View key={oIdx} style={[styles.offerRow, isConnected && styles.offerRowConnected]}>
                              <View style={{flex: 1}}>
                                  <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                 {offer.isCachedPrice ? (
+                                     <Text style={styles.cachedPriceBadge}>🕐 Last known price</Text>
+                                 ) : null}
                                  {isConnected && offer.couponCode ? (
                                      <Text style={styles.couponBadge}>🏷️ {offer.couponCode}</Text>
                                  ) : null}
@@ -692,6 +741,7 @@ const styles = StyleSheet.create({
   strikePrice: { color: '#94a3b8', fontSize: 12, textDecorationLine: 'line-through' },
   savingsBadge: { fontSize: 10, color: '#16a34a', fontWeight: '800', marginTop: 1 },
   personalOfferBadge: { fontSize: 11, color: '#7c3aed', fontWeight: '600', marginTop: 2 },
+  cachedPriceBadge: { fontSize: 10, color: '#94a3b8', fontStyle: 'italic', marginTop: 1 },
   connectedBadge: { fontSize: 10, color: '#16a34a', fontWeight: '700', marginTop: 2 },
   couponBadge: { fontSize: 11, color: '#d97706', fontWeight: '600', marginTop: 2 },
   addBtn: { marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
