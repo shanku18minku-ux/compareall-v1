@@ -25,7 +25,8 @@ import {
 } from './food/brands_biryani_dining';
 
 // Normalize everything to have top-level metadata properties for UI
-const normalize = (packet) => {
+const normalize = (packet: any) => {
+    if (!packet) return packet;
     if (packet.metadata) {
         return {
             ...packet,
@@ -93,8 +94,8 @@ export const PROVIDERS = [
     normalize(AbsoluteBarbecuesPacket),
 ];
 
-export const getPacket = (id) => PROVIDERS.find(p => p.id === id);
-export const getFilteredProviders = () => PROVIDERS;
+export const getPacket = (id: string) => PROVIDERS.find(p => p && p.id === id);
+export const getFilteredProviders = () => PROVIDERS.filter(p => p);
 
 // ── Subcategory order for UI grouping ─────────────────────────────────────────
 export const FOOD_SUBCATEGORY_ORDER = [

@@ -129,7 +129,7 @@ export default function App() {
       // This shows deals immediately without waiting for WebView
       setTimeout(() => {
           PROVIDERS.forEach(provider => {
-              if (typeof provider.getPublicOffers === 'function') {
+              if (provider && typeof provider.getPublicOffers === 'function') {
                   try {
                       const publicOffers = provider.getPublicOffers(val);
                       if (publicOffers && publicOffers.length > 0) {
