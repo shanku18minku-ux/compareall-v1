@@ -3,6 +3,7 @@ import { ZomatoPacket } from './food/zomato';
 import { SwiggyPacket } from './food/swiggy';
 import { EatSurePacket } from './food/eatsure';
 import { EatClubPacket } from './food/eatclub';
+import { MagicpinPacket } from './food/magicpin';
 
 // ── New Brand Packets ─────────────────────────────────────────────────────────
 import {
@@ -50,6 +51,7 @@ export const PROVIDERS = [
     normalize(SwiggyPacket),
     normalize(EatSurePacket),
     normalize(EatClubPacket),
+    normalize(MagicpinPacket), // Public deals aggregator — shows Domino's/KFC/McDonald's real deals
 
     // Fast Food / QSR
     normalize(McDonaldsPacket),

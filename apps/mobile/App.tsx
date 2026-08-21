@@ -120,14 +120,30 @@ export default function App() {
       const val = q.trim();
       if (!val) return;
       setSearchQuery(val);
-      setSelectedRest(null); // Close restaurant details if open
+      setSelectedRest(null);
       setResults([]);
       setIsSearching(true);
       completedProvidersRef.current.clear();
-      
+
+      // Instantly inject public offers from packets that support it (e.g. Magicpin)
+      // This shows deals immediately without waiting for WebView
+      setTimeout(() => {
+          PROVIDERS.forEach(provider => {
+              if (typeof provider.getPublicOffers === 'function') {
+                  try {
+                      const publicOffers = provider.getPublicOffers(val);
+                      if (publicOffers && publicOffers.length > 0) {
+                          handleDataExtracted({ data: publicOffers }, provider.id);
+                      }
+                  } catch(e) {}
+              }
+          });
+      }, 100);
+
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
       searchTimerRef.current = setTimeout(() => setIsSearching(false), 15000);
   };
+
 
   const handleDataExtracted = (data: any, providerId: string) => {
       completedProvidersRef.current.add(providerId);

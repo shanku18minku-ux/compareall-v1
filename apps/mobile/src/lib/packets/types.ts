@@ -41,4 +41,16 @@ export interface ProviderPacket {
      * Generates the platform-specific search URL based on the user's query and location.
      */
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => string;
+
+    /** Optional: URL regex to detect login success via navigation */
+    successUrlPattern?: RegExp | null;
+
+    /** Optional: Instant public offers (no WebView needed) — shown immediately */
+    getPublicOffers?: (query: string) => any[];
+
+    /** Optional: Script injected after login to extract personal account offers */
+    getPersonalOffersInjection?: () => string;
+
+    /** Optional: Post-process extracted data */
+    parseExtraction?: (data: any) => any;
 }
