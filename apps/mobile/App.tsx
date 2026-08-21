@@ -12,10 +12,22 @@ import * as Location from 'expo-location';
 
 const CATEGORIES = ['Food', 'Commute', 'Groceries', 'Shopping', 'Medicine', 'Services', 'Travel'];
 
+// Sub-tabs within Food category
+const FOOD_SUBTABS = ['Food Delivery', 'Takeaway', 'Dine-in'] as const;
+type FoodSubTab = typeof FOOD_SUBTABS[number];
+
+// Which subcategories belong to which Food sub-tab
+const SUBTAB_MAP: Record<FoodSubTab, string[]> = {
+  'Food Delivery': ['Food Delivery'],
+  'Takeaway': ['Fast Food / QSR', 'Pizza', 'Cafe', 'Indian Food / Snacks', 'Rolls / Meals', 'Biryani'],
+  'Dine-in': ['Dining'],
+};
+
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<'Search' | 'Connections'>('Search');
   const [activeCategory, setActiveCategory] = useState('Food');
+  const [foodSubTab, setFoodSubTab] = useState<FoodSubTab>('Food Delivery');
 
   // Location State
   const [location, setLocation] = useState<any>(null);
@@ -196,7 +208,17 @@ export default function App() {
       }
   };
 
-  const activeProviders = (PROVIDERS || []).filter(p => p && p.category === activeCategory && isProviderAvailableInLocation(p));
+  // Filter providers by category, location, AND food sub-tab (when in Food)
+  const activeProviders = (PROVIDERS || []).filter(p => {
+    if (!p || p.category !== activeCategory) return false;
+    if (!isProviderAvailableInLocation(p)) return false;
+    if (activeCategory === 'Food') {
+      const allowedSubcats = SUBTAB_MAP[foodSubTab] || [];
+      const pSubcat = p.subcategory || 'Food Delivery';
+      return allowedSubcats.includes(pSubcat);
+    }
+    return true;
+  });
   
   const connectedCount = activeProviders.filter(p => connectedProviders.includes(p.id)).length;
   const isAllConnected = activeProviders.length > 0 && connectedCount === activeProviders.length;
@@ -281,9 +303,27 @@ export default function App() {
     
     {activeTab === 'Search' && activeCategory === 'Food' && !selectedRest && (
              <View style={{flex: 1}}>
+
+                 {/* Food Sub-tabs */}
+                 <View style={styles.subTabContainer}>
+                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subTabScroll}>
+                         {FOOD_SUBTABS.map(tab => (
+                             <TouchableOpacity
+                                 key={tab}
+                                 style={[styles.subTab, foodSubTab === tab && styles.subTabActive]}
+                                 onPress={() => { setFoodSubTab(tab); setResults([]); setSelectedRest(null); }}
+                             >
+                                 <Text style={[styles.subTabText, foodSubTab === tab && styles.subTabTextActive]}>
+                                     {tab === 'Food Delivery' ? '🛵 Food Delivery' : tab === 'Takeaway' ? '🥡 Takeaway' : '🍽️ Dine-in'}
+                                 </Text>
+                             </TouchableOpacity>
+                         ))}
+                     </ScrollView>
+                 </View>
+
                  <View style={[styles.searchContainer, {flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent', elevation: 0, padding: 0}]}>
           <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 16, elevation: 2}}>
-              <Text style={styles.searchIcon}>??</Text>
+              <Text style={styles.searchIcon}>🔍</Text>
               <TextInput 
                   style={[styles.searchInput, {flex: 1, marginBottom: 0, elevation: 0, backgroundColor: 'transparent'}]}
                   placeholder="Search restaurants or dishes..."
@@ -348,12 +388,33 @@ export default function App() {
                                    <Text style={[styles.dishName, {flex: 1}]}>{dish.dishName}</Text>
                                    {dish.imageUrl ? <Image source={{uri: dish.imageUrl}} style={{width: 70, height: 70, borderRadius: 8, marginLeft: 12}} /> : null}
                                </View>
-                             {dish.offers.map((offer: any, oIdx: number) => (
-                                 <View key={oIdx} style={styles.offerRow}>
-                                     <Text style={styles.offerProvider}>{offer.providerName}</Text>
-                                     <Text style={styles.offerPrice}>{(offer.price?.finalPayablePrice || offer.price?.basePrice) > 0 ? `₹${offer.price?.finalPayablePrice || offer.price?.basePrice}` : 'Price N/A'}</Text>
-                                 </View>
-                             ))}
+                             {dish.offers
+                 .slice()
+                 .sort((a: any, b: any) => (a.price?.finalPayablePrice || 9999) - (b.price?.finalPayablePrice || 9999))
+                 .map((offer: any, oIdx: number) => {
+                     const isConnected = connectedProviders.includes(
+                         PROVIDERS.find(p => p.name === offer.providerName)?.id || ''
+                     );
+                     const priceVal = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
+                     return (
+                         <View key={oIdx} style={[styles.offerRow, isConnected && styles.offerRowConnected]}>
+                             <View style={{flex: 1}}>
+                                 <Text style={styles.offerProvider}>{offer.providerName}</Text>
+                                 {isConnected && offer.couponCode ? (
+                                     <Text style={styles.couponBadge}>🏷️ {offer.couponCode}</Text>
+                                 ) : null}
+                             </View>
+                             <View style={{alignItems: 'flex-end'}}>
+                                 <Text style={[styles.offerPrice, oIdx === 0 && styles.bestPrice]}>
+                                     {priceVal > 0 ? `₹${priceVal}` : 'Price N/A'}
+                                 </Text>
+                                 {isConnected ? (
+                                     <Text style={styles.connectedBadge}>✓ Connected</Text>
+                                 ) : null}
+                             </View>
+                         </View>
+                     );
+                 })}
                              <TouchableOpacity 
                                 style={styles.addBtn}
                                 onPress={() => {
@@ -376,26 +437,30 @@ export default function App() {
           )}
 
           {activeTab === 'Connections' && (
-              <ScrollView contentContainerStyle={{padding: 16}}>
+              <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 40}}>
                   <Text style={styles.connTitle}>Link Accounts</Text>
-                  
-                  <Text style={styles.connCategory}>Food Delivery</Text>
+                  <Text style={styles.connSubtitle}>Connect your food apps to unlock member prices, coupons & exclusive offers</Text>
+
+                  {/* ─── Food Delivery Platforms ──────────────── */}
+                  <View style={styles.connSectionHeader}>
+                      <Text style={styles.connSectionIcon}>🛵</Text>
+                      <Text style={styles.connCategory}>Food Delivery Platforms</Text>
+                  </View>
                   <View style={styles.connGrid}>
-                      {activeProviders.map(p => {
+                      {(PROVIDERS || []).filter(p => p && p.category === 'Food' && p.subcategory === 'Food Delivery').map(p => {
                           const isConn = connectedProviders.includes(p.id);
                           return (
-                              <View key={p.id} style={styles.connCard}>
-                                  <Text style={styles.connIcon}>{p.icon || '??'}</Text>
+                              <View key={p.id} style={[styles.connCard, isConn && styles.connCardConnected]}>
+                                  <View style={styles.connIconCircle}>
+                                      <Text style={styles.connIcon}>{p.icon || '🍽️'}</Text>
+                                  </View>
                                   <Text style={styles.connName}>{p.name}</Text>
                                   {isConn ? (
                                       <View style={[styles.linkBtn, {backgroundColor: '#16a34a'}]}>
-                                          <Text style={styles.linkBtnText}>CONNECTED</Text>
+                                          <Text style={styles.linkBtnText}>✓ CONNECTED</Text>
                                       </View>
                                   ) : (
-                                      <TouchableOpacity 
-                                          style={styles.linkBtn}
-                                          onPress={() => setLoginModal(p)}
-                                      >
+                                      <TouchableOpacity style={styles.linkBtn} onPress={() => setLoginModal(p)}>
                                           <Text style={styles.linkBtnText}>LINK NOW</Text>
                                       </TouchableOpacity>
                                   )}
@@ -403,6 +468,67 @@ export default function App() {
                           );
                       })}
                   </View>
+
+                  {/* ─── Direct Brand Ordering ─────────────────── */}
+                  <View style={styles.connSectionHeader}>
+                      <Text style={styles.connSectionIcon}>🏪</Text>
+                      <Text style={styles.connCategory}>Direct Brand Ordering</Text>
+                  </View>
+                  <Text style={styles.connSectionNote}>Connect to get member discounts, loyalty points & exclusive coupons directly from these brands</Text>
+                  <View style={styles.connGrid}>
+                      {(PROVIDERS || []).filter(p => p && p.category === 'Food' && p.subcategory !== 'Food Delivery' && p.subcategory !== 'Dining').map(p => {
+                          const isConn = connectedProviders.includes(p.id);
+                          return (
+                              <View key={p.id} style={[styles.connCard, isConn && styles.connCardConnected]}>
+                                  <View style={styles.connIconCircle}>
+                                      <Text style={styles.connIcon}>{p.icon || '🍽️'}</Text>
+                                  </View>
+                                  <Text style={styles.connName}>{p.name}</Text>
+                                  {isConn ? (
+                                      <View style={[styles.linkBtn, {backgroundColor: '#16a34a'}]}>
+                                          <Text style={styles.linkBtnText}>✓ CONNECTED</Text>
+                                      </View>
+                                  ) : (
+                                      <TouchableOpacity style={styles.linkBtn} onPress={() => setLoginModal(p)}>
+                                          <Text style={styles.linkBtnText}>LINK NOW</Text>
+                                      </TouchableOpacity>
+                                  )}
+                              </View>
+                          );
+                      })}
+                  </View>
+
+                  {/* ─── Dine-in / Restaurants ─────────────────── */}
+                  {(PROVIDERS || []).some(p => p && p.category === 'Food' && p.subcategory === 'Dining') && (
+                      <>
+                          <View style={styles.connSectionHeader}>
+                              <Text style={styles.connSectionIcon}>🍽️</Text>
+                              <Text style={styles.connCategory}>Dine-in Restaurants</Text>
+                          </View>
+                          <View style={styles.connGrid}>
+                              {(PROVIDERS || []).filter(p => p && p.category === 'Food' && p.subcategory === 'Dining').map(p => {
+                                  const isConn = connectedProviders.includes(p.id);
+                                  return (
+                                      <View key={p.id} style={[styles.connCard, isConn && styles.connCardConnected]}>
+                                          <View style={styles.connIconCircle}>
+                                              <Text style={styles.connIcon}>{p.icon || '🍽️'}</Text>
+                                          </View>
+                                          <Text style={styles.connName}>{p.name}</Text>
+                                          {isConn ? (
+                                              <View style={[styles.linkBtn, {backgroundColor: '#16a34a'}]}>
+                                                  <Text style={styles.linkBtnText}>✓ CONNECTED</Text>
+                                              </View>
+                                          ) : (
+                                              <TouchableOpacity style={styles.linkBtn} onPress={() => setLoginModal(p)}>
+                                                  <Text style={styles.linkBtnText}>LINK NOW</Text>
+                                              </TouchableOpacity>
+                                          )}
+                                      </View>
+                                  );
+                              })}
+                          </View>
+                      </>
+                  )}
               </ScrollView>
           )}
           
@@ -417,12 +543,12 @@ export default function App() {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Search')}>
-              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}></Text>
-<Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
+              <Text style={[styles.navIcon, activeTab === 'Search' && styles.navActive]}>🔍</Text>
+              <Text style={[styles.navText, activeTab === 'Search' && styles.navActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('Connections')}>
-              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}></Text>
-<Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
+              <Text style={[styles.navIcon, activeTab === 'Connections' && styles.navActive]}>🔗</Text>
+              <Text style={[styles.navText, activeTab === 'Connections' && styles.navActive]}>Connections</Text>
           </TouchableOpacity>
       </View>
 
@@ -430,7 +556,7 @@ export default function App() {
       {cartItems.length > 0 && activeTab === 'Search' && (
           <TouchableOpacity style={styles.floatingCart} onPress={() => setIsCartVisible(true)}>
               <Text style={styles.floatingCartText}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} Items</Text>
-              <Text style={styles.floatingCartText}>View Cart ?</Text>
+              <Text style={styles.floatingCartText}>View Cart →</Text>
           </TouchableOpacity>
       )}
 
@@ -446,7 +572,7 @@ export default function App() {
              onSuccess={() => {
                  setConnectedProviders(prev => [...prev, loginModal.id]);
                  setLoginModal(null);
-                 setActiveTab('Search');
+                 // Stay on Connections tab to show 'CONNECTED' status
              }}
              onClose={() => setLoginModal(null)}
           />
@@ -498,6 +624,14 @@ const styles = StyleSheet.create({
   slabTabActive: { backgroundColor: '#000' },
   slabTabText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
   slabTabTextActive: { color: '#fff' },
+
+  // Food Sub-tabs
+  subTabContainer: { backgroundColor: '#fff', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  subTabScroll: { paddingHorizontal: 16, gap: 8 },
+  subTab: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: 'transparent' },
+  subTabActive: { backgroundColor: '#eff6ff', borderColor: '#3b82f6' },
+  subTabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  subTabTextActive: { color: '#2563eb' },
   
   content: { flex: 1 },
   searchContainer: { margin: 16, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0,height:2}, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
@@ -522,18 +656,29 @@ const styles = StyleSheet.create({
   menuTitle: { fontSize: 22, fontWeight: 'bold', color: '#000', marginBottom: 16 },
   dishCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
   dishName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 12 },
-  offerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
-  offerProvider: { fontSize: 14, color: '#475569' },
+  offerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center', padding: 8, borderRadius: 8, backgroundColor: '#f8fafc' },
+  offerRowConnected: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0' },
+  offerProvider: { fontSize: 14, color: '#475569', fontWeight: '600' },
   offerPrice: { fontSize: 14, fontWeight: 'bold', color: '#0f172a' },
+  bestPrice: { color: '#16a34a', fontSize: 16 },
+  connectedBadge: { fontSize: 10, color: '#16a34a', fontWeight: '700', marginTop: 2 },
+  couponBadge: { fontSize: 11, color: '#d97706', fontWeight: '600', marginTop: 2 },
   addBtn: { marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
   addBtnText: { color: '#16a34a', fontWeight: 'bold', fontSize: 14 },
   
-  connTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  connCategory: { fontSize: 18, fontWeight: 'bold', color: '#334155', marginBottom: 12 },
-  connGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  // Connections tab styles
+  connTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
+  connSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, lineHeight: 20 },
+  connSectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 8 },
+  connSectionIcon: { fontSize: 20, marginRight: 8 },
+  connCategory: { fontSize: 18, fontWeight: 'bold', color: '#334155' },
+  connSectionNote: { fontSize: 12, color: '#94a3b8', marginBottom: 12, marginTop: -4 },
+  connGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 8 },
   connCard: { width: '48%', backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0,height:1}, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  connIcon: { fontSize: 32, marginBottom: 8 },
-  connName: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  connCardConnected: { borderWidth: 2, borderColor: '#86efac' },
+  connIconCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  connIcon: { fontSize: 24 },
+  connName: { fontSize: 14, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   linkBtn: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, width: '100%', alignItems: 'center' },
   linkBtnText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   
