@@ -19,7 +19,7 @@ interface LoginWebViewModalProps {
     providerIcon: string;
     loginUrl: string;
     location?: { latitude: number; longitude: number; name: string } | null;
-    onSuccess: () => void;
+    onSuccess: (personalOffers?: any[]) => void;
     onClose: () => void;
 }
 
@@ -44,6 +44,8 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
     const webViewRef = useRef<WebView>(null);
     const [loading, setLoading] = useState(true);
     const successFiredRef = useRef(false);
+    const [extractingOffers, setExtractingOffers] = useState(false);
+    const personalOffersRef = useRef<any[]>([]);
 
     const packet = getPacket(providerId);
 
@@ -51,8 +53,25 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
         if (successFiredRef.current) return;
         successFiredRef.current = true;
         Vibration.vibrate(50);
-        onSuccess();
-    }, [onSuccess]);
+
+        // If packet has personal offers injection, extract first then call onSuccess
+        if (packet && typeof packet.getPersonalOffersInjection === 'function') {
+            setExtractingOffers(true);
+            // Inject the personal offers script into the still-open WebView
+            try {
+                webViewRef.current?.injectJavaScript(packet.getPersonalOffersInjection());
+            } catch(e) {
+                onSuccess([]);
+            }
+            // Fallback: if no PERSONAL_OFFERS message in 10s, proceed anyway
+            setTimeout(() => {
+                setExtractingOffers(false);
+                onSuccess(personalOffersRef.current);
+            }, 10000);
+        } else {
+            onSuccess([]);
+        }
+    }, [onSuccess, packet]);
 
     const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
         if (!packet || successFiredRef.current) return;
@@ -65,9 +84,16 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
     const handleMessage = useCallback((event: any) => {
         try {
             const data = JSON.parse(event.nativeEvent.data);
-            if (data.type === 'SUCCESS') handleSuccess();
+            if (data.type === 'SUCCESS') {
+                handleSuccess();
+            } else if (data.type === 'PERSONAL_OFFERS') {
+                // Personal offers extracted — store and call onSuccess
+                personalOffersRef.current = data.offers || [];
+                setExtractingOffers(false);
+                onSuccess(data.offers || []);
+            }
         } catch (_) {}
-    }, [handleSuccess]);
+    }, [handleSuccess, onSuccess]);
 
     const handleClose = () => {
         successFiredRef.current = false;
@@ -191,7 +217,9 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                         <Text style={styles.headerIcon}>{providerIcon}</Text>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.headerTitle}>Login to {providerName}</Text>
-                            <Text style={styles.headerSub}>Enter mobile & OTP to link account</Text>
+                            <Text style={styles.headerSub}>
+                                {extractingOffers ? '✨ Fetching your personal offers...' : 'Enter mobile & OTP to link account'}
+                            </Text>
                         </View>
                     </View>
                     <View style={styles.headerRightActions}>

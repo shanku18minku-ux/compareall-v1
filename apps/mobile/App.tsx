@@ -35,6 +35,8 @@ export default function App() {
   // Connections State
   const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
   const [loginModal, setLoginModal] = useState<any>(null);
+  // Map of providerId -> personal offers fetched after login
+  const [personalOffers, setPersonalOffers] = useState<Record<string, any[]>>({});
 
   // Search & Extraction State
   const [searchQuery, setSearchQuery] = useState('');
@@ -392,10 +394,17 @@ export default function App() {
                  .slice()
                  .sort((a: any, b: any) => (a.price?.finalPayablePrice || 9999) - (b.price?.finalPayablePrice || 9999))
                  .map((offer: any, oIdx: number) => {
-                     const isConnected = connectedProviders.includes(
-                         PROVIDERS.find(p => p.name === offer.providerName)?.id || ''
-                     );
+                     const providerObj = PROVIDERS.find(p => p.name === offer.providerName);
+                     const isConnected = connectedProviders.includes(providerObj?.id || '');
                      const priceVal = offer.price?.finalPayablePrice || offer.price?.basePrice || 0;
+                     // Get personal offers for this provider
+                     const myOffers = isConnected && providerObj
+                         ? (personalOffers[providerObj.id] || []).slice(0, 2)
+                         : [];
+                     const bestPersonalSaving = myOffers.reduce((max: number, o: any) => Math.max(max, o.discount || 0), 0);
+                     const effectivePrice = bestPersonalSaving > 0 && priceVal > 0
+                         ? Math.max(priceVal - bestPersonalSaving, 0)
+                         : priceVal;
                      return (
                          <View key={oIdx} style={[styles.offerRow, isConnected && styles.offerRowConnected]}>
                              <View style={{flex: 1}}>
@@ -403,11 +412,25 @@ export default function App() {
                                  {isConnected && offer.couponCode ? (
                                      <Text style={styles.couponBadge}>🏷️ {offer.couponCode}</Text>
                                  ) : null}
+                                 {/* Show personal offers/coupons from the account */}
+                                 {myOffers.map((po: any, pIdx: number) => (
+                                     <Text key={pIdx} style={styles.personalOfferBadge}>
+                                         🎁 {po.code ? po.code + ' — ' : ''}{po.description ? po.description.slice(0, 40) : ''}
+                                     </Text>
+                                 ))}
                              </View>
                              <View style={{alignItems: 'flex-end'}}>
-                                 <Text style={[styles.offerPrice, oIdx === 0 && styles.bestPrice]}>
-                                     {priceVal > 0 ? `₹${priceVal}` : 'Price N/A'}
-                                 </Text>
+                                 {bestPersonalSaving > 0 && priceVal > 0 ? (
+                                     <>
+                                         <Text style={[styles.offerPrice, styles.strikePrice]}>₹{priceVal}</Text>
+                                         <Text style={[styles.offerPrice, styles.bestPrice]}>₹{effectivePrice}</Text>
+                                         <Text style={styles.savingsBadge}>Save ₹{bestPersonalSaving}</Text>
+                                     </>
+                                 ) : (
+                                     <Text style={[styles.offerPrice, oIdx === 0 && styles.bestPrice]}>
+                                         {priceVal > 0 ? `₹${priceVal}` : 'Price N/A'}
+                                     </Text>
+                                 )}
                                  {isConnected ? (
                                      <Text style={styles.connectedBadge}>✓ Connected</Text>
                                  ) : null}
@@ -415,6 +438,7 @@ export default function App() {
                          </View>
                      );
                  })}
+
                              <TouchableOpacity 
                                 style={styles.addBtn}
                                 onPress={() => {
@@ -569,10 +593,14 @@ export default function App() {
              providerIcon={loginModal.icon}
              loginUrl={loginModal.loginUrl}
              location={location}
-             onSuccess={() => {
+             onSuccess={(offers) => {
                  setConnectedProviders(prev => [...prev, loginModal.id]);
+                 // Store personal offers for this provider
+                 if (offers && offers.length > 0) {
+                     setPersonalOffers(prev => ({ ...prev, [loginModal.id]: offers }));
+                 }
                  setLoginModal(null);
-                 setActiveTab('Search'); // Search tab pe redirect
+                 setActiveTab('Search'); // Redirect to Search
              }}
              onClose={() => setLoginModal(null)}
           />
@@ -661,6 +689,9 @@ const styles = StyleSheet.create({
   offerProvider: { fontSize: 14, color: '#475569', fontWeight: '600' },
   offerPrice: { fontSize: 14, fontWeight: 'bold', color: '#0f172a' },
   bestPrice: { color: '#16a34a', fontSize: 16 },
+  strikePrice: { color: '#94a3b8', fontSize: 12, textDecorationLine: 'line-through' },
+  savingsBadge: { fontSize: 10, color: '#16a34a', fontWeight: '800', marginTop: 1 },
+  personalOfferBadge: { fontSize: 11, color: '#7c3aed', fontWeight: '600', marginTop: 2 },
   connectedBadge: { fontSize: 10, color: '#16a34a', fontWeight: '700', marginTop: 2 },
   couponBadge: { fontSize: 11, color: '#d97706', fontWeight: '600', marginTop: 2 },
   addBtn: { marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#16a34a', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },

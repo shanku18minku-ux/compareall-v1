@@ -583,6 +583,116 @@ export const SwiggyPacket: ProviderPacket = {
             return `https://www.swiggy.com/search?lat=${lat}&lng=${lng}&query=${encodeURIComponent(query)}`;
         }
         return `https://www.swiggy.com/search?query=${encodeURIComponent(query)}`;
+    },
+
+    // ── Personal Offers Extraction (runs after user logs in) ─────────────────
+    getPersonalOffersInjection: () => `
+(function() {
+    var sent = false;
+    function sendOffers(offers) {
+        if (sent) return;
+        sent = true;
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'PERSONAL_OFFERS',
+            providerId: 'food-a',
+            offers: offers
+        }));
     }
+
+    var collectedOffers = [];
+    var origFetch = window.fetch;
+
+    // Intercept Swiggy's coupon/offer API calls
+    if (origFetch) {
+        window.fetch = function() {
+            var args = arguments;
+            var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+            return origFetch.apply(this, args).then(function(res) {
+                var cloned = res.clone();
+                try {
+                    var u = (url || '').toLowerCase();
+                    // Swiggy coupon/offer APIs
+                    if (u.includes('coupon') || u.includes('offer') || u.includes('discount') || u.includes('voucher') || u.includes('loyalty') || u.includes('wallet') || u.includes('super')) {
+                        cloned.json().then(function(data) {
+                            try {
+                                // Parse Swiggy offer structures
+                                var offers = [];
+                                var raw = data.data || data.offers || data.coupons || data.discounts || data.result || [];
+                                if (Array.isArray(raw)) {
+                                    raw.forEach(function(o) {
+                                        var code = o.couponCode || o.code || o.voucherCode || '';
+                                        var desc = o.description || o.title || o.offerTitle || o.header || '';
+                                        var discount = o.discountAmount || o.discount || o.savings || 0;
+                                        var minOrder = o.minOrderValue || o.minimumOrderValue || 0;
+                                        if (code || desc) {
+                                            offers.push({ code: code, description: desc, discount: discount, minOrder: minOrder, source: 'swiggy' });
+                                        }
+                                    });
+                                }
+                                // Also handle nested structures
+                                var nested = data.data?.coupons || data.data?.offers || [];
+                                if (Array.isArray(nested)) {
+                                    nested.forEach(function(o) {
+                                        var code = o.couponCode || o.code || '';
+                                        var desc = o.description || o.title || '';
+                                        if (code || desc) {
+                                            offers.push({ code: code, description: desc, discount: o.discountAmount || 0, minOrder: o.minOrderValue || 0, source: 'swiggy' });
+                                        }
+                                    });
+                                }
+                                if (offers.length > 0) {
+                                    collectedOffers = collectedOffers.concat(offers);
+                                    sendOffers(collectedOffers);
+                                }
+                            } catch(e) {}
+                        }).catch(function(){});
+                    }
+                } catch(e) {}
+                return res;
+            });
+        };
+    }
+
+    // Navigate to Swiggy offers page to trigger API calls
+    setTimeout(function() {
+        try {
+            // Try to fetch offers directly via Swiggy's API
+            fetch('https://www.swiggy.com/api/offers/v2/available', { credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var offers = [];
+                    var list = d.data?.offers || d.offers || [];
+                    list.forEach(function(o) {
+                        offers.push({
+                            code: o.couponCode || o.code || '',
+                            description: o.description || o.title || '',
+                            discount: o.discountAmount || 0,
+                            minOrder: o.minOrderValue || 0,
+                            source: 'swiggy'
+                        });
+                    });
+                    if (offers.length > 0) { collectedOffers = offers; sendOffers(offers); }
+                }).catch(function(){});
+
+            // Also try wallet balance
+            fetch('https://www.swiggy.com/dapi/v1/swiggy-money/balance', { credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var balance = d.data?.balance || d.balance || 0;
+                    if (balance > 0) {
+                        collectedOffers.push({ code: 'SWIGGY_WALLET', description: 'Swiggy Money: ₹' + balance + ' available', discount: balance, minOrder: 0, source: 'swiggy' });
+                        sendOffers(collectedOffers);
+                    }
+                }).catch(function(){});
+        } catch(e) {}
+
+        // Fallback: If no offers found after 8s, send empty
+        setTimeout(function() {
+            if (!sent) sendOffers([]);
+        }, 8000);
+    }, 2000);
+})();
+true;
+`
 };
 

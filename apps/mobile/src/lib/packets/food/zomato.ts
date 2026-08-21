@@ -703,8 +703,101 @@ export const ZomatoPacket: ProviderPacket = {
             citySlug = slugOverrides[rawCity] || slugOverrides[citySlug] || citySlug;
         }
         return `https://www.zomato.com/${citySlug}/delivery-restaurants?q=${encodeURIComponent(query)}`;
+    },
+
+    // ── Personal Offers Extraction (runs after user logs in) ─────────────────
+    getPersonalOffersInjection: () => `
+(function() {
+    var sent = false;
+    function sendOffers(offers) {
+        if (sent) return;
+        sent = true;
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'PERSONAL_OFFERS',
+            providerId: 'food-b',
+            offers: offers
+        }));
     }
+
+    var collectedOffers = [];
+    var origFetch = window.fetch;
+
+    // Intercept Zomato offer/coupon API responses
+    if (origFetch) {
+        window.fetch = function() {
+            var args = arguments;
+            var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+            return origFetch.apply(this, args).then(function(res) {
+                var cloned = res.clone();
+                try {
+                    var u = (url || '').toLowerCase();
+                    if (u.includes('coupon') || u.includes('offer') || u.includes('voucher') || u.includes('discount') || u.includes('promo') || u.includes('wallet') || u.includes('gold') || u.includes('pro')) {
+                        cloned.json().then(function(data) {
+                            try {
+                                var offers = [];
+                                // Zomato nested offer structures
+                                var sources = [
+                                    data?.data?.coupons, data?.data?.offers, data?.coupons,
+                                    data?.offers, data?.result?.coupons, data?.sections?.OFFERS_AND_BENEFITS
+                                ];
+                                sources.forEach(function(src) {
+                                    if (!Array.isArray(src)) return;
+                                    src.forEach(function(o) {
+                                        var code = o.couponCode || o.code || o.promoCode || '';
+                                        var desc = o.description || o.title || o.offerText || o.header || '';
+                                        var discount = o.discountAmount || o.discount || o.maxDiscount || 0;
+                                        var minOrder = o.minOrderValue || o.minimumOrderValue || 0;
+                                        if (code || desc) {
+                                            offers.push({ code: code, description: desc, discount: discount, minOrder: minOrder, source: 'zomato' });
+                                        }
+                                    });
+                                });
+                                if (offers.length > 0) {
+                                    collectedOffers = collectedOffers.concat(offers);
+                                    sendOffers(collectedOffers);
+                                }
+                            } catch(e) {}
+                        }).catch(function(){});
+                    }
+                } catch(e) {}
+                return res;
+            });
+        };
+    }
+
+    setTimeout(function() {
+        try {
+            // Zomato Gold/Pro offers
+            fetch('https://www.zomato.com/webroutes/offers/listAll', { credentials: 'include', headers: { 'x-zomato-csrft': document.cookie.match(/csrf=[^;]*/)?.[0]?.split('=')[1] || '' } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var offers = [];
+                    var list = d.data?.coupons || d.coupons || d.offers || [];
+                    list.forEach(function(o) {
+                        offers.push({ code: o.couponCode || o.code || '', description: o.description || o.title || '', discount: o.discountAmount || 0, minOrder: o.minOrderValue || 0, source: 'zomato' });
+                    });
+                    if (offers.length > 0) { collectedOffers = offers; sendOffers(offers); }
+                }).catch(function(){});
+
+            // Zomato wallet/money
+            fetch('https://www.zomato.com/webroutes/user/wallet', { credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var balance = d.data?.balance || d.balance || 0;
+                    if (balance > 0) {
+                        collectedOffers.push({ code: 'ZOMATO_WALLET', description: 'Zomato Wallet: ₹' + balance + ' available', discount: balance, minOrder: 0, source: 'zomato' });
+                        sendOffers(collectedOffers);
+                    }
+                }).catch(function(){});
+        } catch(e) {}
+
+        setTimeout(function() { if (!sent) sendOffers([]); }, 8000);
+    }, 2000);
+})();
+true;
+`
 };
+
 
 
 
