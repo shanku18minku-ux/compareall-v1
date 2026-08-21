@@ -43,7 +43,7 @@ export interface ProviderPacket {
     getSearchUrl: (query: string, location?: { latitude: number; longitude: number; name: string } | null) => string;
 
     /** Optional: URL regex to detect login success via navigation */
-    successUrlPattern?: RegExp | null;
+    // successUrlPattern is already defined above
 
     /** Optional: Instant public offers (no WebView needed) — shown immediately */
     getPublicOffers?: (query: string) => any[];

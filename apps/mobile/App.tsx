@@ -182,9 +182,9 @@ export default function App() {
       setResults(prev => {
           let updated = [...prev];
           items.forEach((item: any) => {
-             const dishName = item.dishName || item.name;
-             const restName = item.restaurantName || item.restaurant;
-             if (!dishName && !restName) return;
+             const dishName = item.dishName || item.name || '';
+             const restName = item.restaurantName || item.restaurant || 'Unknown';
+             if (!dishName && restName === 'Unknown') return;
 
              // Sol-2: Cache price on successful live extraction
              if (!item.isCachedPrice && item.price?.finalPayablePrice > 0) {
@@ -199,8 +199,10 @@ export default function App() {
                    if (!restKey || !gName) return false;
                    if (gName === restKey) return true;
                    
-                   const rWords = restName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
-                   const gWords = g.restaurantName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+                   const safeRestName = String(restName || '');
+                   const safeGName = String(g.restaurantName || '');
+                   const rWords = safeRestName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+                   const gWords = safeGName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
                    
                    if (rWords.length === 0 || gWords.length === 0) return false;
                    if (rWords.length === 1 && gWords.length === 1) return rWords[0] === gWords[0];
