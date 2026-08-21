@@ -536,7 +536,7 @@ export default function App() {
                       <Text style={styles.connCategory}>Food Delivery Platforms</Text>
                   </View>
                   <View style={styles.connGrid}>
-                      {(PROVIDERS || []).filter(p => p && p.category === 'Food' && p.subcategory === 'Food Delivery').map(p => {
+                      {(PROVIDERS || []).filter(p => p && p.category === 'Food' && p.subcategory === 'Food Delivery' && !p.hideFromConnections && !p.metadata?.hideFromConnections).map(p => {
                           const isConn = connectedProviders.includes(p.id);
                           return (
                               <View key={p.id} style={[styles.connCard, isConn && styles.connCardConnected]}>

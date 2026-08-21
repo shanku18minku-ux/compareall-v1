@@ -29,7 +29,8 @@ export const MagicpinPacket: ProviderPacket = {
         checkoutUrl: 'https://magicpin.in',
         actionTitle: 'View Deals on Magicpin',
         desc: 'Best deals & cashback on food, dining & more.',
-        regions: ['all'], // Magicpin is available pan-India
+        regions: ['all'],
+        hideFromConnections: true, // Data source only — not a user-login platform
     },
 
     successUrlPattern: /^https?:\/\/(www\.)?magicpin\.in\/(home|profile|account|my-orders|dashboard)/,
