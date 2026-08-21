@@ -170,7 +170,55 @@ export const EatSurePacket: ProviderPacket = {
                 }
             })();
         `;
+    },
+
+    // ── Personal Offers Extraction (after login) ──────────────────────────────
+    getPersonalOffersInjection: () => `
+(function() {
+    var sent = false;
+    var providerId = 'food-eatsure';
+    function sendOffers(offers) {
+        if (sent) return; sent = true;
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PERSONAL_OFFERS', providerId: providerId, offers: offers }));
     }
+    var collected = [];
+    var origFetch = window.fetch;
+    if (origFetch) {
+        window.fetch = function() {
+            var args = arguments;
+            var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+            return origFetch.apply(this, args).then(function(res) {
+                var cloned = res.clone();
+                var u = (url || '').toLowerCase();
+                if (u.includes('coupon') || u.includes('offer') || u.includes('voucher') || u.includes('discount') || u.includes('wallet') || u.includes('promo')) {
+                    cloned.json().then(function(data) {
+                        try {
+                            var list = data.data || data.offers || data.coupons || data.result || [];
+                            if (!Array.isArray(list)) list = Object.values(list).find(function(v) { return Array.isArray(v); }) || [];
+                            var offers = list.map(function(o) { return { code: o.couponCode || o.code || '', description: o.description || o.title || o.offerText || '', discount: o.discountAmount || o.discount || 0, minOrder: o.minOrderValue || 0, source: 'eatsure' }; }).filter(function(o) { return o.code || o.description; });
+                            if (offers.length > 0) { collected = collected.concat(offers); sendOffers(collected); }
+                        } catch(e) {}
+                    }).catch(function(){});
+                }
+                return res;
+            });
+        };
+    }
+    setTimeout(function() {
+        try {
+            fetch('https://www.eatsure.com/api/v1/coupons', { credentials: 'include' }).then(function(r) { return r.json(); }).then(function(d) {
+                var list = d.data || d.coupons || d.offers || [];
+                if (Array.isArray(list) && list.length > 0) {
+                    collected = list.map(function(o) { return { code: o.couponCode || o.code || '', description: o.description || o.title || '', discount: o.discountAmount || 0, minOrder: o.minOrderValue || 0, source: 'eatsure' }; });
+                    sendOffers(collected);
+                }
+            }).catch(function(){});
+        } catch(e) {}
+        setTimeout(function() { if (!sent) sendOffers([]); }, 8000);
+    }, 2000);
+})();
+true;
+`
 };
 
 

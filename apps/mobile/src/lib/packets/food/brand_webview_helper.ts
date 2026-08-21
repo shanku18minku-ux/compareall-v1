@@ -137,6 +137,90 @@ export function makeWebViewBrandPacket(meta: any, staticOffers: any[], extractor
 })();
 `,
 
+        // ── Personal Offers Extraction (after login) ──────────────────────────
+        getPersonalOffersInjection: () => {
+            const brandId = JSON.stringify(meta.id);
+            const brandName = JSON.stringify(meta.name);
+            return `
+(function() {
+    var sent = false;
+    var BRAND_ID = ${brandId};
+    var BRAND = ${brandName};
+    function sendOffers(offers) {
+        if (sent) return; sent = true;
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PERSONAL_OFFERS', providerId: BRAND_ID, offers: offers }));
+    }
+    var collected = [];
+    var origFetch = window.fetch;
+
+    // Intercept any offer/coupon/loyalty API calls
+    if (origFetch) {
+        window.fetch = function() {
+            var args = arguments;
+            var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+            return origFetch.apply(this, args).then(function(res) {
+                var cloned = res.clone();
+                try {
+                    var u = (url || '').toLowerCase();
+                    if (u.includes('coupon') || u.includes('offer') || u.includes('voucher') || u.includes('discount') || u.includes('promo') || u.includes('loyalty') || u.includes('reward') || u.includes('wallet') || u.includes('points') || u.includes('deal')) {
+                        cloned.json().then(function(data) {
+                            try {
+                                var lists = [
+                                    data?.data?.coupons, data?.data?.offers, data?.data?.promotions,
+                                    data?.coupons, data?.offers, data?.promotions, data?.vouchers,
+                                    data?.result?.coupons, data?.result?.offers, data?.deals,
+                                    data?.loyalty?.rewards, data?.rewards
+                                ];
+                                var offers = [];
+                                lists.forEach(function(list) {
+                                    if (!Array.isArray(list)) return;
+                                    list.forEach(function(o) {
+                                        var code = o.couponCode || o.code || o.promoCode || o.voucherCode || '';
+                                        var desc = o.description || o.title || o.offerText || o.name || o.header || '';
+                                        var discount = o.discountAmount || o.discount || o.savings || o.value || 0;
+                                        var minOrder = o.minOrderValue || o.minimumOrder || o.minCart || 0;
+                                        if (code || desc) offers.push({ code: code, description: desc, discount: discount, minOrder: minOrder, source: BRAND });
+                                    });
+                                });
+                                // Also check loyalty points / wallet
+                                var points = data?.data?.loyaltyPoints || data?.loyaltyPoints || data?.points || data?.data?.points || 0;
+                                var wallet = data?.data?.walletBalance || data?.walletBalance || data?.data?.balance || data?.balance || 0;
+                                if (points > 0) offers.push({ code: BRAND + '_POINTS', description: BRAND + ' Points: ' + points + ' pts', discount: Math.floor(points / 10), minOrder: 0, source: BRAND });
+                                if (wallet > 0) offers.push({ code: BRAND + '_WALLET', description: BRAND + ' Wallet: ₹' + wallet, discount: wallet, minOrder: 0, source: BRAND });
+                                if (offers.length > 0) { collected = collected.concat(offers); sendOffers(collected); }
+                            } catch(e) {}
+                        }).catch(function(){});
+                    }
+                } catch(e) {}
+                return res;
+            });
+        };
+    }
+
+    // DOM scrape: look for visible offer/coupon elements on the page
+    setTimeout(function() {
+        try {
+            var offerEls = document.querySelectorAll('[class*="coupon"], [class*="offer"], [class*="voucher"], [class*="promo"], [class*="deal"], [class*="discount"]');
+            var domOffers = [];
+            offerEls.forEach(function(el) {
+                var text = el.innerText && el.innerText.trim();
+                if (text && text.length > 3 && text.length < 120) {
+                    // Try to extract code-like text (all caps, 4-15 chars)
+                    var codeMatch = text.match(/\\b([A-Z0-9]{4,15})\\b/);
+                    domOffers.push({ code: codeMatch ? codeMatch[1] : '', description: text.slice(0, 80), discount: 0, minOrder: 0, source: BRAND });
+                }
+            });
+            if (domOffers.length > 0) { collected = collected.concat(domOffers); sendOffers(collected); }
+        } catch(e) {}
+
+        // Final fallback after 8s
+        setTimeout(function() { if (!sent) sendOffers([]); }, 8000);
+    }, 3000);
+})();
+true;
+`;
+        },
+
         getSearchUrl: (query: string, location?: any) => searchUrlFn(query, location),
 
         // ── WebView injection: intercept brand APIs + DOM fallback ─────────
