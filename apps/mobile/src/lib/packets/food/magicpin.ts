@@ -101,8 +101,6 @@ true;
     // ── Public deals extraction (NO login needed) ───────────────────────────────
     getExtractorInjection: (searchUrl: string, query?: string, location?: any) => {
         const q = JSON.stringify(query || '');
-        const lat = location?.latitude || 0;
-        const lng = location?.longitude || 0;
 
         return `
 (function() {
@@ -110,7 +108,8 @@ true;
     var sent = false;
 
     function sendResults(data) {
-        if (sent) return; sent = true;
+        if (sent || !data || !data.length) return;
+        sent = true;
         window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'SEARCH_RESULTS',
             success: true,
@@ -118,21 +117,96 @@ true;
         }));
     }
 
-    function parsePrice(txt) {
-        if (!txt) return 0;
-        var m = (txt || '').replace(/,/g, '').match(/[\\d]+(?:\\.\\d+)?/);
-        return m ? parseFloat(m[0]) : 0;
-    }
-
     function matchQuery(text) {
-        if (!q || q === '' || q === 'food' || q === '""') return true;
-        var qClean = q.replace(/"/g, '').toLowerCase();
-        return (text || '').toLowerCase().indexOf(qClean) !== -1;
+        if (!q || q === '""' || q === '' || q.replace(/"/g,'') === 'food') return true;
+        var qc = q.replace(/"/g, '').toLowerCase();
+        return (text || '').toLowerCase().indexOf(qc) !== -1;
     }
 
-    var collected = [];
+    function parsePrice(val) {
+        if (!val) return 0;
+        var m = String(val).replace(/,/g,'').match(/[\\d]+(?:\\.\\d+)?/);
+        return m ? Math.round(parseFloat(m[0])) : 0;
+    }
 
-    // ── 1. Intercept Magicpin API calls ─────────────────────────────────────
+    // ── GOLDEN PATH: Parse __NEXT_DATA__ JSON (most reliable for Next.js) ──
+    function tryNextData() {
+        try {
+            var el = document.getElementById('__NEXT_DATA__');
+            if (!el || !el.textContent) return false;
+            var json = JSON.parse(el.textContent);
+
+            // Walk the Next.js page props tree
+            var props = json?.props?.pageProps;
+            if (!props) return false;
+
+            // Try multiple field names Magicpin might use
+            var lists = [
+                props?.merchants, props?.restaurants, props?.outlets,
+                props?.data?.merchants, props?.data?.restaurants,
+                props?.initialData?.merchants, props?.listings,
+                props?.searchResults?.merchants, props?.results,
+            ].filter(Boolean).find(function(l) { return Array.isArray(l) && l.length > 0; });
+
+            if (!lists || !lists.length) return false;
+
+            var results = [];
+            lists.forEach(function(m) {
+                var name = m.name || m.merchantName || m.merchant_name || m.title || '';
+                if (!name) return;
+                if (!matchQuery(name)) return;
+
+                var cashbackPct = m.cashbackPct || m.cashback_pct || m.cashback || 0;
+                var discountPct = m.discountPct || m.discount_percent || m.discount || 0;
+                var minSpend = parsePrice(m.minSpend || m.min_spend || m.minimumSpend || 0);
+                var avgCost = parsePrice(m.averageCost || m.avgCost || m.averagePrice || m.priceForTwo || 0) / 2;
+                var rating = m.rating || m.avgRating || m.average_rating || '4.0';
+
+                // Compute effective price
+                var basePrice = avgCost || 150;
+                var saving = 0;
+                if (discountPct > 0) saving = Math.round(basePrice * discountPct / 100);
+                var finalPrice = saving > 0 ? Math.max(basePrice - saving, 1) : basePrice;
+
+                // Deal text
+                var offerText = m.offerText || m.deal || m.dealText || m.tagline || '';
+                if (!offerText && cashbackPct > 0) offerText = cashbackPct + '% Cashback on Magicpin';
+                if (!offerText && discountPct > 0) offerText = discountPct + '% OFF';
+
+                // Best coupon code from nested offers
+                var coupon = '';
+                var offers = m.offers || m.deals || m.coupons || [];
+                if (Array.isArray(offers) && offers.length > 0) {
+                    coupon = offers[0].code || offers[0].couponCode || '';
+                    if (!offerText) offerText = offers[0].title || offers[0].description || '';
+                }
+
+                results.push({
+                    dishName: name + (offerText ? ' — ' + offerText.slice(0, 60) : ''),
+                    restaurantName: name,
+                    dishImage: m.image || m.merchant_image || m.logo || m.imageUrl || '',
+                    price: {
+                        finalPayablePrice: finalPrice,
+                        basePrice: Math.round(basePrice),
+                        discount: saving
+                    },
+                    deliveryTime: m.eta || m.deliveryTime || '~30-40 mins',
+                    rating: String(rating),
+                    couponCode: coupon,
+                    autoCouponSavings: saving,
+                    offerStatus: (saving > 0 || cashbackPct > 0) ? 'LIVE_OFFER' : 'PUBLIC',
+                    offerLabel: offerText || 'Magicpin Deal',
+                    magicpinCashback: cashbackPct,
+                    minSpend: minSpend,
+                });
+            });
+
+            if (results.length > 0) { sendResults(results); return true; }
+            return false;
+        } catch(e) { return false; }
+    }
+
+    // ── API Interception (catches dynamic loads after __NEXT_DATA__) ─────────
     var origFetch = window.fetch;
     if (origFetch) {
         window.fetch = function() {
@@ -141,12 +215,41 @@ true;
             return origFetch.apply(this, args).then(function(res) {
                 var cloned = res.clone();
                 var u = (url || '').toLowerCase();
-                // Magicpin API patterns
-                if (u.includes('/search') || u.includes('/merchants') || u.includes('/listing') || u.includes('/feed') || u.includes('/restaurants') || u.includes('/deals') || u.includes('/offers')) {
+                if (u.includes('merchant') || u.includes('outlet') || u.includes('search') ||
+                    u.includes('listing') || u.includes('feed') || u.includes('restaurant')) {
                     cloned.json().then(function(data) {
                         try {
-                            var items = parseMagicpinData(data);
-                            if (items.length > 0) { collected = collected.concat(items); sendResults(collected); }
+                            // Search common list fields
+                            var lists = [
+                                data?.data?.merchants, data?.merchants, data?.data?.restaurants,
+                                data?.restaurants, data?.results, data?.data?.results,
+                                data?.items, data?.data?.items,
+                            ].filter(Boolean).find(function(l) { return Array.isArray(l) && l.length > 0; });
+
+                            if (!lists) return;
+                            var results = [];
+                            lists.forEach(function(m) {
+                                var name = m.name || m.merchantName || m.title || '';
+                                if (!name || !matchQuery(name)) return;
+                                var cashback = m.cashbackPct || m.cashback_pct || 0;
+                                var disc = m.discountPct || m.discount || 0;
+                                var base = parsePrice(m.averageCost || m.priceForTwo || 0) / 2 || 150;
+                                var saving = disc > 0 ? Math.round(base * disc / 100) : 0;
+                                results.push({
+                                    dishName: name + (cashback > 0 ? ' — ' + cashback + '% Cashback' : disc > 0 ? ' — ' + disc + '% OFF' : ''),
+                                    restaurantName: name,
+                                    dishImage: m.image || '',
+                                    price: { finalPayablePrice: Math.max(base - saving, 1), basePrice: base, discount: saving },
+                                    deliveryTime: '~30-40 mins',
+                                    rating: String(m.rating || '4.0'),
+                                    couponCode: '',
+                                    autoCouponSavings: saving,
+                                    offerStatus: (saving > 0 || cashback > 0) ? 'LIVE_OFFER' : 'PUBLIC',
+                                    offerLabel: cashback > 0 ? cashback + '% Cashback' : disc > 0 ? disc + '% OFF' : 'Magicpin Deal',
+                                    magicpinCashback: cashback,
+                                });
+                            });
+                            if (results.length > 0) sendResults(results);
                         } catch(e) {}
                     }).catch(function(){});
                 }
@@ -155,169 +258,29 @@ true;
         };
     }
 
-    // XHR interception
-    var OrigXHR = window.XMLHttpRequest;
-    function PatchedXHR() {
-        var xhr = new OrigXHR();
-        var _url = '';
-        var origOpen = xhr.open.bind(xhr);
-        xhr.open = function(method, url) { _url = url || ''; return origOpen.apply(xhr, arguments); };
-        var origSend = xhr.send.bind(xhr);
-        xhr.send = function(body) {
-            var u = _url.toLowerCase();
-            if (u.includes('/search') || u.includes('/merchant') || u.includes('/listing') || u.includes('/deal')) {
-                xhr.addEventListener('load', function() {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        var items = parseMagicpinData(data);
-                        if (items.length > 0 && !sent) { collected = collected.concat(items); sendResults(collected); }
-                    } catch(e) {}
-                });
-            }
-            return origSend.apply(xhr, arguments);
-        };
-        return xhr;
-    }
-    try { window.XMLHttpRequest = PatchedXHR; } catch(e) {}
-
-    // ── 2. Parse Magicpin API response structures ────────────────────────────
-    function parseMagicpinData(data) {
-        var results = [];
-        // Try multiple Magicpin data shapes
-        var sources = [
-            data?.data?.merchants, data?.merchants, data?.data?.restaurants,
-            data?.restaurants, data?.data?.results, data?.results,
-            data?.data?.items, data?.items, data?.data?.deals, data?.deals,
-            data?.data?.feed, data?.feed
-        ];
-        sources.forEach(function(list) {
-            if (!Array.isArray(list)) return;
-            list.forEach(function(m) {
-                var name = m.name || m.merchant_name || m.restaurantName || m.title || '';
-                if (!name) return;
-                if (!matchQuery(name)) return;
-
-                // Extract best offer/deal
-                var offer = (m.offers || m.deals || [])[0] || m.bestOffer || m.topDeal || {};
-                var offerText = offer.title || offer.description || m.offerText || m.tagline || '';
-                var cashback = m.cashbackPercent || m.cashback_percent || m.cashbackPercentage || 0;
-                var discount = offer.discountPercent || offer.discount || 0;
-                var basePrice = parsePrice(m.averagePrice || m.avgCost || m.priceForTwo || '0') / 2 || 0;
-                var finalPrice = basePrice;
-                if (discount > 0) finalPrice = Math.max(basePrice - (basePrice * discount / 100), 0);
-
-                // Format coupon code from offer
-                var couponCode = offer.code || offer.couponCode || '';
-                if (!couponCode && offerText) {
-                    var cm = offerText.match(/\\b([A-Z0-9]{4,15})\\b/);
-                    if (cm) couponCode = cm[1];
-                }
-
-                var cashbackText = cashback > 0 ? cashback + '% Cashback' : '';
-
-                results.push({
-                    dishName: name + (offerText ? ' — ' + offerText.slice(0, 50) : '') + (cashbackText ? ' [' + cashbackText + ']' : ''),
-                    restaurantName: name,
-                    dishImage: m.image || m.merchant_image || m.logo || '',
-                    price: {
-                        finalPayablePrice: Math.round(finalPrice) || 0,
-                        basePrice: Math.round(basePrice) || 0,
-                        discount: Math.round(discount) || 0
-                    },
-                    deliveryTime: m.eta || m.deliveryTime || '~30-40 mins',
-                    rating: m.rating || m.avgRating || '4.0',
-                    couponCode: couponCode,
-                    autoCouponSavings: Math.round(basePrice * discount / 100) || 0,
-                    offerStatus: discount > 0 || cashback > 0 ? 'LIVE_OFFER' : 'PUBLIC',
-                    offerLabel: offerText || cashbackText || 'Magicpin Deal',
-                    magicpinCashback: cashback,
-                });
-            });
-        });
-        return results;
-    }
-
-    // ── 3. DOM scraping fallback ─────────────────────────────────────────────
-    var domAttempts = 0;
-    var maxDomAttempts = 20;
-
-    function tryDom() {
+    // ── Poll for __NEXT_DATA__ (Next.js populates it on load) ───────────────
+    var attempts = 0;
+    var maxAttempts = 20;
+    function poll() {
         if (sent) return;
-        domAttempts++;
-
-        // Magicpin restaurant/deal card selectors (multiple attempts)
-        var cards = document.querySelectorAll(
-            '[class*="merchant-card"], [class*="MerchantCard"], [class*="restaurant-card"], ' +
-            '[class*="RestaurantCard"], [class*="deal-card"], [class*="DealCard"], ' +
-            '[class*="listing-item"], [class*="ListingItem"], ' +
-            '[data-testid*="merchant"], [data-testid*="restaurant"], ' +
-            '.merchant, .restaurant-item, .deal-item'
-        );
-
-        if (!cards || cards.length === 0) {
-            if (domAttempts < maxDomAttempts) setTimeout(tryDom, 500);
-            return;
+        attempts++;
+        if (tryNextData()) return;
+        if (attempts < maxAttempts) setTimeout(poll, 700);
+        else {
+            // Final fallback: send empty (public offers DB already shown instantly)
+            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'SEARCH_RESULTS', success: false, data: []
+            }));
         }
-
-        var results = [];
-        cards.forEach(function(card) {
-            // Name
-            var nameEl = card.querySelector('[class*="name"], [class*="Name"], [class*="title"], h2, h3, h4');
-            var name = nameEl ? nameEl.innerText.trim() : '';
-            if (!name || !matchQuery(name)) return;
-
-            // Offer / deal text
-            var offerEl = card.querySelector('[class*="offer"], [class*="deal"], [class*="discount"], [class*="cashback"], [class*="tag"], [class*="badge"]');
-            var offerText = offerEl ? offerEl.innerText.trim() : '';
-
-            // Price
-            var priceEl = card.querySelector('[class*="price"], [class*="Price"], [class*="cost"], [class*="Cost"]');
-            var priceText = priceEl ? priceEl.innerText.trim() : '';
-            var price = parsePrice(priceText);
-
-            // Cashback
-            var cashbackEl = card.querySelector('[class*="cashback"], [class*="Cashback"]');
-            var cashbackText = cashbackEl ? cashbackEl.innerText.trim() : '';
-            var cashbackPct = 0;
-            var cbm = cashbackText.match(/(\\d+)%/);
-            if (cbm) cashbackPct = parseInt(cbm[1]);
-
-            // Image
-            var imgEl = card.querySelector('img');
-            var imgSrc = imgEl ? (imgEl.src || imgEl.getAttribute('data-src') || '') : '';
-
-            // Coupon code
-            var coupon = '';
-            if (offerText) {
-                var cm = offerText.match(/\\b([A-Z0-9]{4,15})\\b/);
-                if (cm) coupon = cm[1];
-            }
-
-            results.push({
-                dishName: name + (offerText ? ' — ' + offerText.slice(0, 50) : ''),
-                restaurantName: name,
-                dishImage: imgSrc,
-                price: { finalPayablePrice: price || 0, basePrice: price || 0, discount: 0 },
-                deliveryTime: '~30-40 mins',
-                rating: '4.2',
-                couponCode: coupon,
-                autoCouponSavings: 0,
-                offerStatus: cashbackPct > 0 || offerText ? 'LIVE_OFFER' : 'PUBLIC',
-                offerLabel: offerText || (cashbackPct > 0 ? cashbackPct + '% Cashback' : 'Magicpin Deal'),
-                magicpinCashback: cashbackPct,
-            });
-        });
-
-        if (results.length > 0) sendResults(results);
-        else if (domAttempts < maxDomAttempts) setTimeout(tryDom, 500);
     }
+    // Give Next.js 1.5s to hydrate
+    setTimeout(poll, 1500);
 
-    // Start after 2s
-    setTimeout(tryDom, 2000);
-
-    // Safety net after 14s
+    // Hard timeout
     setTimeout(function() {
-        if (!sent) sendResults([]);
+        if (!sent) window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'SEARCH_RESULTS', success: false, data: []
+        }));
     }, 14000);
 })();
 true;
@@ -325,22 +288,40 @@ true;
     },
 
     getSearchUrl: (query: string, location?: any) => {
-        const lat = location?.latitude || 0;
-        const lng = location?.longitude || 0;
-        const q = encodeURIComponent(query || 'restaurant');
+        // Magicpin URL format: magicpin.in/India/{City}/{Locality}/Restaurant
+        const cityAliases: Record<string, string> = {
+            'bengaluru': 'Bangalore', 'bengaluru, karnataka': 'Bangalore',
+            'new delhi': 'New-Delhi', 'ncr': 'New-Delhi', 'delhi': 'New-Delhi',
+            'gurugram': 'Gurgaon', 'gurgaon': 'Gurgaon',
+            'bombay': 'Mumbai', 'mumbai': 'Mumbai',
+        };
 
-        // Magicpin city-based search
+        let city = 'Bangalore';
+        let locality = '';
+
         if (location?.name) {
-            const city = location.name.split(',')[0].toLowerCase().trim()
-                .replace(/\s+/g, '-')
-                .replace(/[^a-z0-9-]/g, '');
-            return `https://magicpin.in/${city.charAt(0).toUpperCase() + city.slice(1)}/All-Restaurants/search?query=${q}&lat=${lat}&lng=${lng}`;
+            const parts = location.name.split(',').map((p: string) => p.trim());
+            const rawCity = (parts[1] || parts[0] || '').toLowerCase();
+            const rawLocality = parts[0] || '';
+
+            city = cityAliases[rawCity] ||
+                   cityAliases[rawCity.replace(/\s+/g, '-').toLowerCase()] ||
+                   rawCity.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+
+            locality = rawLocality.split(' ')
+                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join('-')
+                .replace(/[^a-zA-Z0-9-]/g, '');
         }
-        if (lat && lng) {
-            return `https://magicpin.in/search?query=${q}&lat=${lat}&lng=${lng}`;
-        }
-        return `https://magicpin.in/search?query=${q}`;
+
+        // Use locality if available, else city-level
+        const base = locality && locality !== city
+            ? `https://magicpin.in/India/${city}/${locality}/Restaurant`
+            : `https://magicpin.in/India/${city}/Restaurant`;
+
+        return base;
     },
+
 
     getPublicOffers: (query: string) => {
         const q = (query || '').toLowerCase().trim();
