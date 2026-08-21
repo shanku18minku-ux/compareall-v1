@@ -7,8 +7,8 @@ import { makeWebViewBrandPacket } from './brand_webview_helper';
 export const DominosPacket = makeWebViewBrandPacket({
     id: 'dominos', name: "Domino's", category: 'Food', subcategory: 'Pizza',
     icon: 'D', brandColor: '#006491',
-    url: 'https://www.dominos.co.in',
-    loginUrl: 'https://www.dominos.co.in/pizza',
+    url: 'https://pizzaonline.dominos.co.in',
+    loginUrl: 'https://pizzaonline.dominos.co.in',
     regions: ['all'], description: "Domino's India official ordering",
 }, [
     { dishName: 'Margherita Pizza (Regular)', brandName: "Domino's", basePrice: 199, finalPrice: 149, discount: 50, couponCode: 'PIZZA50', offerLabel: '₹50 OFF', category: 'pizza margherita', deliveryTime: '30-45 mins', rating: '4.1' },
@@ -19,8 +19,7 @@ export const DominosPacket = makeWebViewBrandPacket({
     { dishName: 'Chicken Dominator (Large)', brandName: "Domino's", basePrice: 699, finalPrice: 699, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'pizza chicken large', deliveryTime: '30-45 mins', rating: '4.1' },
 ], {
     searchUrlFn: (q: string, loc: any) => {
-        if ((q||'').toLowerCase().includes('bread') || (q||'').toLowerCase().includes('side')) return 'https://www.dominos.co.in/sides';
-        return 'https://www.dominos.co.in/pizza';
+        return 'https://pizzaonline.dominos.co.in';
     },
     // Domino's internal BFF API patterns (intercepted in WebView XHR)
     menuApiPatterns: [

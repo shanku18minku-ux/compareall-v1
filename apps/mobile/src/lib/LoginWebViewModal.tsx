@@ -223,7 +223,7 @@ export const LoginWebViewModal: React.FC<LoginWebViewModalProps> = ({
                     geolocationEnabled={true}
                     mixedContentMode="always"
                     bounces={false}
-                    userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                    userAgent="Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.178 Mobile Safari/537.36"
                     injectedJavaScriptBeforeContentLoaded={beforeContentScript}
                     injectedJavaScript={injectionScript}
                     onLoadStart={() => setLoading(true)}

@@ -4,14 +4,14 @@ import { makeWebViewBrandPacket } from './brand_webview_helper';
 export const BehrouzPacket = makeWebViewBrandPacket({
     id: 'behrouz', name: 'Behrouz Biryani', category: 'Food', subcategory: 'Biryani',
     icon: 'BB', brandColor: '#8b0000',
-    url: 'https://www.behrouzbiryani.com', loginUrl: 'https://www.behrouzbiryani.com/order',
+    url: 'https://www.behrouzbiryani.com', loginUrl: 'https://www.behrouzbiryani.com',
     regions: ['all'], description: 'Behrouz Biryani official ordering',
 }, [
     { dishName: 'Behrouz Special Veg Biryani', brandName: 'Behrouz Biryani', basePrice: 349, finalPrice: 299, discount: 50, couponCode: 'BEHROUZ50', offerLabel: '₹50 OFF First Order', category: 'biryani veg', deliveryTime: '40-55 mins', rating: '4.3' },
     { dishName: 'Dum Biryani (Single)', brandName: 'Behrouz Biryani', basePrice: 299, finalPrice: 299, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'biryani dum', deliveryTime: '40-55 mins', rating: '4.3' },
     { dishName: 'Royal Chicken Biryani', brandName: 'Behrouz Biryani', basePrice: 399, finalPrice: 349, discount: 50, couponCode: 'BEHROUZ50', offerLabel: '₹50 OFF', category: 'biryani chicken royal', deliveryTime: '40-55 mins', rating: '4.3' },
 ], {
-    searchUrlFn: (q, loc) => `https://www.behrouzbiryani.com/menu`,
+    searchUrlFn: (q, loc) => `https://www.behrouzbiryani.com`,
     itemSelector: '.product-card, .item, .product, [class*="product"], [class*="item"]',
     nameSelector: '.name, .title, h3, [class*="name"]',
     priceSelector: '.price, [class*="price"]',
@@ -23,13 +23,13 @@ export const BehrouzPacket = makeWebViewBrandPacket({
 export const BarbequeNationPacket = makeWebViewBrandPacket({
     id: 'barbeque', name: 'Barbeque Nation', category: 'Food', subcategory: 'Dining',
     icon: 'BN', brandColor: '#b71c1c',
-    url: 'https://www.barbequenation.com', loginUrl: 'https://www.barbequenation.com/order-online',
+    url: 'https://www.barbequenation.com', loginUrl: 'https://www.barbequenation.com',
     regions: ['all'], description: 'Barbeque Nation table booking & ordering',
 }, [
     { dishName: 'Unlimited BBQ Lunch (Weekday)', brandName: 'Barbeque Nation', basePrice: 799, finalPrice: 699, discount: 100, couponCode: 'BBQWEEKDAY', offerLabel: '₹100 OFF Weekday Lunch', category: 'bbq dining lunch unlimited', deliveryTime: 'Dine-in', rating: '4.4' },
     { dishName: 'Unlimited BBQ Dinner', brandName: 'Barbeque Nation', basePrice: 999, finalPrice: 999, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'bbq dining dinner unlimited', deliveryTime: 'Dine-in', rating: '4.4' },
 ], {
-    searchUrlFn: (q, loc) => `https://www.barbequenation.com/order-online`,
+    searchUrlFn: (q, loc) => `https://www.barbequenation.com`,
     itemSelector: '.menu-item, .product, .item, [class*="menu-item"]',
     nameSelector: '.name, h3, [class*="name"]',
     priceSelector: '.price, [class*="price"]',

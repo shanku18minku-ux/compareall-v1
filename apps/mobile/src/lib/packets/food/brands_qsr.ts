@@ -10,7 +10,7 @@ export const McDonaldsPacket = makeWebViewBrandPacket({
     icon: 'M', brandColor: '#da291c',
     url: 'https://www.mcdelivery.co.in',
     loginUrl: 'https://www.mcdelivery.co.in',
-    regions: ['all'], description: "McDonald's India ordering",
+    regions: ['delhi', 'mumbai', 'bangalore', 'pune', 'chennai', 'hyderabad', 'kolkata', 'ahmedabad', 'surat', 'jaipur', 'lucknow', 'kanpur', 'nagpur', 'indore', 'bhopal', 'vadodara', 'ludhiana', 'agra', 'nashik', 'faridabad', 'meerut', 'rajkot', 'ranchi', 'guwahati', 'chandigarh', 'gurgaon', 'noida', 'jamshedpur'], description: "McDonald's India ordering",
 }, [
     { dishName: 'McVeggie Burger', brandName: "McDonald's", basePrice: 135, finalPrice: 99, discount: 36, couponCode: '', offerLabel: '₹99 Value Meals', category: 'burger veg', deliveryTime: '30-40 mins', rating: '4.1' },
     { dishName: 'McSpicy Paneer', brandName: "McDonald's", basePrice: 169, finalPrice: 169, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'burger paneer', deliveryTime: '30-40 mins', rating: '4.1' },
@@ -170,14 +170,14 @@ export const BurgerKingPacket = makeWebViewBrandPacket({
 export const SubwayPacket = makeWebViewBrandPacket({
     id: 'subway', name: 'Subway', category: 'Food', subcategory: 'Fast Food / QSR',
     icon: 'SB', brandColor: '#008c15',
-    url: 'https://order.subway.com/en-IN',
-    loginUrl: 'https://order.subway.com/en-IN',
+    url: 'https://www.subway.in',
+    loginUrl: 'https://www.subway.in',
     regions: ['all'], description: 'Subway India official ordering',
 }, [
     { dishName: 'Veggie Delite Sub (6")', brandName: 'Subway', basePrice: 229, finalPrice: 229, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'sub sandwich', deliveryTime: '25-35 mins', rating: '4.1' },
     { dishName: 'Paneer Tikka Sub (6")', brandName: 'Subway', basePrice: 299, finalPrice: 299, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'sub paneer', deliveryTime: '25-35 mins', rating: '4.1' },
 ], {
-    searchUrlFn: (q: string) => 'https://order.subway.com/en-IN/menu',
+    searchUrlFn: (q: string) => 'https://www.subway.in',
     menuApiPatterns: ['/menu', '/api/products', '/catalog', '/menu-items', '/items'],
     parseMenuApi: function(data: any, q: string) {
         var results: any[] = [];
@@ -208,14 +208,14 @@ export const SubwayPacket = makeWebViewBrandPacket({
 export const TacoBellPacket = makeWebViewBrandPacket({
     id: 'tacobell', name: 'Taco Bell', category: 'Food', subcategory: 'Fast Food / QSR',
     icon: 'TB', brandColor: '#702082',
-    url: 'https://www.tacobell.in',
-    loginUrl: 'https://www.tacobell.in/order',
-    regions: ['all'], description: 'Taco Bell India ordering',
+    url: 'https://www.tacobell.co.in',
+    loginUrl: 'https://www.tacobell.co.in',
+    regions: ['delhi', 'mumbai', 'bangalore', 'pune', 'chennai', 'hyderabad', 'kolkata', 'ahmedabad', 'chandigarh', 'gurgaon', 'noida', 'kochi', 'coimbatore', 'ludhiana'], description: 'Taco Bell India ordering',
 }, [
     { dishName: 'Crunchy Taco', brandName: 'Taco Bell', basePrice: 179, finalPrice: 179, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'taco', deliveryTime: '30-45 mins', rating: '4.0' },
     { dishName: 'Mexican Pizza', brandName: 'Taco Bell', basePrice: 249, finalPrice: 249, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'pizza taco', deliveryTime: '30-45 mins', rating: '4.0' },
 ], {
-    searchUrlFn: (q: string) => 'https://www.tacobell.in/order',
+    searchUrlFn: (q: string) => 'https://www.tacobell.co.in',
     menuApiPatterns: ['/api/menu', '/api/products', '/items', '/catalog'],
     parseMenuApi: function(data: any, q: string) { return []; },
     itemSelector: '.item,.product,[class*="item"],[class*="product"]',

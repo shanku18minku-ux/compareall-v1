@@ -1,31 +1,5 @@
 {
   "node": {
-    "00b69e9471e3aa87c1c59f83bb3420bafed025ac37": {
-      "workers": {
-        "app/connected-services/page": {
-          "moduleId": 95876,
-          "async": false,
-          "codeHash": null
-        },
-        "app/history/page": {
-          "moduleId": 36248,
-          "async": false,
-          "codeHash": null
-        },
-        "app/page": {
-          "moduleId": 41690,
-          "async": false,
-          "codeHash": null
-        },
-        "app/wishlist/page": {
-          "moduleId": 74179,
-          "async": false,
-          "codeHash": null
-        }
-      },
-      "filename": "apps/web/src/actions/authActions.ts",
-      "exportedName": "handleSignOut"
-    },
     "0097f926ca48397befaacc46cbc2ef87ba003a631d": {
       "workers": {
         "app/login/page": {

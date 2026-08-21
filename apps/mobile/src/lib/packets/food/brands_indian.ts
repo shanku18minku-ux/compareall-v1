@@ -78,13 +78,13 @@ export const GoliVadaPavPacket = makeWebViewBrandPacket({
 export const JumboKingPacket = makeWebViewBrandPacket({
     id: 'jumboking', name: 'Jumbo King', category: 'Food', subcategory: 'Indian Food / Snacks',
     icon: 'JK', brandColor: '#ff6f00',
-    url: 'https://www.jumboking.co.in', loginUrl: 'https://www.jumboking.co.in/order',
+    url: 'https://www.jumboking.co.in', loginUrl: 'https://www.jumboking.co.in',
     regions: ['all'], description: 'Jumbo King official ordering',
 }, [
     { dishName: 'Classic Jumbo Vada Pav', brandName: 'Jumbo King', basePrice: 35, finalPrice: 35, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'vada pav snack', deliveryTime: '20-30 mins', rating: '4.0' },
     { dishName: 'Double Decker Vada Pav', brandName: 'Jumbo King', basePrice: 55, finalPrice: 55, discount: 0, couponCode: '', offerLabel: 'Public Price', category: 'vada pav double', deliveryTime: '20-30 mins', rating: '4.0' },
 ], {
-    searchUrlFn: (q, loc) => `https://www.jumboking.co.in/menu`,
+    searchUrlFn: (q, loc) => `https://www.jumboking.co.in`,
     itemSelector: '.product, .item, [class*="product"]',
     nameSelector: '.name, h3, [class*="name"]',
     priceSelector: '.price, [class*="price"]',
